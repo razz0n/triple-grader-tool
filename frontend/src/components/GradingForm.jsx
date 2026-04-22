@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import { saveSession, downloadSession } from "../api";
 
+const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
+
 export default function GradingForm({ uploadData, onReset }) {
   const {
     session_id: initialSessionId,
@@ -35,6 +37,10 @@ export default function GradingForm({ uploadData, onReset }) {
   const [downloading, setDownloading] = useState(false);
   const [dlError, setDlError]       = useState("");
   const dlRef                       = useRef(null);
+  const idleTimerRef                = useRef(null);
+  const hasUnsavedChangesRef        = useRef(false);
+  const savingRef                   = useRef(false);
+  const latestPayloadRef            = useRef(null);
 
   // Close download dropdown on outside click
   useEffect(() => {
@@ -76,6 +82,7 @@ export default function GradingForm({ uploadData, onReset }) {
   }, [sentences]);
 
   const handleGradeChange = (tripleId, grade) => {
+    hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) =>
         i !== currentIdx
@@ -91,6 +98,7 @@ export default function GradingForm({ uploadData, onReset }) {
   };
 
   const handleSuggestionChange = (value) => {
+    hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) => (i === currentIdx ? { ...s, suggestion: value } : s))
     );
@@ -114,7 +122,57 @@ export default function GradingForm({ uploadData, onReset }) {
     }),
   });
 
+  useEffect(() => {
+    latestPayloadRef.current = buildPayload();
+  }, [savedSessionId, initialSessionId, source_filename, uploaded_at, sentences]);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    const autosaveIfIdle = async () => {
+      if (savingRef.current || !hasUnsavedChangesRef.current) return;
+
+      savingRef.current = true;
+      setSaving(true);
+      setSaveError("");
+      try {
+        const result = await saveSession(latestPayloadRef.current);
+        setSavedSessionId(result.session_id);
+        setSavedAt(new Date());
+        setSaveMsg("Autosaved after 10 minutes idle.");
+        setTimeout(() => setSaveMsg(""), 3500);
+        hasUnsavedChangesRef.current = false;
+      } catch (e) {
+        setSaveError(
+          e?.response?.data?.detail || "Autosave failed. Is the backend running?"
+        );
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    };
+
+    const resetIdleTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        void autosaveIfIdle();
+      }, IDLE_AUTOSAVE_MS);
+    };
+
+    const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
+    events.forEach((evt) => window.addEventListener(evt, resetIdleTimer, { passive: true }));
+    resetIdleTimer();
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      events.forEach((evt) => window.removeEventListener(evt, resetIdleTimer));
+    };
+  }, []);
+
   const handleSave = async () => {
+    savingRef.current = true;
     setSaving(true);
     setSaveMsg("");
     setSaveError("");
@@ -124,11 +182,13 @@ export default function GradingForm({ uploadData, onReset }) {
       setSavedAt(new Date());
       setSaveMsg("Session saved successfully!");
       setTimeout(() => setSaveMsg(""), 3500);
+      hasUnsavedChangesRef.current = false;
     } catch (e) {
       setSaveError(
         e?.response?.data?.detail || "Save failed. Is the backend running?"
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
