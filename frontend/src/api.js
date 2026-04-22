@@ -2,7 +2,9 @@
 
 import axios from "axios";
 
-const API = axios.create({ baseURL: "http://localhost:8001" });
+// In production the frontend is served by FastAPI on the same origin, so
+// relative paths work. In dev, Vite proxies /api/* to http://localhost:8001.
+const API = axios.create({ baseURL: "" });
 
 /**
  * Upload a file for parsing.

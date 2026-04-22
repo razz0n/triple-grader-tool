@@ -274,7 +274,7 @@ export default function GradingForm({ uploadData, onReset }) {
 
           {/* ── View Online ── */}
           <a
-            href={savedSessionId ? `http://localhost:8001/api/preview/${savedSessionId}` : undefined}
+            href={savedSessionId ? `/api/preview/${savedSessionId}` : undefined}
             target="_blank"
             rel="noopener noreferrer"
             onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}

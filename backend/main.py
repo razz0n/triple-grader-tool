@@ -19,6 +19,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
@@ -44,6 +45,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Resolve the built frontend directory (present after `npm run build`)
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 STORAGE_DIR = Path(__file__).parent / "storage"
 STORAGE_DIR.mkdir(exist_ok=True)
@@ -320,3 +324,11 @@ async def list_sessions():
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Serve the React build in production
+# Mount AFTER all API routes so /api/* is never intercepted.
+# ---------------------------------------------------------------------------
+if _FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="static")
