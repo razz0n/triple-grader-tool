@@ -21,7 +21,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
-from parser import parse_file
+from parser import parse_file, parse_file_rich
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -65,7 +65,7 @@ class SaveRequest(BaseModel):
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Parse an uploaded CSV or Excel file and return structured sentence data."""
+    """Parse an uploaded CSV or Excel file and return structured sentence-group data for review."""
     allowed_extensions = {".csv", ".xlsx", ".xls"}
     suffix = Path(file.filename).suffix.lower()
     if suffix not in allowed_extensions:
@@ -77,11 +77,11 @@ async def upload_file(file: UploadFile = File(...)):
     file_bytes = await file.read()
 
     try:
-        sentences = parse_file(file_bytes, file.filename)
+        sentence_groups = parse_file_rich(file_bytes, file.filename)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Failed to parse file: {str(exc)}")
 
-    if not sentences:
+    if not sentence_groups:
         raise HTTPException(
             status_code=422,
             detail="No sentence-triple groups found in the file. "
@@ -94,8 +94,8 @@ async def upload_file(file: UploadFile = File(...)):
         "session_id":       session_id,
         "source_filename":  file.filename,
         "uploaded_at":      datetime.utcnow().isoformat(),
-        "total_sentences":  len(sentences),
-        "sentences":        sentences,
+        "total_groups":     len(sentence_groups),
+        "sentence_groups":  sentence_groups,
     }
 
 

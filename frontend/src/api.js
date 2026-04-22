@@ -32,9 +32,22 @@ export async function saveSession(session) {
  * @param {"json"|"csv"|"excel"|"pdf"|"word"} fmt
  */
 export async function downloadSession(sessionId, fmt) {
-  const response = await API.get(`/api/download/${sessionId}/${fmt}`, {
-    responseType: "blob",
-  });
+  let response;
+  try {
+    response = await API.get(`/api/download/${sessionId}/${fmt}`, {
+      responseType: "blob",
+    });
+  } catch (e) {
+    // axios error responses with responseType:"blob" arrive as Blobs —
+    // decode to get the actual error detail from the server.
+    if (e?.response?.data instanceof Blob) {
+      const text = await e.response.data.text();
+      let msg = `Download failed (HTTP ${e.response.status})`;
+      try { msg = JSON.parse(text).detail || msg; } catch {}
+      throw new Error(msg);
+    }
+    throw e;
+  }
 
   const disposition = response.headers["content-disposition"] || "";
   let filename = `graded.${fmt === "excel" ? "xlsx" : fmt === "word" ? "docx" : fmt}`;

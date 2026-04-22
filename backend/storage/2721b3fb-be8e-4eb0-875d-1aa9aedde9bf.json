@@ -1,0 +1,2279 @@
+{
+  "session_id": "2721b3fb-be8e-4eb0-875d-1aa9aedde9bf",
+  "source_filename": "long_coe_tuples(Golden_dataset).csv",
+  "uploaded_at": "2026-04-22T00:51:26.470236",
+  "sentences": [
+    {
+      "id": 1,
+      "text": "Computers have a central and growing role in commerce, industry, government, medicine, education, entertainment and society at large.",
+      "suggestion": "no changes needed. ",
+      "sentence_grade": 10.0,
+      "triples": [
+        {
+          "id": "1_1",
+          "subject": "This",
+          "predicate": "is",
+          "object": "Code_of_ethics",
+          "grade": 10
+        },
+        {
+          "id": "1_2",
+          "subject": "Computers",
+          "predicate": "have",
+          "object": "role_001",
+          "grade": 10
+        },
+        {
+          "id": "1_3",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "commerce",
+          "grade": 10
+        },
+        {
+          "id": "1_4",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "industry",
+          "grade": 10
+        },
+        {
+          "id": "1_5",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "government",
+          "grade": 10
+        },
+        {
+          "id": "1_6",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "medicine",
+          "grade": 10
+        },
+        {
+          "id": "1_7",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "education",
+          "grade": 10
+        },
+        {
+          "id": "1_8",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "entertainment",
+          "grade": 10
+        },
+        {
+          "id": "1_9",
+          "subject": "role_001",
+          "predicate": "is_in",
+          "object": "society_at_large",
+          "grade": 10
+        },
+        {
+          "id": "1_10",
+          "subject": "role_001",
+          "predicate": "is/has_importance",
+          "object": "central",
+          "grade": 10
+        },
+        {
+          "id": "1_11",
+          "subject": "role_001",
+          "predicate": "is/has_trend",
+          "object": "growing",
+          "grade": 10
+        },
+        {
+          "id": "1_12",
+          "subject": "role_001",
+          "predicate": "domain",
+          "object": "ethics_code",
+          "grade": 10
+        },
+        {
+          "id": "1_13",
+          "subject": "role_001",
+          "predicate": "domain",
+          "object": "software",
+          "grade": 10
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "text": "Software engineers are those who contribute by direct participation or by teaching, to the analysis, specification, design, development, certification, maintenance and testing of software systems.",
+      "suggestion": "needed:\na -> b -> c\nc ->a -> a",
+      "sentence_grade": 6.24,
+      "triples": [
+        {
+          "id": "2_1",
+          "subject": "Software_engineers",
+          "predicate": "are",
+          "object": "those_001",
+          "grade": 3
+        },
+        {
+          "id": "2_2",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "analysis_001",
+          "grade": 4
+        },
+        {
+          "id": "2_3",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "specification_001",
+          "grade": 5
+        },
+        {
+          "id": "2_4",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "design_001",
+          "grade": 7
+        },
+        {
+          "id": "2_5",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "development_001",
+          "grade": 7
+        },
+        {
+          "id": "2_6",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "certification_001",
+          "grade": 5
+        },
+        {
+          "id": "2_7",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "maintenance_001",
+          "grade": 8
+        },
+        {
+          "id": "2_8",
+          "subject": "those_001",
+          "predicate": "contribute_to",
+          "object": "testing_001",
+          "grade": 6
+        },
+        {
+          "id": "2_9",
+          "subject": "analysis_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 7
+        },
+        {
+          "id": "2_10",
+          "subject": "specification_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 6
+        },
+        {
+          "id": "2_11",
+          "subject": "design_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 7
+        },
+        {
+          "id": "2_12",
+          "subject": "development_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 5
+        },
+        {
+          "id": "2_13",
+          "subject": "certification_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 8
+        },
+        {
+          "id": "2_14",
+          "subject": "maintenance_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 7
+        },
+        {
+          "id": "2_15",
+          "subject": "testing_001",
+          "predicate": "is_of",
+          "object": "software_systems",
+          "grade": 6
+        },
+        {
+          "id": "2_16",
+          "subject": "contribute_to",
+          "predicate": "by",
+          "object": "direct_participation",
+          "grade": 9
+        },
+        {
+          "id": "2_17",
+          "subject": "contribute_to",
+          "predicate": "by",
+          "object": "teaching",
+          "grade": 6
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "text": "To ensure, as much as possible, that their efforts will be used for good,",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "3_1",
+          "subject": "efforts",
+          "predicate": "used_for",
+          "object": "good",
+          "grade": null
+        },
+        {
+          "id": "3_2",
+          "subject": "used_for",
+          "predicate": "has_degree",
+          "object": "as_much_as_possible/1.01",
+          "grade": null
+        },
+        {
+          "id": "3_3",
+          "subject": "Software_engineers",
+          "predicate": "to ensure",
+          "object": "used_for && has_degree",
+          "grade": null
+        },
+        {
+          "id": "3_4",
+          "subject": "Software_engineers",
+          "predicate": "commit_001",
+          "object": "themselvles",
+          "grade": null
+        },
+        {
+          "id": "3_5",
+          "subject": "commit",
+          "predicate": "has_degree",
+          "object": "must",
+          "grade": null
+        },
+        {
+          "id": "3_6",
+          "subject": "commit",
+          "predicate": "target",
+          "object": "making",
+          "grade": null
+        },
+        {
+          "id": "3_7",
+          "subject": "Software_engineers",
+          "predicate": "make",
+          "object": "clause_001",
+          "grade": null
+        },
+        {
+          "id": "3_8",
+          "subject": "software_engineering",
+          "predicate": "is_a",
+          "object": "profession_001",
+          "grade": null
+        },
+        {
+          "id": "3_9",
+          "subject": "profession_001",
+          "predicate": "is",
+          "object": "beneficial",
+          "grade": null
+        },
+        {
+          "id": "3_10",
+          "subject": "profession_001",
+          "predicate": "is",
+          "object": "respected",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "text": "In accordance with that commitment, software engineers shall adhere to the following Code of Ethics and Professional Practice.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "4_1",
+          "subject": "Software_engineers",
+          "predicate": "in_accordance_with",
+          "object": "commit_001",
+          "grade": null
+        },
+        {
+          "id": "4_2",
+          "subject": "Software_engineers",
+          "predicate": "shall_adhere_to",
+          "object": "CODE_001",
+          "grade": null
+        },
+        {
+          "id": "4_3",
+          "subject": "CODE_001",
+          "predicate": "represents",
+          "object": "\"Code of Ethics and Professional Practice\"",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "text": "The Code contains eight Principles related to the behavior of and decisions made by professional software engineers,",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "5_1",
+          "subject": "Code_001",
+          "predicate": "contains",
+          "object": "eight_principles",
+          "grade": null
+        },
+        {
+          "id": "5_2",
+          "subject": "eight_principles",
+          "predicate": "relates_to",
+          "object": "behavior_001",
+          "grade": null
+        },
+        {
+          "id": "5_3",
+          "subject": "eight_principles",
+          "predicate": "relates_to",
+          "object": "decisions",
+          "grade": null
+        },
+        {
+          "id": "5_4",
+          "subject": "behavior_001",
+          "predicate": "made_by",
+          "object": "professional_software_engineers",
+          "grade": null
+        },
+        {
+          "id": "5_5",
+          "subject": "decisions",
+          "predicate": "made_by",
+          "object": "professional_software_engineers",
+          "grade": null
+        },
+        {
+          "id": "5_6",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "practitioners_001",
+          "grade": null
+        },
+        {
+          "id": "5_7",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "educators_001",
+          "grade": null
+        },
+        {
+          "id": "5_8",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "managers_001",
+          "grade": null
+        },
+        {
+          "id": "5_9",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "supervisors_001",
+          "grade": null
+        },
+        {
+          "id": "5_10",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "policy makers_001",
+          "grade": null
+        },
+        {
+          "id": "5_11",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "trainees_001",
+          "grade": null
+        },
+        {
+          "id": "5_12",
+          "subject": "professional_software_engineers",
+          "predicate": "includes_broadly",
+          "object": "students_001",
+          "grade": null
+        },
+        {
+          "id": "5_13",
+          "subject": "practitioners_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_14",
+          "subject": "educators_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_15",
+          "subject": "managers_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_16",
+          "subject": "supervisors_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_17",
+          "subject": "policy makers_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_18",
+          "subject": "trainees_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_19",
+          "subject": "students_001",
+          "predicate": "from_profession",
+          "object": "software_engineering_profession",
+          "grade": null
+        },
+        {
+          "id": "5_20",
+          "subject": "eight_principles",
+          "predicate": "identify",
+          "object": "relationships_001",
+          "grade": null
+        },
+        {
+          "id": "5_21",
+          "subject": "relationships_001",
+          "predicate": "is",
+          "object": "ethically_responsible",
+          "grade": null
+        },
+        {
+          "id": "5_22",
+          "subject": "relationships_001",
+          "predicate": "participated_by",
+          "object": "individuals",
+          "grade": null
+        },
+        {
+          "id": "5_23",
+          "subject": "relationships_001",
+          "predicate": "participated_by",
+          "object": "groups",
+          "grade": null
+        },
+        {
+          "id": "5_24",
+          "subject": "relationships_001",
+          "predicate": "participated_by",
+          "object": "organizations",
+          "grade": null
+        },
+        {
+          "id": "5_25",
+          "subject": "relationships_001",
+          "predicate": "involves",
+          "object": "primary_obligations",
+          "grade": null
+        },
+        {
+          "id": "5_26",
+          "subject": "primary_obligations",
+          "predicate": "is_of",
+          "object": "individuals",
+          "grade": null
+        },
+        {
+          "id": "5_27",
+          "subject": "primary_obligations",
+          "predicate": "is_of",
+          "object": "groups",
+          "grade": null
+        },
+        {
+          "id": "5_28",
+          "subject": "primary_obligations",
+          "predicate": "is_of",
+          "object": "organizations",
+          "grade": null
+        },
+        {
+          "id": "5_29",
+          "subject": "primary_obligations",
+          "predicate": "is_in",
+          "object": "relationships_001",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "text": "The Clauses of each Principle are illustrations of some of the obligations included in these relationships.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "6_1",
+          "subject": "eight_principles",
+          "predicate": "has",
+          "object": "clauses",
+          "grade": null
+        },
+        {
+          "id": "6_2",
+          "subject": "clauses",
+          "predicate": "are",
+          "object": "illustrations",
+          "grade": null
+        },
+        {
+          "id": "6_3",
+          "subject": "illustrations",
+          "predicate": "are_of",
+          "object": "some_of",
+          "grade": null
+        },
+        {
+          "id": "6_4",
+          "subject": "some_of",
+          "predicate": "are_of",
+          "object": "primary_obligations",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "text": "These obligations are founded in the software engineers humanity, in special care owed to people affected by the work of software engineers,",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "7_1",
+          "subject": "primary_obligations",
+          "predicate": "are_found_in",
+          "object": "humanity_001",
+          "grade": null
+        },
+        {
+          "id": "7_2",
+          "subject": "humanity_001",
+          "predicate": "belongs_to",
+          "object": "software_engineers",
+          "grade": null
+        },
+        {
+          "id": "7_3",
+          "subject": "primary_obligations",
+          "predicate": "owed_to",
+          "object": "people_001",
+          "grade": null
+        },
+        {
+          "id": "7_4",
+          "subject": "owed_to",
+          "predicate": "is_described_by",
+          "object": "in_special_care",
+          "grade": null
+        },
+        {
+          "id": "7_5",
+          "subject": "people_001",
+          "predicate": "affected_by",
+          "object": "work_001",
+          "grade": null
+        },
+        {
+          "id": "7_6",
+          "subject": "work_001",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "grade": null
+        },
+        {
+          "id": "7_7",
+          "subject": "people_001",
+          "predicate": "affected_by",
+          "object": "unique_elements",
+          "grade": null
+        },
+        {
+          "id": "7_8",
+          "subject": "unique_elements",
+          "predicate": "is_of",
+          "object": "practices_001",
+          "grade": null
+        },
+        {
+          "id": "7_9",
+          "subject": "practices_001",
+          "predicate": "is_of",
+          "object": "software_engineering",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "text": "The Code prescribes these as obligations of anyone claiming to be or aspiring to be a software engineer.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "8_1",
+          "subject": "Code_001",
+          "predicate": "prescribes",
+          "object": "these",
+          "grade": null
+        },
+        {
+          "id": "8_2",
+          "subject": "these",
+          "predicate": "represents",
+          "object": "primary_obligations",
+          "grade": null
+        },
+        {
+          "id": "8_3",
+          "subject": "primary_obligations",
+          "predicate": "as_relation",
+          "object": "obligations_general",
+          "grade": null
+        },
+        {
+          "id": "8_4",
+          "subject": "obligations_general",
+          "predicate": "is_of",
+          "object": "people_002",
+          "grade": null
+        },
+        {
+          "id": "8_5",
+          "subject": "people_002",
+          "predicate": "claims_to_be",
+          "object": "software_engineer",
+          "grade": null
+        },
+        {
+          "id": "8_6",
+          "subject": "people_002",
+          "predicate": "aspires_to_be",
+          "object": "software_engineer",
+          "grade": null
+        },
+        {
+          "id": "8_7",
+          "subject": "Principle_3",
+          "predicate": "is_about",
+          "object": "PRODUCT",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "text": "3.02. Ensure proper and achievable goals and objectives for any project on which they work or propose.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "9_1",
+          "subject": "software_engineers",
+          "predicate": "shall_ensure",
+          "object": "goals",
+          "grade": null
+        },
+        {
+          "id": "9_2",
+          "subject": "software_engineers",
+          "predicate": "shall_ensure",
+          "object": "objectives",
+          "grade": null
+        },
+        {
+          "id": "9_3",
+          "subject": "goals",
+          "predicate": "has_property",
+          "object": "proper",
+          "grade": null
+        },
+        {
+          "id": "9_4",
+          "subject": "goals",
+          "predicate": "has_property",
+          "object": "achievable",
+          "grade": null
+        },
+        {
+          "id": "9_5",
+          "subject": "objectives",
+          "predicate": "has_property",
+          "object": "proper",
+          "grade": null
+        },
+        {
+          "id": "9_6",
+          "subject": "objectives",
+          "predicate": "has_property",
+          "object": "achievable",
+          "grade": null
+        },
+        {
+          "id": "9_7",
+          "subject": "goals",
+          "predicate": "is_for",
+          "object": "any_project_001",
+          "grade": null
+        },
+        {
+          "id": "9_8",
+          "subject": "objectives",
+          "predicate": "is_for",
+          "object": "any_project_001",
+          "grade": null
+        },
+        {
+          "id": "9_9",
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "any_project_001",
+          "grade": null
+        },
+        {
+          "id": "9_10",
+          "subject": "software_engineers",
+          "predicate": "propose",
+          "object": "any_project_001",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "text": "3.03. Identify, define and address ethical, economic, cultural, legal and environmental issues related to work projects.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "10_1",
+          "subject": "software_engineers",
+          "predicate": "shall_identify",
+          "object": "ethical_issues",
+          "grade": null
+        },
+        {
+          "id": "10_2",
+          "subject": "software_engineers",
+          "predicate": "shall_define",
+          "object": "ethical_issues",
+          "grade": null
+        },
+        {
+          "id": "10_3",
+          "subject": "software_engineers",
+          "predicate": "shall_address",
+          "object": "ethical_issues",
+          "grade": null
+        },
+        {
+          "id": "10_4",
+          "subject": "software_engineers",
+          "predicate": "shall_identify",
+          "object": "economic_issues",
+          "grade": null
+        },
+        {
+          "id": "10_5",
+          "subject": "software_engineers",
+          "predicate": "shall_define",
+          "object": "economic_issues",
+          "grade": null
+        },
+        {
+          "id": "10_6",
+          "subject": "software_engineers",
+          "predicate": "shall_address",
+          "object": "economic_issues",
+          "grade": null
+        },
+        {
+          "id": "10_7",
+          "subject": "software_engineers",
+          "predicate": "shall_identify",
+          "object": "cultural_issues",
+          "grade": null
+        },
+        {
+          "id": "10_8",
+          "subject": "software_engineers",
+          "predicate": "shall_define",
+          "object": "cultural_issues",
+          "grade": null
+        },
+        {
+          "id": "10_9",
+          "subject": "software_engineers",
+          "predicate": "shall_address",
+          "object": "cultural_issues",
+          "grade": null
+        },
+        {
+          "id": "10_10",
+          "subject": "software_engineers",
+          "predicate": "shall_identify",
+          "object": "legal_issues",
+          "grade": null
+        },
+        {
+          "id": "10_11",
+          "subject": "software_engineers",
+          "predicate": "shall_define",
+          "object": "legal_issues",
+          "grade": null
+        },
+        {
+          "id": "10_12",
+          "subject": "software_engineers",
+          "predicate": "shall_address",
+          "object": "legal_issues",
+          "grade": null
+        },
+        {
+          "id": "10_13",
+          "subject": "software_engineers",
+          "predicate": "shall_identify",
+          "object": "environmental_issues",
+          "grade": null
+        },
+        {
+          "id": "10_14",
+          "subject": "software_engineers",
+          "predicate": "shall_define",
+          "object": "environmental_issues",
+          "grade": null
+        },
+        {
+          "id": "10_15",
+          "subject": "software_engineers",
+          "predicate": "shall_address",
+          "object": "environmental_issues",
+          "grade": null
+        },
+        {
+          "id": "10_16",
+          "subject": "ethical_issues",
+          "predicate": "related_to",
+          "object": "work_projects",
+          "grade": null
+        },
+        {
+          "id": "10_17",
+          "subject": "economic_issues",
+          "predicate": "related_to",
+          "object": "work_projects",
+          "grade": null
+        },
+        {
+          "id": "10_18",
+          "subject": "cultural_issues",
+          "predicate": "related_to",
+          "object": "work_projects",
+          "grade": null
+        },
+        {
+          "id": "10_19",
+          "subject": "legal_issues",
+          "predicate": "related_to",
+          "object": "work_projects",
+          "grade": null
+        },
+        {
+          "id": "10_20",
+          "subject": "environmental_issues",
+          "predicate": "related_to",
+          "object": "work_projects",
+          "grade": null
+        },
+        {
+          "id": "10_21",
+          "subject": "work_projects",
+          "predicate": "belongs_to",
+          "object": "software_engineers",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "text": "3.04. Ensure that they are qualified for any project on which they work or propose to work by an appropriate combination of education",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "11_1",
+          "subject": "software_engineers",
+          "predicate": "shall_ensure",
+          "object": "qualified",
+          "grade": null
+        },
+        {
+          "id": "11_2",
+          "subject": "qualified",
+          "predicate": "has_subjective",
+          "object": "software_engineers",
+          "grade": null
+        },
+        {
+          "id": "11_3",
+          "subject": "qualified",
+          "predicate": "has_linking_verb",
+          "object": "are",
+          "grade": null
+        },
+        {
+          "id": "11_4",
+          "subject": "qualified",
+          "predicate": "for",
+          "object": "any_project",
+          "grade": null
+        },
+        {
+          "id": "11_5",
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "any_project",
+          "grade": null
+        },
+        {
+          "id": "11_6",
+          "subject": "software_engineers",
+          "predicate": "propose_to",
+          "object": "any_project",
+          "grade": null
+        },
+        {
+          "id": "11_7",
+          "subject": "work_on/propose_to",
+          "predicate": "has_method",
+          "object": "appropriate_combination",
+          "grade": null
+        },
+        {
+          "id": "11_8",
+          "subject": "appropriate_combination",
+          "predicate": "contains",
+          "object": "education",
+          "grade": null
+        },
+        {
+          "id": "11_9",
+          "subject": "appropriate_combination",
+          "predicate": "contains",
+          "object": "training",
+          "grade": null
+        },
+        {
+          "id": "11_10",
+          "subject": "appropriate_combination",
+          "predicate": "contains",
+          "object": "experience",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "text": "3.05. Ensure an appropriate method is used for any project on which they work or propose to work.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "12_1",
+          "subject": "software_engineers",
+          "predicate": "shall_ensure",
+          "object": "is_used_for",
+          "grade": null
+        },
+        {
+          "id": "12_2",
+          "subject": "is_used_for",
+          "predicate": "has_subjective",
+          "object": "appropriate_method",
+          "grade": null
+        },
+        {
+          "id": "12_3",
+          "subject": "is_used_for",
+          "predicate": "has_objective",
+          "object": "any_project",
+          "grade": null
+        },
+        {
+          "id": "12_4",
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "any_project",
+          "grade": null
+        },
+        {
+          "id": "12_5",
+          "subject": "software_engineers",
+          "predicate": "propose_to",
+          "object": "any_project",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "text": "3.06. Work to follow professional standards, when available, that are most appropriate for the task at hand, departing from these only when ethically or technically justified.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "13_1",
+          "subject": "software_engineers",
+          "predicate": "shall_work_to_follow",
+          "object": "professional_standards",
+          "grade": null
+        },
+        {
+          "id": "13_2",
+          "subject": "professional_standards",
+          "predicate": "are_most_appropriate_for",
+          "object": "task_at_hand",
+          "grade": null
+        },
+        {
+          "id": "13_3",
+          "subject": "departing_from_these",
+          "predicate": "has_only_condition",
+          "object": "when_clause",
+          "grade": null
+        },
+        {
+          "id": "13_4",
+          "subject": "when_clause",
+          "predicate": "includes",
+          "object": "echically_justified",
+          "grade": null
+        },
+        {
+          "id": "13_5",
+          "subject": "when_clause",
+          "predicate": "includes",
+          "object": "technically_justified",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "text": "3.10. Ensure adequate testing, debugging, and review of software and related documents on which they work.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "14_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_ensure",
+          "object": "adequate_testing",
+          "grade": null
+        },
+        {
+          "id": "14_2",
+          "subject": "software_engineers_001",
+          "predicate": "shall_ensure",
+          "object": "adequate_debugging",
+          "grade": null
+        },
+        {
+          "id": "14_3",
+          "subject": "software_engineers_001",
+          "predicate": "shall_ensure",
+          "object": "adequate_review",
+          "grade": null
+        },
+        {
+          "id": "14_4",
+          "subject": "adequate_testing",
+          "predicate": "is_of",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "14_5",
+          "subject": "adequate_debugging",
+          "predicate": "is_of",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "14_6",
+          "subject": "adequate_review",
+          "predicate": "is_of",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "14_7",
+          "subject": "adequate_testing",
+          "predicate": "is_of",
+          "object": "related_documents_001",
+          "grade": null
+        },
+        {
+          "id": "14_8",
+          "subject": "adequate_debugging",
+          "predicate": "is_of",
+          "object": "related_documents_001",
+          "grade": null
+        },
+        {
+          "id": "14_9",
+          "subject": "adequate_review",
+          "predicate": "is_of",
+          "object": "related_documents_001",
+          "grade": null
+        },
+        {
+          "id": "14_10",
+          "subject": "software_engineers_001",
+          "predicate": "work_on",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "14_11",
+          "subject": "software_engineers_001",
+          "predicate": "work_on",
+          "object": "related_documents_001",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "text": "3.11. Ensure adequate documentation, including significant problems discovered and solutions adopted, for any project on which they work.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "15_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_ensure",
+          "object": "adequate_documentation",
+          "grade": null
+        },
+        {
+          "id": "15_2",
+          "subject": "adequate_documentation",
+          "predicate": "is_for",
+          "object": "any_project_001",
+          "grade": null
+        },
+        {
+          "id": "15_3",
+          "subject": "software_engineers_001",
+          "predicate": "work_on",
+          "object": "any_project_001",
+          "grade": null
+        },
+        {
+          "id": "15_4",
+          "subject": "adequate_documentation",
+          "predicate": "include",
+          "object": "significant_problems_discovered",
+          "grade": null
+        },
+        {
+          "id": "15_5",
+          "subject": "adequate_documentation",
+          "predicate": "include",
+          "object": "solutions_adopted",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "text": "3.12. Work to develop software and related documents that respect the privacy of those who will be affected by that software.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "16_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_work_to_develop",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "16_2",
+          "subject": "software_engineers_001",
+          "predicate": "shall_work_to_develop",
+          "object": "related_documents_001",
+          "grade": null
+        },
+        {
+          "id": "16_3",
+          "subject": "software_001",
+          "predicate": "respect",
+          "object": "privacy_001",
+          "grade": null
+        },
+        {
+          "id": "16_4",
+          "subject": "related_documents_001",
+          "predicate": "respect",
+          "object": "privacy_001",
+          "grade": null
+        },
+        {
+          "id": "16_5",
+          "subject": "privacy_001",
+          "predicate": "is_of",
+          "object": "those_001",
+          "grade": null
+        },
+        {
+          "id": "16_6",
+          "subject": "those_001",
+          "predicate": "will_be_affected_by",
+          "object": "software_001",
+          "grade": null
+        },
+        {
+          "id": "16_7",
+          "subject": "software_001",
+          "predicate": "related_to",
+          "object": "related_documents_001",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "text": "3.13. Be careful to use only accurate data derived by ethical and lawful means, and use it only in ways properly authorized.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "17_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_be_careful_to",
+          "object": "use_001",
+          "grade": null
+        },
+        {
+          "id": "17_2",
+          "subject": "use_001",
+          "predicate": "has_objective",
+          "object": "accurate_data_001",
+          "grade": null
+        },
+        {
+          "id": "17_3",
+          "subject": "accurate_data_001",
+          "predicate": "derived_by",
+          "object": "ethical_and_lawful_means",
+          "grade": null
+        },
+        {
+          "id": "17_4",
+          "subject": "use_001",
+          "predicate": "only_in_manner",
+          "object": "properly_authorized",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "text": "3.14. Maintain the integrity of data, being sensitive to outdated or flawed occurrences.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "18_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_maintain",
+          "object": "integrity_001",
+          "grade": null
+        },
+        {
+          "id": "18_2",
+          "subject": "integrity_001",
+          "predicate": "is_of",
+          "object": "data_001",
+          "grade": null
+        },
+        {
+          "id": "18_3",
+          "subject": "software_engineers_001",
+          "predicate": "shall_be_sensitive_to",
+          "object": "outdated occurences",
+          "grade": null
+        },
+        {
+          "id": "18_4",
+          "subject": "software_engineers_001",
+          "predicate": "shall_be_sensitive_to",
+          "object": "flawed occurences",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "text": "3.15. Treat all forms of software maintenance with the same professionalism as new development.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "19_1",
+          "subject": "software_engineers_001",
+          "predicate": "shall_treat",
+          "object": "software_maintenance",
+          "grade": null
+        },
+        {
+          "id": "19_2",
+          "subject": "shall_treat_001",
+          "predicate": "has_manner",
+          "object": "professionalism_001",
+          "grade": null
+        },
+        {
+          "id": "19_3",
+          "subject": "professionalism_001",
+          "predicate": "same_as",
+          "object": "new_development",
+          "grade": null
+        },
+        {
+          "id": "19_4",
+          "subject": "software_maintenance",
+          "predicate": "has_scale",
+          "object": "all_forms",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "text": "Software engineering managers and leaders shall subscribe to and promote an ethical approach to the management of software development and maintenance. In particular, those managing or leading software engineers shall, as appropriate:",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "20_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "subscribe_to",
+          "object": "ethical approach",
+          "grade": null
+        },
+        {
+          "id": "20_2",
+          "subject": "software engineering managers and leaders",
+          "predicate": "promote",
+          "object": "ethical approach",
+          "grade": null
+        },
+        {
+          "id": "20_3",
+          "subject": "ethical approach",
+          "predicate": "for",
+          "object": "management",
+          "grade": null
+        },
+        {
+          "id": "20_4",
+          "subject": "management",
+          "predicate": "of",
+          "object": "software development",
+          "grade": null
+        },
+        {
+          "id": "20_5",
+          "subject": "management",
+          "predicate": "of",
+          "object": "software maintenance",
+          "grade": null
+        },
+        {
+          "id": "20_6",
+          "subject": "those managing software engineers",
+          "predicate": "manage",
+          "object": "software engineers",
+          "grade": null
+        },
+        {
+          "id": "20_7",
+          "subject": "those leading software engineers",
+          "predicate": "lead",
+          "object": "software engineers",
+          "grade": null
+        },
+        {
+          "id": "20_8",
+          "subject": "those managing software engineers",
+          "predicate": "shall_act_as",
+          "object": "appropriate",
+          "grade": null
+        },
+        {
+          "id": "20_9",
+          "subject": "those leading software engineers",
+          "predicate": "shall_act_as",
+          "object": "appropriate",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "text": "5.01. Ensure good management for any project on which they work, including effective procedures for promotion of quality and reduction of risk.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "21_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "good management",
+          "grade": null
+        },
+        {
+          "id": "21_2",
+          "subject": "good management",
+          "predicate": "for",
+          "object": "project",
+          "grade": null
+        },
+        {
+          "id": "21_3",
+          "subject": "software engineering managers and leaders",
+          "predicate": "work_on",
+          "object": "project",
+          "grade": null
+        },
+        {
+          "id": "21_4",
+          "subject": "good management",
+          "predicate": "includes",
+          "object": "effective procedures",
+          "grade": null
+        },
+        {
+          "id": "21_5",
+          "subject": "effective procedures",
+          "predicate": "for",
+          "object": "promotion of quality",
+          "grade": null
+        },
+        {
+          "id": "21_6",
+          "subject": "effective procedures",
+          "predicate": "for",
+          "object": "reduction of risk",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "text": "5.02. Ensure that software engineers are informed of standards before being held to them.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "22_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "software engineers are informed of standards",
+          "grade": null
+        },
+        {
+          "id": "22_2",
+          "subject": "software engineers",
+          "predicate": "are_informed_of",
+          "object": "standards",
+          "grade": null
+        },
+        {
+          "id": "22_3",
+          "subject": "software engineers",
+          "predicate": "are_held_to",
+          "object": "standards",
+          "grade": null
+        },
+        {
+          "id": "22_4",
+          "subject": "software engineers",
+          "predicate": "are_informed_of",
+          "object": "standards before being held to standards",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "text": "5.03. Ensure that software engineers know the employers policies and procedures for protecting passwords, files and information that is confidential to the employer or confidential to others.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "23_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "software engineers know employer policies",
+          "grade": null
+        },
+        {
+          "id": "23_2",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "software engineers know employer procedures",
+          "grade": null
+        },
+        {
+          "id": "23_3",
+          "subject": "employer policies",
+          "predicate": "for",
+          "object": "protecting passwords",
+          "grade": null
+        },
+        {
+          "id": "23_4",
+          "subject": "employer policies",
+          "predicate": "for",
+          "object": "protecting files",
+          "grade": null
+        },
+        {
+          "id": "23_5",
+          "subject": "employer policies",
+          "predicate": "for",
+          "object": "protecting confidential information",
+          "grade": null
+        },
+        {
+          "id": "23_6",
+          "subject": "employer procedures",
+          "predicate": "for",
+          "object": "protecting passwords",
+          "grade": null
+        },
+        {
+          "id": "23_7",
+          "subject": "employer procedures",
+          "predicate": "for",
+          "object": "protecting files",
+          "grade": null
+        },
+        {
+          "id": "23_8",
+          "subject": "employer procedures",
+          "predicate": "for",
+          "object": "protecting confidential information",
+          "grade": null
+        },
+        {
+          "id": "23_9",
+          "subject": "passwords",
+          "predicate": "can_be",
+          "object": "confidential to employer",
+          "grade": null
+        },
+        {
+          "id": "23_10",
+          "subject": "files",
+          "predicate": "can_be",
+          "object": "confidential to employer",
+          "grade": null
+        },
+        {
+          "id": "23_11",
+          "subject": "information",
+          "predicate": "can_be",
+          "object": "confidential to employer",
+          "grade": null
+        },
+        {
+          "id": "23_12",
+          "subject": "information",
+          "predicate": "can_be",
+          "object": "confidential to others",
+          "grade": null
+        },
+        {
+          "id": "23_13",
+          "subject": "software engineers",
+          "predicate": "know",
+          "object": "employer policies",
+          "grade": null
+        },
+        {
+          "id": "23_14",
+          "subject": "software engineers",
+          "predicate": "know",
+          "object": "employer procedures",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "text": "5.04. Assign work only after taking into account appropriate contributions of education and experience tempered with a desire to further that education and experience.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "24_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "assign",
+          "object": "work",
+          "grade": null
+        },
+        {
+          "id": "24_2",
+          "subject": "software engineering managers and leaders",
+          "predicate": "take_into_account",
+          "object": "education",
+          "grade": null
+        },
+        {
+          "id": "24_3",
+          "subject": "software engineering managers and leaders",
+          "predicate": "take_into_account",
+          "object": "experience",
+          "grade": null
+        },
+        {
+          "id": "24_4",
+          "subject": "education",
+          "predicate": "contributes_to",
+          "object": "work assignment",
+          "grade": null
+        },
+        {
+          "id": "24_5",
+          "subject": "experience",
+          "predicate": "contributes_to",
+          "object": "work assignment",
+          "grade": null
+        },
+        {
+          "id": "24_6",
+          "subject": "contributions of education",
+          "predicate": "has_property",
+          "object": "appropriate",
+          "grade": null
+        },
+        {
+          "id": "24_7",
+          "subject": "contributions of experience",
+          "predicate": "has_property",
+          "object": "appropriate",
+          "grade": null
+        },
+        {
+          "id": "24_8",
+          "subject": "work assignment",
+          "predicate": "occurs_only_after",
+          "object": "taking into account education",
+          "grade": null
+        },
+        {
+          "id": "24_9",
+          "subject": "work assignment",
+          "predicate": "occurs_only_after",
+          "object": "taking into account experience",
+          "grade": null
+        },
+        {
+          "id": "24_10",
+          "subject": "software engineering managers and leaders",
+          "predicate": "consider",
+          "object": "desire to further education",
+          "grade": null
+        },
+        {
+          "id": "24_11",
+          "subject": "software engineering managers and leaders",
+          "predicate": "consider",
+          "object": "desire to further experience",
+          "grade": null
+        },
+        {
+          "id": "24_12",
+          "subject": "desire to further education",
+          "predicate": "tempers",
+          "object": "work assignment",
+          "grade": null
+        },
+        {
+          "id": "24_13",
+          "subject": "desire to further experience",
+          "predicate": "tempers",
+          "object": "work assignment",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "text": "5.05. Ensure realistic quantitative estimates of cost, scheduling, personnel, quality and outcomes on any project on which they work or propose to work, and provide an uncertainty assessment of these estimates.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "25_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "cost estimates",
+          "grade": null
+        },
+        {
+          "id": "25_2",
+          "subject": "cost estimates",
+          "predicate": "has_property",
+          "object": "realistic",
+          "grade": null
+        },
+        {
+          "id": "25_3",
+          "subject": "cost estimates",
+          "predicate": "has_property",
+          "object": "quantitative",
+          "grade": null
+        },
+        {
+          "id": "25_4",
+          "subject": "cost estimates",
+          "predicate": "for",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_5",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "scheduling estimates",
+          "grade": null
+        },
+        {
+          "id": "25_6",
+          "subject": "scheduling estimates",
+          "predicate": "has_property",
+          "object": "realistic",
+          "grade": null
+        },
+        {
+          "id": "25_7",
+          "subject": "scheduling estimates",
+          "predicate": "has_property",
+          "object": "quantitative",
+          "grade": null
+        },
+        {
+          "id": "25_8",
+          "subject": "scheduling estimates",
+          "predicate": "for",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_9",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "personnel estimates",
+          "grade": null
+        },
+        {
+          "id": "25_10",
+          "subject": "personnel estimates",
+          "predicate": "has_property",
+          "object": "realistic",
+          "grade": null
+        },
+        {
+          "id": "25_11",
+          "subject": "personnel estimates",
+          "predicate": "has_property",
+          "object": "quantitative",
+          "grade": null
+        },
+        {
+          "id": "25_12",
+          "subject": "personnel estimates",
+          "predicate": "for",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_13",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "quality estimates",
+          "grade": null
+        },
+        {
+          "id": "25_14",
+          "subject": "quality estimates",
+          "predicate": "has_property",
+          "object": "realistic",
+          "grade": null
+        },
+        {
+          "id": "25_15",
+          "subject": "quality estimates",
+          "predicate": "has_property",
+          "object": "quantitative",
+          "grade": null
+        },
+        {
+          "id": "25_16",
+          "subject": "quality estimates",
+          "predicate": "for",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_17",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "outcome estimates",
+          "grade": null
+        },
+        {
+          "id": "25_18",
+          "subject": "outcome estimates",
+          "predicate": "has_property",
+          "object": "realistic",
+          "grade": null
+        },
+        {
+          "id": "25_19",
+          "subject": "outcome estimates",
+          "predicate": "has_property",
+          "object": "quantitative",
+          "grade": null
+        },
+        {
+          "id": "25_20",
+          "subject": "outcome estimates",
+          "predicate": "for",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_21",
+          "subject": "software engineering managers and leaders",
+          "predicate": "work_on",
+          "object": "work project",
+          "grade": null
+        },
+        {
+          "id": "25_22",
+          "subject": "software engineering managers and leaders",
+          "predicate": "propose_to_work_on",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_23",
+          "subject": "cost estimates",
+          "predicate": "for",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_24",
+          "subject": "scheduling estimates",
+          "predicate": "for",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_25",
+          "subject": "personnel estimates",
+          "predicate": "for",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_26",
+          "subject": "quality estimates",
+          "predicate": "for",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_27",
+          "subject": "outcome estimates",
+          "predicate": "for",
+          "object": "proposed project",
+          "grade": null
+        },
+        {
+          "id": "25_28",
+          "subject": "software engineering managers and leaders",
+          "predicate": "provide",
+          "object": "uncertainty assessment",
+          "grade": null
+        },
+        {
+          "id": "25_29",
+          "subject": "uncertainty assessment",
+          "predicate": "about",
+          "object": "cost estimates",
+          "grade": null
+        },
+        {
+          "id": "25_30",
+          "subject": "uncertainty assessment",
+          "predicate": "about",
+          "object": "scheduling estimates",
+          "grade": null
+        },
+        {
+          "id": "25_31",
+          "subject": "uncertainty assessment",
+          "predicate": "about",
+          "object": "personnel estimates",
+          "grade": null
+        },
+        {
+          "id": "25_32",
+          "subject": "uncertainty assessment",
+          "predicate": "about",
+          "object": "quality estimates",
+          "grade": null
+        },
+        {
+          "id": "25_33",
+          "subject": "uncertainty assessment",
+          "predicate": "about",
+          "object": "outcome estimates",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "text": "5.06. Attract potential software engineers only by full and accurate description of the conditions of employment.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "26_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "attract",
+          "object": "potential software engineers",
+          "grade": null
+        },
+        {
+          "id": "26_2",
+          "subject": "software engineering managers and leaders",
+          "predicate": "use",
+          "object": "full description of employment conditions",
+          "grade": null
+        },
+        {
+          "id": "26_3",
+          "subject": "software engineering managers and leaders",
+          "predicate": "use",
+          "object": "accurate description of employment conditions",
+          "grade": null
+        },
+        {
+          "id": "26_4",
+          "subject": "full description of employment conditions",
+          "predicate": "describes",
+          "object": "employment conditions",
+          "grade": null
+        },
+        {
+          "id": "26_5",
+          "subject": "accurate description of employment conditions",
+          "predicate": "describes",
+          "object": "employment conditions",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "text": "5.07. Offer fair and just remuneration.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "27_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "offer",
+          "object": "remuneration",
+          "grade": null
+        },
+        {
+          "id": "27_2",
+          "subject": "remuneration",
+          "predicate": "has_property",
+          "object": "fair",
+          "grade": null
+        },
+        {
+          "id": "27_3",
+          "subject": "remuneration",
+          "predicate": "has_property",
+          "object": "just",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "text": "5.08. Not unjustly prevent someone from taking a position for which that person is suitably qualified.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "28_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "do_not_unjustly_prevent",
+          "object": "person from taking position",
+          "grade": null
+        },
+        {
+          "id": "28_2",
+          "subject": "person",
+          "predicate": "is_suitably_qualified_for",
+          "object": "position",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "text": "5.09. Ensure that there is a fair agreement concerning ownership of any software, processes, research, writing, or other intellectual property to which a software engineer has contributed.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "29_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "ensure",
+          "object": "fair agreement",
+          "grade": null
+        },
+        {
+          "id": "29_2",
+          "subject": "fair agreement",
+          "predicate": "concerns",
+          "object": "ownership",
+          "grade": null
+        },
+        {
+          "id": "29_3",
+          "subject": "ownership",
+          "predicate": "of",
+          "object": "software",
+          "grade": null
+        },
+        {
+          "id": "29_4",
+          "subject": "ownership",
+          "predicate": "of",
+          "object": "processes",
+          "grade": null
+        },
+        {
+          "id": "29_5",
+          "subject": "ownership",
+          "predicate": "of",
+          "object": "research",
+          "grade": null
+        },
+        {
+          "id": "29_6",
+          "subject": "ownership",
+          "predicate": "of",
+          "object": "writing",
+          "grade": null
+        },
+        {
+          "id": "29_7",
+          "subject": "ownership",
+          "predicate": "of",
+          "object": "intellectual property",
+          "grade": null
+        },
+        {
+          "id": "29_8",
+          "subject": "software engineer",
+          "predicate": "contributes_to",
+          "object": "software",
+          "grade": null
+        },
+        {
+          "id": "29_9",
+          "subject": "software engineer",
+          "predicate": "contributes_to",
+          "object": "processes",
+          "grade": null
+        },
+        {
+          "id": "29_10",
+          "subject": "software engineer",
+          "predicate": "contributes_to",
+          "object": "research",
+          "grade": null
+        },
+        {
+          "id": "29_11",
+          "subject": "software engineer",
+          "predicate": "contributes_to",
+          "object": "writing",
+          "grade": null
+        },
+        {
+          "id": "29_12",
+          "subject": "software engineer",
+          "predicate": "contributes_to",
+          "object": "intellectual property",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "text": "5.10. Provide for due process in hearing charges of violation of an employers policy or of this Code.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "30_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "provide",
+          "object": "due process",
+          "grade": null
+        },
+        {
+          "id": "30_2",
+          "subject": "due process",
+          "predicate": "for",
+          "object": "hearing charges",
+          "grade": null
+        },
+        {
+          "id": "30_3",
+          "subject": "charges",
+          "predicate": "concern",
+          "object": "violation of employer policy",
+          "grade": null
+        },
+        {
+          "id": "30_4",
+          "subject": "charges",
+          "predicate": "concern",
+          "object": "violation of this Code",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "text": "5.11. Not ask a software engineer to do anything inconsistent with this Code.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "31_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "do_not_ask",
+          "object": "software engineer to do inconsistent act",
+          "grade": null
+        },
+        {
+          "id": "31_2",
+          "subject": "inconsistent act",
+          "predicate": "is_inconsistent_with",
+          "object": "this Code",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "text": "5.12. Not punish anyone for expressing ethical concerns about a project.",
+      "suggestion": "",
+      "sentence_grade": null,
+      "triples": [
+        {
+          "id": "32_1",
+          "subject": "software engineering managers and leaders",
+          "predicate": "do_not_punish",
+          "object": "person for expressing ethical concerns",
+          "grade": null
+        },
+        {
+          "id": "32_2",
+          "subject": "person",
+          "predicate": "expresses",
+          "object": "ethical concerns",
+          "grade": null
+        },
+        {
+          "id": "32_3",
+          "subject": "ethical concerns",
+          "predicate": "about",
+          "object": "project",
+          "grade": null
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ exporter.py — Convert a graded session JSON into PDF, CSV, Excel, Word, or JSO
 
 import io
 import json
+import os
 from typing import Any, Dict
 
 import pandas as pd
@@ -13,6 +14,35 @@ from docx.shared import Pt, RGBColor
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+# ---------------------------------------------------------------------------
+# PDF font setup — prefer Unicode-capable Arial when available (Windows)
+# ---------------------------------------------------------------------------
+
+_WIN_FONTS = "C:/Windows/Fonts"
+_ARIAL_MAP = {
+    "":   os.path.join(_WIN_FONTS, "arial.ttf"),
+    "B":  os.path.join(_WIN_FONTS, "arialbd.ttf"),
+    "I":  os.path.join(_WIN_FONTS, "ariali.ttf"),
+    "BI": os.path.join(_WIN_FONTS, "arialbi.ttf"),
+}
+_USE_ARIAL = all(os.path.exists(p) for p in _ARIAL_MAP.values())
+_PDF_FONT  = "Arial" if _USE_ARIAL else "Helvetica"
+
+# Replacement table for non-Latin-1 characters (fallback when core font is used)
+_LATIN1_MAP = [
+    ("\u2014", "--"), ("\u2013", "-"),
+    ("\u2018", "'"),  ("\u2019", "'"),
+    ("\u201c", '"'),  ("\u201d", '"'),
+    ("\u2026", "..."), ("\u00a0", " "),
+]
+
+def _pdf_safe(v) -> str:
+    """Return a Latin-1-safe string (used when Arial is unavailable)."""
+    s = "" if v is None else str(v)
+    for a, b in _LATIN1_MAP:
+        s = s.replace(a, b)
+    return s.encode("latin-1", errors="replace").decode("latin-1")
 
 
 # ---------------------------------------------------------------------------
@@ -178,8 +208,15 @@ def to_excel(session: Dict[str, Any]) -> bytes:
 # ---------------------------------------------------------------------------
 
 class _GradingPDF(FPDF):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Load Arial TrueType fonts when available for full Unicode support
+        if _USE_ARIAL:
+            for style, fpath in _ARIAL_MAP.items():
+                self.add_font("Arial", style=style, fname=fpath)
+
     def header(self):
-        self.set_font("Helvetica", "B", 14)
+        self.set_font(_PDF_FONT, "B", 14)
         self.set_fill_color(30, 58, 95)
         self.set_text_color(255, 255, 255)
         self.cell(0, 12, "Ontology Triple Grading Report", ln=True, align="C", fill=True)
@@ -187,12 +224,15 @@ class _GradingPDF(FPDF):
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
+        self.set_font(_PDF_FONT, "I", 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
 
 def to_pdf(session: Dict[str, Any]) -> bytes:
+    # Text helper: passthrough when using Unicode font; sanitize for core fonts
+    _t = (lambda v: "" if v is None else str(v)) if _USE_ARIAL else _pdf_safe
+
     pdf = _GradingPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
@@ -206,29 +246,29 @@ def to_pdf(session: Dict[str, Any]) -> bytes:
         # ── Sentence heading ─────────────────────────────────────────────
         pdf.set_fill_color(30, 58, 95)
         pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font(_PDF_FONT, "B", 10)
         label = f"  Sentence {s['id']} of {total}    Grade: {sent_grade}"
-        pdf.cell(0, 8, label, ln=True, fill=True)
+        pdf.cell(0, 8, _t(label), ln=True, fill=True)
         pdf.ln(1)
 
         # ── Sentence text ─────────────────────────────────────────────────
         pdf.set_text_color(20, 20, 20)
-        pdf.set_font("Helvetica", "", 9)
+        pdf.set_font(_PDF_FONT, "", 9)
         pdf.set_x(8)
-        pdf.multi_cell(0, 5, s["text"])
+        pdf.multi_cell(0, 5, _t(s["text"]))
         pdf.ln(2)
 
         # ── Suggestion ───────────────────────────────────────────────────
         suggestion = s.get("suggestion", "").strip()
         if suggestion:
-            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_font(_PDF_FONT, "I", 8)
             pdf.set_text_color(90, 90, 90)
             pdf.set_x(8)
-            pdf.multi_cell(0, 4, f"Suggestion: {suggestion}")
+            pdf.multi_cell(0, 4, _t(f"Suggestion: {suggestion}"))
             pdf.ln(1)
 
         # ── Triples table ─────────────────────────────────────────────────
-        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_font(_PDF_FONT, "B", 8)
         pdf.set_fill_color(214, 228, 240)
         pdf.set_text_color(20, 20, 20)
         col_w = [8, 48, 40, 48, 20]  # #, Subject, Predicate, Object, Grade
@@ -237,18 +277,18 @@ def to_pdf(session: Dict[str, Any]) -> bytes:
             pdf.cell(w, 6, h, border=1, fill=True, align="C")
         pdf.ln()
 
-        pdf.set_font("Helvetica", "", 8)
+        pdf.set_font(_PDF_FONT, "", 8)
         for i, t in enumerate(s.get("triples", []), start=1):
             fill = (i % 2 == 0)
             if fill:
                 pdf.set_fill_color(235, 242, 250)
             else:
                 pdf.set_fill_color(255, 255, 255)
-            pdf.cell(col_w[0], 5, str(i),              border=1, fill=fill, align="C")
-            pdf.cell(col_w[1], 5, t["subject"][:35],   border=1, fill=fill)
-            pdf.cell(col_w[2], 5, t["predicate"][:30], border=1, fill=fill)
-            pdf.cell(col_w[3], 5, t["object"][:35],    border=1, fill=fill)
-            pdf.cell(col_w[4], 5, _grade_str(t.get("grade")), border=1, fill=fill, align="C")
+            pdf.cell(col_w[0], 5, str(i),                         border=1, fill=fill, align="C")
+            pdf.cell(col_w[1], 5, _t(t["subject"][:35]),          border=1, fill=fill)
+            pdf.cell(col_w[2], 5, _t(t["predicate"][:30]),        border=1, fill=fill)
+            pdf.cell(col_w[3], 5, _t(t["object"][:35]),           border=1, fill=fill)
+            pdf.cell(col_w[4], 5, _t(_grade_str(t.get("grade"))), border=1, fill=fill, align="C")
             pdf.ln()
 
         pdf.ln(5)

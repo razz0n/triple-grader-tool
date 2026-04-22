@@ -23,7 +23,8 @@ export default function DownloadPanel({ sessionId, disabled }) {
       await downloadSession(sessionId, selected);
     } catch (e) {
       setError(
-        e?.response?.data?.detail ||
+        e?.message ||
+          e?.response?.data?.detail ||
           "Download failed. Make sure the session is saved first."
       );
     } finally {
