@@ -2,9 +2,67 @@
 
 import axios from "axios";
 
+const AUTH_TOKEN_KEY = "otg_auth_token";
+
 // In production the frontend is served by FastAPI on the same origin, so
 // relative paths work. In dev, Vite proxies /api/* to http://localhost:8001.
 const API = axios.create({ baseURL: "" });
+
+export function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+API.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      setAuthToken(null);
+    }
+    return Promise.reject(error);
+  }
+);
+
+export async function registerUser(name, email, password) {
+  const { data } = await API.post("/api/auth/register", { name, email, password });
+  setAuthToken(data.access_token);
+  return data.user;
+}
+
+export async function loginUser(email, password) {
+  const { data } = await API.post("/api/auth/login", { email, password });
+  setAuthToken(data.access_token);
+  return data.user;
+}
+
+export async function meUser() {
+  const { data } = await API.get("/api/auth/me");
+  return data;
+}
+
+export async function logoutUser() {
+  try {
+    await API.post("/api/auth/logout");
+  } finally {
+    setAuthToken(null);
+  }
+}
 
 /**
  * Upload a file for parsing.

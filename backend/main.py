@@ -12,15 +12,18 @@ Endpoints:
 import json
 import os
 import uuid
+import hashlib
+import secrets
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
 from parser import parse_file, parse_file_rich
@@ -51,6 +54,152 @@ _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 STORAGE_DIR = Path(__file__).parent / "storage"
 STORAGE_DIR.mkdir(exist_ok=True)
+SESSIONS_ROOT = STORAGE_DIR / "users"
+SESSIONS_ROOT.mkdir(exist_ok=True)
+USERS_FILE = STORAGE_DIR / "users.json"
+TOKENS_FILE = STORAGE_DIR / "tokens.json"
+_AUTH_SCHEME = HTTPBearer(auto_error=False)
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+
+def _load_json(path: Path, default: Any):
+    if not path.exists():
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return default
+
+
+def _save_json(path: Path, data: Any):
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False)
+
+
+def _norm_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def _display_name(user: Dict[str, Any]) -> str:
+    name = (user.get("name") or "").strip()
+    if name:
+        return name
+    email = user.get("email", "")
+    local = email.split("@", 1)[0] if "@" in email else "User"
+    return local or "User"
+
+
+def _hash_password(password: str, salt_hex: Optional[str] = None) -> Dict[str, str]:
+    salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 260000)
+    return {"salt": salt.hex(), "hash": dk.hex()}
+
+
+def _verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
+    computed = _hash_password(password, salt_hex=salt_hex)["hash"]
+    return secrets.compare_digest(computed, hash_hex)
+
+
+def _load_users() -> Dict[str, Any]:
+    users = _load_json(USERS_FILE, {"users": []})
+    if "users" not in users:
+        users = {"users": []}
+    return users
+
+
+def _save_users(users: Dict[str, Any]):
+    _save_json(USERS_FILE, users)
+
+
+def _load_tokens() -> Dict[str, Any]:
+    tokens = _load_json(TOKENS_FILE, {"tokens": {}})
+    if "tokens" not in tokens:
+        tokens = {"tokens": {}}
+    return tokens
+
+
+def _save_tokens(tokens: Dict[str, Any]):
+    _save_json(TOKENS_FILE, tokens)
+
+
+def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    users = _load_users()["users"]
+    target = _norm_email(email)
+    for user in users:
+        if user.get("email") == target:
+            return user
+    return None
+
+
+def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    users = _load_users()["users"]
+    for user in users:
+        if user.get("id") == user_id:
+            return user
+    return None
+
+
+def _issue_token(user_id: str) -> str:
+    token = secrets.token_urlsafe(40)
+    tokens = _load_tokens()
+    tokens["tokens"][token] = {
+        "user_id": user_id,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _save_tokens(tokens)
+    return token
+
+
+def _user_from_token(token: str) -> Optional[Dict[str, Any]]:
+    tokens = _load_tokens()["tokens"]
+    token_data = tokens.get(token)
+    if not token_data:
+        return None
+    return _get_user_by_id(token_data.get("user_id", ""))
+
+
+def _revoke_token(token: str):
+    tokens = _load_tokens()
+    if token in tokens["tokens"]:
+        del tokens["tokens"][token]
+        _save_tokens(tokens)
+
+
+async def _current_user(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_SCHEME),
+) -> Dict[str, Any]:
+    if not creds or creds.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user = _user_from_token(creds.credentials)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    return user
+
+
+def _current_user_from_bearer_or_query(request: Request, token_qs: Optional[str]) -> Dict[str, Any]:
+    token = token_qs
+    if not token:
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user = _user_from_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    return user
+
+
+def _session_path_for_user(user_id: str, session_id: str) -> Path:
+    if not session_id.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid session ID.")
+    user_dir = SESSIONS_ROOT / user_id
+    user_dir.mkdir(exist_ok=True)
+    return user_dir / f"{session_id}.json"
 
 
 # ---------------------------------------------------------------------------
@@ -64,12 +213,78 @@ class SaveRequest(BaseModel):
     sentences: list
 
 
+class AuthRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class RegisterRequest(AuthRequest):
+    name: str = Field(min_length=2, max_length=80)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
+@app.post("/api/auth/register")
+async def register(body: RegisterRequest):
+    email = _norm_email(str(body.email))
+    if _get_user_by_email(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    hashed = _hash_password(body.password)
+    user = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip(),
+        "email": email,
+        "password_salt": hashed["salt"],
+        "password_hash": hashed["hash"],
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    users_data = _load_users()
+    users_data["users"].append(user)
+    _save_users(users_data)
+
+    token = _issue_token(user["id"])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user["id"], "name": _display_name(user), "email": user["email"]},
+    }
+
+
+@app.post("/api/auth/login")
+async def login(body: AuthRequest):
+    email = _norm_email(str(body.email))
+    user = _get_user_by_email(email)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    if not _verify_password(body.password, user["password_salt"], user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token = _issue_token(user["id"])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user["id"], "name": _display_name(user), "email": user["email"]},
+    }
+
+
+@app.get("/api/auth/me")
+async def me(user: Dict[str, Any] = Depends(_current_user)):
+    return {"id": user["id"], "name": _display_name(user), "email": user["email"]}
+
+
+@app.post("/api/auth/logout")
+async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_SCHEME)):
+    if creds and creds.scheme.lower() == "bearer":
+        _revoke_token(creds.credentials)
+    return {"ok": True}
+
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), _: Dict[str, Any] = Depends(_current_user)):
     """Parse an uploaded CSV or Excel file and return structured sentence-group data for review."""
     allowed_extensions = {".csv", ".xlsx", ".xls"}
     suffix = Path(file.filename).suffix.lower()
@@ -105,7 +320,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 @app.post("/api/save")
-async def save_session(body: SaveRequest):
+async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_current_user)):
     """Persist a graded session to the storage directory."""
     session_data = body.model_dump()
 
@@ -114,7 +329,8 @@ async def save_session(body: SaveRequest):
         grades = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
         s["sentence_grade"] = round(sum(grades) / len(grades), 2) if grades else None
 
-    out_path = STORAGE_DIR / f"{body.session_id}.json"
+    session_data["owner_user_id"] = user["id"]
+    out_path = _session_path_for_user(user["id"], body.session_id)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(session_data, fh, indent=2, ensure_ascii=False)
 
@@ -122,13 +338,9 @@ async def save_session(body: SaveRequest):
 
 
 @app.get("/api/download/{session_id}/{fmt}")
-async def download_session(session_id: str, fmt: str):
+async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Depends(_current_user)):
     """Download a saved session in the requested format."""
-    # Validate session_id to prevent path traversal
-    if not session_id.replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid session ID.")
-
-    json_path = STORAGE_DIR / f"{session_id}.json"
+    json_path = _session_path_for_user(user["id"], session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
 
@@ -169,11 +381,9 @@ async def download_session(session_id: str, fmt: str):
 
 
 @app.get("/api/session/{session_id}")
-async def get_session(session_id: str):
+async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
     """Return the full saved session JSON (used by the frontend to resume a session)."""
-    if not session_id.replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid session ID.")
-    json_path = STORAGE_DIR / f"{session_id}.json"
+    json_path = _session_path_for_user(user["id"], session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found.")
     with open(json_path, "r", encoding="utf-8") as fh:
@@ -181,12 +391,14 @@ async def get_session(session_id: str):
 
 
 @app.get("/api/preview/{session_id}", response_class=HTMLResponse)
-async def preview_session(session_id: str):
+async def preview_session(
+    session_id: str,
+    request: Request,
+    token: Optional[str] = Query(default=None),
+):
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
-    if not session_id.replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid session ID.")
-
-    json_path = STORAGE_DIR / f"{session_id}.json"
+    user = _current_user_from_bearer_or_query(request, token)
+    json_path = _session_path_for_user(user["id"], session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
 
@@ -303,10 +515,12 @@ async def preview_session(session_id: str):
 
 
 @app.get("/api/sessions")
-async def list_sessions():
+async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
     """List all saved session files."""
     sessions = []
-    for p in sorted(STORAGE_DIR.glob("*.json")):
+    user_dir = SESSIONS_ROOT / user["id"]
+    user_dir.mkdir(exist_ok=True)
+    for p in sorted(user_dir.glob("*.json")):
         try:
             with open(p, "r", encoding="utf-8") as fh:
                 data = json.load(fh)

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
-import { saveSession, downloadSession } from "../api";
+import { saveSession, downloadSession, getAuthToken } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
@@ -230,6 +230,13 @@ export default function GradingForm({ uploadData, onReset }) {
       ? "text-amber-600"
       : "text-red-600";
 
+  const previewHref = useMemo(() => {
+    if (!savedSessionId) return undefined;
+    const token = getAuthToken();
+    if (!token) return `/api/preview/${savedSessionId}`;
+    return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}`;
+  }, [savedSessionId]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 
@@ -334,7 +341,7 @@ export default function GradingForm({ uploadData, onReset }) {
 
           {/* ── View Online ── */}
           <a
-            href={savedSessionId ? `/api/preview/${savedSessionId}` : undefined}
+            href={previewHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
