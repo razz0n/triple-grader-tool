@@ -1,9 +1,8 @@
 // GradingForm.jsx — Main grading interface: one sentence at a time
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
-import DownloadPanel from "./DownloadPanel";
-import { saveSession } from "../api";
+import { saveSession, downloadSession } from "../api";
 
 export default function GradingForm({ uploadData, onReset }) {
   const {
@@ -11,6 +10,7 @@ export default function GradingForm({ uploadData, onReset }) {
     source_filename,
     sentences: initialSentences,
     uploaded_at,
+    resumed,
   } = uploadData;
 
   // Deep-clone sentences into local mutable state
@@ -22,11 +22,28 @@ export default function GradingForm({ uploadData, onReset }) {
     }))
   );
 
-  const [currentIdx, setCurrentIdx]     = useState(0);
-  const [savedSessionId, setSavedSessionId] = useState(null);
-  const [saving, setSaving]             = useState(false);
-  const [saveMsg, setSaveMsg]           = useState("");
-  const [saveError, setSaveError]       = useState("");
+  const [currentIdx, setCurrentIdx]       = useState(0);
+  // When resuming a saved session, the session is already saved on the server
+  const [savedSessionId, setSavedSessionId] = useState(resumed ? initialSessionId : null);
+  const [savedAt, setSavedAt]             = useState(resumed ? new Date() : null);
+  const [saving, setSaving]               = useState(false);
+  const [saveMsg, setSaveMsg]             = useState("");
+  const [saveError, setSaveError]         = useState("");
+
+  const [dlFmt, setDlFmt]           = useState("pdf");
+  const [dlOpen, setDlOpen]         = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [dlError, setDlError]       = useState("");
+  const dlRef                       = useRef(null);
+
+  // Close download dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (dlRef.current && !dlRef.current.contains(e.target)) setDlOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const total   = sentences.length;
   const current = sentences[currentIdx];
@@ -104,6 +121,7 @@ export default function GradingForm({ uploadData, onReset }) {
     try {
       const result = await saveSession(buildPayload());
       setSavedSessionId(result.session_id);
+      setSavedAt(new Date());
       setSaveMsg("Session saved successfully!");
       setTimeout(() => setSaveMsg(""), 3500);
     } catch (e) {
@@ -112,6 +130,32 @@ export default function GradingForm({ uploadData, onReset }) {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const DL_FORMATS = [
+    { value: "pdf",   label: "PDF",   icon: "📄" },
+    { value: "word",  label: "Word",  icon: "📝" },
+    { value: "excel", label: "Excel", icon: "📊" },
+    { value: "csv",   label: "CSV",   icon: "⊞" },
+    { value: "json",  label: "JSON",  icon: "{}" },
+  ];
+
+  const handleDownload = async (fmt) => {
+    const target = fmt || dlFmt;
+    setDlOpen(false);
+    setDlError("");
+    if (!savedSessionId) {
+      setDlError("Save the session first.");
+      return;
+    }
+    setDownloading(true);
+    try {
+      await downloadSession(savedSessionId, target);
+    } catch (e) {
+      setDlError(e?.message || "Download failed.");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -130,43 +174,141 @@ export default function GradingForm({ uploadData, onReset }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 
       {/* ── Top bar ────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-blue-700 text-xl font-bold select-none">◈</div>
-            <div>
-              <div className="text-sm font-semibold text-slate-700">
-                Ontology Triple Grader
-              </div>
-              <div className="text-xs text-slate-400 truncate max-w-56">
-                {source_filename}
-              </div>
+      <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+
+          {/* Logo + filename */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="text-blue-700 text-xl font-bold select-none shrink-0">◈</div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-700 leading-tight">Ontology Triple Grader</div>
+              <div className="text-xs text-slate-400 truncate max-w-48">{source_filename}</div>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Progress bar — hidden on small screens */}
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
             <span className="text-xs text-slate-500">
-              {gradingProgress.graded}/{gradingProgress.total} triples graded
+              {gradingProgress.graded}/{gradingProgress.total}
             </span>
-            <div className="w-32 bg-slate-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
-                style={{ width: `${gradingProgress.pct}%` }}
-              />
+            <div className="w-28 bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
             </div>
-            <span className="text-xs font-semibold text-blue-700">
-              {gradingProgress.pct}%
-            </span>
+            <span className="text-xs font-semibold text-blue-700">{gradingProgress.pct}%</span>
           </div>
 
+          {/* ── Save button + last-saved stamp ── */}
+          <div className="flex items-center gap-2 shrink-0">
+            {savedAt && (
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs text-slate-400 leading-tight">Last saved</span>
+                <span className="text-xs font-medium text-slate-500 leading-tight tabular-nums">
+                  {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col items-end">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
+              >
+                {saving ? "Saving…" : "💾 Save"}
+              </button>
+              {saveError && <span className="text-xs text-red-500 mt-0.5 max-w-28 text-right leading-tight">{saveError}</span>}
+            </div>
+          </div>
+
+          {/* ── Download split button ── */}
+          <div className="relative shrink-0" ref={dlRef}>
+            <div className="flex rounded-lg overflow-hidden shadow-sm border border-green-600">
+              {/* Main: download in selected format */}
+              <button
+                onClick={() => handleDownload()}
+                disabled={downloading || !savedSessionId}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white hover:bg-green-700 active:scale-95 transition-all disabled:opacity-40 whitespace-nowrap"
+              >
+                {downloading
+                  ? "…"
+                  : `⬇ ${DL_FORMATS.find(f => f.value === dlFmt)?.label ?? "Download"}`}
+              </button>
+              {/* Chevron: open format picker */}
+              <button
+                onClick={() => setDlOpen((o) => !o)}
+                disabled={downloading}
+                className="px-2 py-1.5 text-xs font-bold bg-green-600 text-white hover:bg-green-700 border-l border-green-500 transition-all disabled:opacity-40"
+                aria-label="Choose download format"
+              >
+                {dlOpen ? "▲" : "▼"}
+              </button>
+            </div>
+
+            {/* Dropdown */}
+            {dlOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-36 z-50">
+                {DL_FORMATS.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => { setDlFmt(f.value); handleDownload(f.value); }}
+                    className={[
+                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors",
+                      f.value === dlFmt
+                        ? "bg-green-50 text-green-700 font-semibold"
+                        : "text-slate-700 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    <span>{f.icon}</span>
+                    {f.label}
+                    {f.value === dlFmt && <span className="ml-auto text-green-500 text-xs">✔</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {dlError && (
+              <p className="absolute right-0 top-full mt-8 text-xs text-red-500 whitespace-nowrap bg-white border border-red-200 rounded-lg px-2 py-1 shadow">
+                {dlError}
+              </p>
+            )}
+          </div>
+
+          {/* ── View Online ── */}
+          <a
+            href={savedSessionId ? `http://localhost:8001/api/preview/${savedSessionId}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
+            className={[
+              "flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+              savedSessionId
+                ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50"
+                : "border-slate-200 text-slate-300 cursor-not-allowed",
+            ].join(" ")}
+            title={savedSessionId ? "Preview graded report in a new tab" : "Save the session first"}
+          >
+            👁 View
+          </a>
+
+          {/* New File */}
           <button
             onClick={onReset}
-            className="text-xs text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+            className="text-xs text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 shrink-0 whitespace-nowrap"
           >
             ✕ New File
           </button>
         </div>
+
+        {/* Inline status bar on small screens */}
+        {!savedSessionId && (
+          <div className="lg:hidden px-4 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
+              </div>
+              <span className="text-xs text-blue-700 font-semibold">{gradingProgress.pct}%</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Main content ───────────────────────────────────────────────── */}
@@ -282,45 +424,6 @@ export default function GradingForm({ uploadData, onReset }) {
             placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
             className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300"
           />
-        </div>
-
-        {/* Save & Download */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-          {/* Save panel */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">
-                Save Session
-              </h3>
-              <p className="text-xs text-slate-400 mb-4">
-                Saves all grades and suggestions to the server. You can save
-                multiple times — it will overwrite the previous save.
-              </p>
-            </div>
-            <div>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full py-2.5 px-4 rounded-xl font-semibold text-sm bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm"
-              >
-                {saving ? "Saving…" : "💾  Save Session"}
-              </button>
-              {saveMsg && (
-                <p className="mt-2 text-xs text-green-600 font-medium text-center">
-                  ✔ {saveMsg}
-                </p>
-              )}
-              {saveError && (
-                <p className="mt-2 text-xs text-red-600 text-center">
-                  {saveError}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Download panel */}
-          <DownloadPanel sessionId={savedSessionId} disabled={saving} />
         </div>
 
         <div className="h-8" />

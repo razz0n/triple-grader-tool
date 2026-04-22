@@ -1,11 +1,12 @@
-"""
+"""  
 main.py — FastAPI backend for the Ontology Triple Grading Tool.
 
 Endpoints:
-  POST /api/upload           → parse uploaded file → return session data
-  POST /api/save             → persist graded session to storage/
+  POST /api/upload              → parse uploaded file → return session data
+  POST /api/save                → persist graded session to storage/
   GET  /api/download/{id}/{fmt} → stream file in chosen format
-  GET  /api/sessions         → list saved sessions
+  GET  /api/preview/{id}        → render HTML preview of graded session
+  GET  /api/sessions            → list saved sessions
 """
 
 import json
@@ -17,7 +18,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
@@ -161,6 +162,140 @@ async def download_session(session_id: str, fmt: str):
         media_type=media_type,
         headers={"Content-Disposition": disposition},
     )
+
+
+@app.get("/api/session/{session_id}")
+async def get_session(session_id: str):
+    """Return the full saved session JSON (used by the frontend to resume a session)."""
+    if not session_id.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid session ID.")
+    json_path = STORAGE_DIR / f"{session_id}.json"
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+    with open(json_path, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+@app.get("/api/preview/{session_id}", response_class=HTMLResponse)
+async def preview_session(session_id: str):
+    """Render an HTML preview of a saved graded session (opens in browser tab)."""
+    if not session_id.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid session ID.")
+
+    json_path = STORAGE_DIR / f"{session_id}.json"
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
+
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+
+    sentences   = session.get("sentences", [])
+    filename    = session.get("source_filename", "")
+    uploaded_at = session.get("uploaded_at", "")[:16].replace("T", " ")
+
+    def grade_color(g):
+        if g is None: return "#94a3b8"
+        if g >= 7:    return "#16a34a"
+        if g >= 4:    return "#d97706"
+        return "#dc2626"
+
+    def avg_grade(s):
+        gs = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
+        if not gs: return None
+        return round(sum(gs) / len(gs), 1)
+
+    rows_html = []
+    for s in sentences:
+        avg  = avg_grade(s)
+        gc   = grade_color(avg)
+        avg_label = f"{avg}" if avg is not None else "—"
+        triple_rows = "".join(
+            f"""<tr style="background:{'#f8fafc' if i%2==0 else '#fff'}">
+              <td style="padding:5px 10px;color:#64748b;font-size:12px;">{i+1}</td>
+              <td style="padding:5px 10px;font-size:12px;">{t.get('subject','')}</td>
+              <td style="padding:5px 10px;font-size:12px;">{t.get('predicate','')}</td>
+              <td style="padding:5px 10px;font-size:12px;">{t.get('object','')}</td>
+              <td style="padding:5px 10px;text-align:center;font-weight:600;font-size:13px;color:{grade_color(t.get('grade'))}">{t.get('grade') if t.get('grade') is not None else '—'}</td>
+            </tr>"""
+            for i, t in enumerate(s.get("triples", []))
+        )
+        suggestion = s.get("suggestion", "").strip()
+        sug_html = f'<p style="margin:8px 0 0;font-size:12px;color:#64748b;"><em>💬 {suggestion}</em></p>' if suggestion else ""
+        rows_html.append(f"""
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+            <div style="background:#1e3a5f;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;font-weight:600;">Sentence {s['id']}</span>
+              <span style="font-size:18px;font-weight:700;color:{gc};background:rgba(255,255,255,.15);border-radius:8px;padding:2px 10px;">{avg_label}<span style="font-size:11px;font-weight:400;"> / 10</span></span>
+            </div>
+            <div style="padding:12px 16px 4px;">
+              <p style="margin:0 0 10px;font-size:14px;color:#1e293b;line-height:1.6;border-left:3px solid #93c5fd;padding-left:10px;">{s.get('text','')}</p>
+              {sug_html}
+            </div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#dbeafe;">
+                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">#</th>
+                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Subject</th>
+                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Predicate</th>
+                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Object</th>
+                  <th style="padding:6px 10px;font-size:11px;text-align:center;color:#1e3a5f;">Grade</th>
+                </tr></thead>
+                <tbody>{triple_rows}</tbody>
+              </table>
+            </div>
+          </div>
+        """)
+
+    body = "\n".join(rows_html)
+    total_triples = sum(len(s.get("triples", [])) for s in sentences)
+    graded_triples = sum(
+        sum(1 for t in s.get("triples", []) if t.get("grade") is not None)
+        for s in sentences
+    )
+    overall_grades = [t["grade"] for s in sentences for t in s.get("triples", []) if t.get("grade") is not None]
+    overall_avg = round(sum(overall_grades) / len(overall_grades), 1) if overall_grades else None
+    overall_label = str(overall_avg) if overall_avg is not None else "—"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview — {filename}</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; }}
+    body {{ margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background:#f1f5f9; color:#1e293b; }}
+    .topbar {{ background:#1e3a5f; color:#fff; padding:14px 24px;
+               display:flex; justify-content:space-between; align-items:center;
+               position:sticky; top:0; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,.2); }}
+    .topbar h1 {{ margin:0; font-size:16px; font-weight:700; }}
+    .topbar p  {{ margin:0; font-size:11px; opacity:.7; }}
+    .stats {{ display:flex; gap:18px; text-align:right; }}
+    .stat-val {{ font-size:20px; font-weight:700; line-height:1; }}
+    .stat-lbl {{ font-size:10px; opacity:.7; }}
+    .container {{ max-width:900px; margin:24px auto; padding:0 16px 40px; }}
+    @media print {{ .topbar {{ position:static; }} }}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>📊 Ontology Triple Grading — Preview</h1>
+      <p>{filename} &nbsp;&bull;&nbsp; Saved {uploaded_at}</p>
+    </div>
+    <div class="stats">
+      <div><div class="stat-val">{len(sentences)}</div><div class="stat-lbl">Sentences</div></div>
+      <div><div class="stat-val">{graded_triples}/{total_triples}</div><div class="stat-lbl">Triples graded</div></div>
+      <div><div class="stat-val" style="color:#86efac;">{overall_label}</div><div class="stat-lbl">Overall avg</div></div>
+    </div>
+  </div>
+  <div class="container">
+    {body}
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/sessions")

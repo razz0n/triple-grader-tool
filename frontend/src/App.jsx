@@ -19,16 +19,27 @@ export default function App() {
     setGradingData(cleanedData);
   };
 
+  // Resume a previously saved session — skip upload + review entirely
+  const handleLoadSession = (session) => {
+    setGradingData({ ...session, resumed: true });
+    setUploadData(null);
+  };
+
   const handleReset = () => {
     setUploadData(null);
     setGradingData(null);
   };
 
-  if (!uploadData) {
-    return <FileUpload onUploadSuccess={handleUploadSuccess} />;
+  if (!uploadData && !gradingData) {
+    return (
+      <FileUpload
+        onUploadSuccess={handleUploadSuccess}
+        onLoadSession={handleLoadSession}
+      />
+    );
   }
 
-  if (!gradingData) {
+  if (uploadData && !gradingData) {
     return (
       <ReviewStep
         uploadData={uploadData}

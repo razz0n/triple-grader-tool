@@ -72,3 +72,13 @@ export async function listSessions() {
   const { data } = await API.get("/api/sessions");
   return data;
 }
+
+/**
+ * Load a full saved session by ID (used to resume a previous session).
+ * @param {string} sessionId
+ * @returns {Promise<object>}
+ */
+export async function loadSession(sessionId) {
+  const { data } = await API.get(`/api/session/${sessionId}`);
+  return data;
+}

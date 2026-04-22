@@ -1,12 +1,42 @@
 // FileUpload.jsx — Drag-and-drop / click file uploader
 
-import { useCallback, useState } from "react";
-import { uploadFile } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { uploadFile, listSessions, loadSession } from "../api";
 
-export default function FileUpload({ onUploadSuccess }) {
+export default function FileUpload({ onUploadSuccess, onLoadSession }) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+
+  const [sessions, setSessions]       = useState([]);
+  const [resuming, setResuming]       = useState(null); // session_id being loaded
+  const [resumeError, setResumeError] = useState("");
+
+  // Fetch saved sessions on mount
+  useEffect(() => {
+    listSessions()
+      .then((list) => {
+        // Sort newest first by uploaded_at
+        const sorted = [...list].sort((a, b) =>
+          b.uploaded_at.localeCompare(a.uploaded_at)
+        );
+        setSessions(sorted);
+      })
+      .catch(() => {}); // silently ignore if backend not ready
+  }, []);
+
+  const handleResume = async (sessionId) => {
+    setResumeError("");
+    setResuming(sessionId);
+    try {
+      const session = await loadSession(sessionId);
+      onLoadSession(session);
+    } catch (e) {
+      setResumeError(e?.response?.data?.detail || "Failed to load session.");
+    } finally {
+      setResuming(null);
+    }
+  };
 
   const processFile = useCallback(
     async (file) => {
@@ -126,6 +156,52 @@ export default function FileUpload({ onUploadSuccess }) {
             • Groups are separated by blank rows or ======= divider lines
           </p>
         </div>
+
+        {/* ── Recent Sessions ── */}
+        {sessions.length > 0 && (
+          <div className="mt-6">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Recent Sessions
+            </p>
+            <div className="space-y-2">
+              {sessions.slice(0, 5).map((s) => {
+                const dateStr = s.uploaded_at
+                  ? new Date(s.uploaded_at + "Z").toLocaleString([], {
+                      month: "short", day: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })
+                  : "";
+                const isLoading = resuming === s.session_id;
+                return (
+                  <div
+                    key={s.session_id}
+                    className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:border-blue-300 hover:bg-blue-50/30 transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-700 truncate">
+                        {s.source_filename}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {s.total_sentences} sentences
+                        {dateStr && <> &bull; {dateStr}</>}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleResume(s.session_id)}
+                      disabled={!!resuming}
+                      className="ml-3 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isLoading ? "Loading…" : "▶ Resume"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {resumeError && (
+              <p className="mt-2 text-xs text-red-600">⚠ {resumeError}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
