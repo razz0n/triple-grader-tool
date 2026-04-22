@@ -230,7 +230,7 @@ export default function GradingForm({ uploadData, onReset }) {
               >
                 {downloading
                   ? "…"
-                  : `⬇ ${DL_FORMATS.find(f => f.value === dlFmt)?.label ?? "Download"}`}
+                  : "⬇ Download"}
               </button>
               {/* Chevron: open format picker */}
               <button
@@ -249,7 +249,7 @@ export default function GradingForm({ uploadData, onReset }) {
                 {DL_FORMATS.map((f) => (
                   <button
                     key={f.value}
-                    onClick={() => { setDlFmt(f.value); handleDownload(f.value); }}
+                    onClick={() => { setDlFmt(f.value); setDlOpen(false); }}
                     className={[
                       "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors",
                       f.value === dlFmt
