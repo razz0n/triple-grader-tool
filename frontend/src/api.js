@@ -41,8 +41,7 @@ API.interceptors.response.use(
 
 export async function registerUser(name, email, password) {
   const { data } = await API.post("/api/auth/register", { name, email, password });
-  setAuthToken(data.access_token);
-  return data.user;
+  return data;
 }
 
 export async function loginUser(email, password) {

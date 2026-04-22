@@ -9,6 +9,7 @@ export default function AuthPanel({ onAuthenticated }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const emailTrimmed = email.trim();
@@ -25,6 +26,7 @@ export default function AuthPanel({ onAuthenticated }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    setInfo("");
     if (!isEmailValid) {
       setError("Please enter a valid email address.");
       return;
@@ -42,11 +44,16 @@ export default function AuthPanel({ onAuthenticated }) {
     setLoading(true);
     setError("");
     try {
-      const user =
-        mode === "login"
-          ? await loginUser(email, password)
-          : await registerUser(name.trim(), email, password);
-      onAuthenticated(user);
+      if (mode === "login") {
+        const user = await loginUser(email, password);
+        onAuthenticated(user);
+      } else {
+        await registerUser(name.trim(), email, password);
+        setMode("login");
+        setPassword("");
+        setConfirmPassword("");
+        setInfo("Account created successfully. Please log in.");
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Authentication failed.");
     } finally {
@@ -70,7 +77,10 @@ export default function AuthPanel({ onAuthenticated }) {
         <div className="flex rounded-xl bg-slate-100 p-1 mb-4">
           <button
             type="button"
-            onClick={() => setMode("login")}
+            onClick={() => {
+              setMode("login");
+              setError("");
+            }}
             className={[
               "flex-1 text-sm font-semibold rounded-lg py-2 transition-colors",
               mode === "login" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500",
@@ -80,7 +90,11 @@ export default function AuthPanel({ onAuthenticated }) {
           </button>
           <button
             type="button"
-            onClick={() => setMode("register")}
+            onClick={() => {
+              setMode("register");
+              setError("");
+              setInfo("");
+            }}
             className={[
               "flex-1 text-sm font-semibold rounded-lg py-2 transition-colors",
               mode === "register" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500",
@@ -146,6 +160,7 @@ export default function AuthPanel({ onAuthenticated }) {
             </div>
           )}
 
+          {info && <p className="text-xs text-green-700">{info}</p>}
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           <button

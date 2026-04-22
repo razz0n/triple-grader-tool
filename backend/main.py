@@ -246,10 +246,9 @@ async def register(body: RegisterRequest):
     users_data["users"].append(user)
     _save_users(users_data)
 
-    token = _issue_token(user["id"])
     return {
-        "access_token": token,
-        "token_type": "bearer",
+        "ok": True,
+        "message": "Account created successfully. Please log in.",
         "user": {"id": user["id"], "name": _display_name(user), "email": user["email"]},
     }
 
