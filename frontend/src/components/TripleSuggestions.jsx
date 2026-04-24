@@ -1,10 +1,11 @@
 // TripleSuggestions.jsx — Displays suggestions for a triple with voting
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function TripleSuggestions({ 
   triple, 
   onAddSuggestion, 
+  onEditSuggestion,
   onVote,
   onVoteSuggestion,
   onDeleteSuggestion,
@@ -21,6 +22,17 @@ export default function TripleSuggestions({
     object: "",
     reason: "",
   });
+  const [editingSuggestionId, setEditingSuggestionId] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    subject: "",
+    predicate: "",
+    object: "",
+    reason: "",
+  });
+  const [focusField, setFocusField] = useState(null);
+  const subjectInputRef = useRef(null);
+  const predicateInputRef = useRef(null);
+  const objectInputRef = useRef(null);
 
   const handleQuickCopy = (type) => {
     // Copy full triple, but clear the clicked field so user can edit that part.
@@ -31,6 +43,7 @@ export default function TripleSuggestions({
       reason: "",
       [type]: "",
     });
+    setFocusField(type);
     setShowForm(true);
   };
 
@@ -58,6 +71,40 @@ export default function TripleSuggestions({
     return Object.values(votes || {}).filter(v => v === voteType).length;
   };
 
+  const startEditSuggestion = (sug) => {
+    setEditingSuggestionId(sug.id);
+    setEditFormData({
+      subject: sug.subject || "",
+      predicate: sug.predicate || "",
+      object: sug.object || "",
+      reason: sug.reason || "",
+    });
+  };
+
+  const cancelEditSuggestion = () => {
+    setEditingSuggestionId(null);
+    setEditFormData({ subject: "", predicate: "", object: "", reason: "" });
+  };
+
+  const saveEditSuggestion = async (suggestionId) => {
+    if (!editFormData.subject || !editFormData.predicate || !editFormData.object) {
+      alert("Please fill in all triple fields");
+      return;
+    }
+
+    try {
+      await onEditSuggestion?.(suggestionId, {
+        subject: editFormData.subject,
+        predicate: editFormData.predicate,
+        object: editFormData.object,
+        reason: editFormData.reason,
+      });
+      cancelEditSuggestion();
+    } catch (err) {
+      alert("Failed to edit suggestion: " + err.message);
+    }
+  };
+
   useEffect(() => {
     const onTripleCopy = (event) => {
       const { tripleId, field, action } = event.detail || {};
@@ -74,6 +121,19 @@ export default function TripleSuggestions({
     window.addEventListener("triple-copy", onTripleCopy);
     return () => window.removeEventListener("triple-copy", onTripleCopy);
   }, [triple.id, subject, predicate, object]);
+
+  useEffect(() => {
+    if (!showForm || !focusField) return;
+    const targetRef =
+      focusField === "subject"
+        ? subjectInputRef
+        : focusField === "predicate"
+        ? predicateInputRef
+        : objectInputRef;
+    targetRef.current?.focus();
+    targetRef.current?.select();
+    setFocusField(null);
+  }, [showForm, focusField]);
 
   if (!showForm && suggestions.length === 0) {
     return null;
@@ -96,6 +156,7 @@ export default function TripleSuggestions({
           <div className="text-xs font-semibold text-slate-600 mb-2">Add Triple Suggestion</div>
           <input
             type="text"
+            ref={subjectInputRef}
             value={formData.subject}
             onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
             placeholder="Subject"
@@ -103,6 +164,7 @@ export default function TripleSuggestions({
           />
           <input
             type="text"
+            ref={predicateInputRef}
             value={formData.predicate}
             onChange={(e) => setFormData(prev => ({ ...prev, predicate: e.target.value }))}
             placeholder="Predicate"
@@ -110,6 +172,7 @@ export default function TripleSuggestions({
           />
           <input
             type="text"
+            ref={objectInputRef}
             value={formData.object}
             onChange={(e) => setFormData(prev => ({ ...prev, object: e.target.value }))}
             placeholder="Object"
@@ -147,36 +210,93 @@ export default function TripleSuggestions({
           <div className="text-xs font-semibold text-slate-600">Suggestions ({suggestions.length})</div>
           {suggestions.map((sug) => {
             const canDelete = sug.author === displayUserName;
+            const isEditing = editingSuggestionId === sug.id;
             return (
               <div key={sug.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs">
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-medium text-blue-800">By {sug.author}</span>
-                  {canDelete && (
-                    <button
-                      onClick={() => onDeleteSuggestion(sug.id)}
-                      className="text-red-600 hover:text-red-700 font-bold"
-                    >
-                      ✕
-                    </button>
+                  {canDelete && !isEditing && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditSuggestion(sug)}
+                        className="text-blue-600 hover:text-blue-700 font-semibold"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => onDeleteSuggestion(sug.id)}
+                        className="text-red-600 hover:text-red-700 font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   )}
                 </div>
-                
-                <div className="flex flex-wrap gap-1 mb-1">
-                  <span className="inline-flex px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300">
-                    {sug.subject}
-                  </span>
-                  <span className="text-slate-400">→</span>
-                  <span className="inline-flex px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-300">
-                    {sug.predicate}
-                  </span>
-                  <span className="text-slate-400">→</span>
-                  <span className="inline-flex px-2 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-300">
-                    {sug.object}
-                  </span>
-                </div>
 
-                {sug.reason && (
-                  <div className="text-slate-600 italic mb-1">"{sug.reason}"</div>
+                {isEditing ? (
+                  <div className="space-y-2 mb-2">
+                    <input
+                      type="text"
+                      value={editFormData.subject}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, subject: e.target.value }))}
+                      placeholder="Subject"
+                      className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    />
+                    <input
+                      type="text"
+                      value={editFormData.predicate}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, predicate: e.target.value }))}
+                      placeholder="Predicate"
+                      className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <input
+                      type="text"
+                      value={editFormData.object}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, object: e.target.value }))}
+                      placeholder="Object"
+                      className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    />
+                    <textarea
+                      value={editFormData.reason}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, reason: e.target.value }))}
+                      placeholder="Reason (optional)"
+                      className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 h-12 resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={cancelEditSuggestion}
+                        className="px-2 py-1 text-xs bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => saveEditSuggestion(sug.id)}
+                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Save Edit
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      <span className="inline-flex px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300">
+                        {sug.subject}
+                      </span>
+                      <span className="text-slate-400">→</span>
+                      <span className="inline-flex px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-300">
+                        {sug.predicate}
+                      </span>
+                      <span className="text-slate-400">→</span>
+                      <span className="inline-flex px-2 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-300">
+                        {sug.object}
+                      </span>
+                    </div>
+
+                    {sug.reason && (
+                      <div className="text-slate-600 italic mb-1">"{sug.reason}"</div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex gap-2 items-center">

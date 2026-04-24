@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import TripleSuggestions from "./TripleSuggestions";
-import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion } from "../api";
+import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
@@ -151,7 +151,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     }
     try {
       const sessionId = savedSessionId || initialSessionId;
-      await addSuggestion(
+      const result = await addSuggestion(
         sessionId,
         current.id,
         tripleId,
@@ -175,7 +175,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                         suggestions: [
                           ...(t.suggestions || []),
                           {
-                            id: Math.random().toString(36).substr(2, 9),
+                            id: result?.suggestion_id || Math.random().toString(36).substr(2, 9),
                             author: currentUser?.name || "user",
                             subject: suggestionData.subject,
                             predicate: suggestionData.predicate,
@@ -198,6 +198,57 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     }
   };
 
+  const handleEditSuggestion = async (tripleId, suggestionId, suggestionData) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    try {
+      const sessionId = savedSessionId || initialSessionId;
+      await editSuggestion(
+        sessionId,
+        current.id,
+        tripleId,
+        suggestionId,
+        suggestionData.subject,
+        suggestionData.predicate,
+        suggestionData.object,
+        suggestionData.reason
+      );
+
+      setSentences((prev) =>
+        prev.map((s, i) =>
+          i !== currentIdx
+            ? s
+            : {
+                ...s,
+                triples: s.triples.map((t) =>
+                  t.id === tripleId
+                    ? {
+                        ...t,
+                        suggestions: (t.suggestions || []).map((sug) =>
+                          sug.id === suggestionId
+                            ? {
+                                ...sug,
+                                subject: suggestionData.subject,
+                                predicate: suggestionData.predicate,
+                                object: suggestionData.object,
+                                reason: suggestionData.reason || "",
+                              }
+                            : sug
+                        ),
+                      }
+                    : t
+                ),
+              }
+        )
+      );
+      hasUnsavedChangesRef.current = true;
+    } catch (err) {
+      console.error("Error editing suggestion:", err);
+      throw err;
+    }
+  };
+
   const handleVoteSuggestion = async (tripleId, suggestionId, vote) => {
     // Ensure session is saved before voting
     if (!savedSessionId) {
@@ -205,12 +256,17 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     }
     try {
       const sessionId = savedSessionId || initialSessionId;
+      const targetTriple = current.triples.find((t) => t.id === tripleId);
+      const targetSuggestion = targetTriple?.suggestions?.find((sug) => sug.id === suggestionId);
+      const currentUserName = currentUser?.name || "user";
+      const existingVote = targetSuggestion?.votes?.[currentUserName] || null;
+      const nextVote = existingVote === vote ? null : vote;
       await voteOnSuggestion(
         sessionId,
         current.id,
         tripleId,
         suggestionId,
-        vote
+        nextVote
       );
       
       // Update local state with the vote
@@ -228,10 +284,15 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                           sug.id === suggestionId
                             ? {
                                 ...sug,
-                                votes: {
-                                  ...sug.votes,
-                                  [currentUser?.name || "user"]: vote,
-                                },
+                                votes: (() => {
+                                  const updatedVotes = { ...(sug.votes || {}) };
+                                  if (updatedVotes[currentUserName] === vote) {
+                                    delete updatedVotes[currentUserName];
+                                  } else {
+                                    updatedVotes[currentUserName] = vote;
+                                  }
+                                  return updatedVotes;
+                                })(),
                               }
                             : sug
                         ),
@@ -667,6 +728,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                   triple={triple}
                   currentUser={currentUser}
                   onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
+                  onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
                   onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
                   onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
                 />

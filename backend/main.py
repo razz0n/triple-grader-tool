@@ -564,7 +564,18 @@ class VoteRequest(BaseModel):
     sentence_id: int
     triple_id: str
     suggestion_id: str
-    vote: str  # "yes", "no", or a numeric grade
+    vote: Optional[str] = None  # "yes", "no", numeric grade, or null to clear
+
+
+class EditSuggestionRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    suggestion_id: str
+    subject: str
+    predicate: str
+    object: str
+    reason: Optional[str] = None
 
 
 @app.post("/api/suggestions/add")
@@ -647,15 +658,50 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found.")
     
-    # Record vote
+    # Record or clear vote (toggle support)
     if "votes" not in suggestion:
         suggestion["votes"] = {}
-    suggestion["votes"][user_name] = body.vote
+    existing_vote = suggestion["votes"].get(user_name)
+    if body.vote is None or body.vote == "" or existing_vote == body.vote:
+        suggestion["votes"].pop(user_name, None)
+    else:
+        suggestion["votes"][user_name] = body.vote
     
     with open(json_path, "w", encoding="utf-8") as fh:
         json.dump(session, fh, indent=2, ensure_ascii=False)
     
     return {"ok": True}
+
+
+@app.post("/api/suggestions/edit")
+async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+    """Edit a suggestion (only the author can edit)."""
+    user_name = _display_name(user)
+    json_path = _session_path_for_user(user["id"], body.session_id)
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    for sug in t.get("suggestions", []):
+                        if sug.get("id") == body.suggestion_id:
+                            if sug.get("author") != user_name:
+                                raise HTTPException(status_code=403, detail="Only the author can edit this suggestion.")
+                            sug["subject"] = body.subject
+                            sug["predicate"] = body.predicate
+                            sug["object"] = body.object
+                            sug["reason"] = body.reason or ""
+                            sug["updated_at"] = datetime.utcnow().isoformat()
+                            with open(json_path, "w", encoding="utf-8") as out:
+                                json.dump(session, out, indent=2, ensure_ascii=False)
+                            return {"ok": True}
+
+    raise HTTPException(status_code=404, detail="Suggestion not found.")
 
 
 @app.delete("/api/suggestions/{session_id}/{sentence_id}/{triple_id}/{suggestion_id}")

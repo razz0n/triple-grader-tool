@@ -187,6 +187,32 @@ export async function voteOnSuggestion(sessionId, sentenceId, tripleId, suggesti
 }
 
 /**
+ * Edit a suggestion.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @param {string} subject
+ * @param {string} predicate
+ * @param {string} object
+ * @param {string} reason
+ * @returns {Promise<{ok}>}
+ */
+export async function editSuggestion(sessionId, sentenceId, tripleId, suggestionId, subject, predicate, object, reason = "") {
+  const { data } = await API.post("/api/suggestions/edit", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    suggestion_id: suggestionId,
+    subject,
+    predicate,
+    object,
+    reason,
+  });
+  return data;
+}
+
+/**
  * Delete a suggestion.
  * @param {string} sessionId
  * @param {number} sentenceId
