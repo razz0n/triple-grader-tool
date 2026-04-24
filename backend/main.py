@@ -78,6 +78,8 @@ def _load_json(path: Path, default: Any):
 def _save_json(path: Path, data: Any):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
+        fh.flush()
+        os.fsync(fh.fileno())  # Force write to disk immediately
 
 
 def _norm_email(email: str) -> str:
