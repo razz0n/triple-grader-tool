@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
-import { saveSession, downloadSession, getAuthToken } from "../api";
+import TripleSuggestions from "./TripleSuggestions";
+import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
-export default function GradingForm({ uploadData, onReset }) {
+export default function GradingForm({ uploadData, onReset, currentUser }) {
   const {
     session_id: initialSessionId,
     source_filename,
@@ -20,7 +21,14 @@ export default function GradingForm({ uploadData, onReset }) {
     initialSentences.map((s) => ({
       ...s,
       suggestion: s.suggestion || "",
-      triples: s.triples.map((t) => ({ ...t, grade: t.grade ?? null })),
+      triples: s.triples.map((t) => ({ 
+        ...t, 
+        grade: t.grade ?? null,
+        completeness: t.completeness ?? null,
+        relation: t.relation ?? 10,
+        author: t.author || null,
+        suggestions: t.suggestions || [],
+      })),
     }))
   );
 
@@ -97,11 +105,171 @@ export default function GradingForm({ uploadData, onReset }) {
     );
   };
 
+  const handleCompletenessChange = (tripleId, completeness) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId ? { ...t, completeness } : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleRelationChange = (tripleId, relation) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId ? { ...t, relation } : t
+              ),
+            }
+      )
+    );
+  };
+
   const handleSuggestionChange = (value) => {
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) => (i === currentIdx ? { ...s, suggestion: value } : s))
     );
+  };
+
+  const handleAddSuggestion = async (tripleId, suggestionData) => {
+    try {
+      await addSuggestion(
+        savedSessionId || initialSessionId,
+        current.id,
+        tripleId,
+        suggestionData.subject,
+        suggestionData.predicate,
+        suggestionData.object,
+        suggestionData.reason
+      );
+      
+      // Update local state with the new suggestion
+      setSentences((prev) =>
+        prev.map((s, i) =>
+          i !== currentIdx
+            ? s
+            : {
+                ...s,
+                triples: s.triples.map((t) =>
+                  t.id === tripleId
+                    ? {
+                        ...t,
+                        suggestions: [
+                          ...(t.suggestions || []),
+                          {
+                            id: Math.random().toString(36).substr(2, 9),
+                            author: currentUser?.name || "user",
+                            subject: suggestionData.subject,
+                            predicate: suggestionData.predicate,
+                            object: suggestionData.object,
+                            reason: suggestionData.reason || "",
+                            created_at: new Date().toISOString(),
+                            votes: {},
+                          },
+                        ],
+                      }
+                    : t
+                ),
+              }
+        )
+      );
+      hasUnsavedChangesRef.current = true;
+    } catch (err) {
+      console.error("Error adding suggestion:", err);
+      throw err;
+    }
+  };
+
+  const handleVoteSuggestion = async (tripleId, suggestionId, vote) => {
+    try {
+      await voteOnSuggestion(
+        savedSessionId || initialSessionId,
+        current.id,
+        tripleId,
+        suggestionId,
+        vote
+      );
+      
+      // Update local state with the vote
+      setSentences((prev) =>
+        prev.map((s, i) =>
+          i !== currentIdx
+            ? s
+            : {
+                ...s,
+                triples: s.triples.map((t) =>
+                  t.id === tripleId
+                    ? {
+                        ...t,
+                        suggestions: t.suggestions.map((sug) =>
+                          sug.id === suggestionId
+                            ? {
+                                ...sug,
+                                votes: {
+                                  ...sug.votes,
+                                  [currentUser?.name || "user"]: vote,
+                                },
+                              }
+                            : sug
+                        ),
+                      }
+                    : t
+                ),
+              }
+        )
+      );
+      hasUnsavedChangesRef.current = true;
+    } catch (err) {
+      console.error("Error voting on suggestion:", err);
+      throw err;
+    }
+  };
+
+  const handleDeleteSuggestion = async (tripleId, suggestionId) => {
+    try {
+      await deleteSuggestion(
+        savedSessionId || initialSessionId,
+        current.id,
+        tripleId,
+        suggestionId
+      );
+      
+      // Update local state by removing the suggestion
+      setSentences((prev) =>
+        prev.map((s, i) =>
+          i !== currentIdx
+            ? s
+            : {
+                ...s,
+                triples: s.triples.map((t) =>
+                  t.id === tripleId
+                    ? {
+                        ...t,
+                        suggestions: t.suggestions.filter((sug) => sug.id !== suggestionId),
+                      }
+                    : t
+                ),
+              }
+        )
+      );
+      hasUnsavedChangesRef.current = true;
+    } catch (err) {
+      console.error("Error deleting suggestion:", err);
+      throw err;
+    }
   };
 
   const buildPayload = () => ({
@@ -192,6 +360,52 @@ export default function GradingForm({ uploadData, onReset }) {
       setSaving(false);
     }
   };
+
+  const DL_FORMATS = [
+    { value: "pdf",   label: "PDF",   icon: "📄" },
+    { value: "word",  label: "Word",  icon: "📝" },
+    { value: "excel", label: "Excel", icon: "📊" },
+    { value: "csv",   label: "CSV",   icon: "⊞" },
+    { value: "json",  label: "JSON",  icon: "{}" },
+  ];
+
+  const handleDownload = async (fmt) => {
+    const target = fmt || dlFmt;
+    setDlOpen(false);
+    setDlError("");
+    if (!savedSessionId) {
+      setDlError("Save the session first.");
+      return;
+    }
+    setDownloading(true);
+    try {
+      await downloadSession(savedSessionId, target);
+    } catch (e) {
+      setDlError(e?.message || "Download failed.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const gradeColor =
+    sentenceGrade === null
+      ? "text-slate-400"
+      : sentenceGrade === "partial"
+      ? "text-amber-600"
+      : parseFloat(sentenceGrade) >= 7
+      ? "text-green-700"
+      : parseFloat(sentenceGrade) >= 4
+      ? "text-amber-600"
+      : "text-red-600";
+
+  const previewHref = useMemo(() => {
+    if (!savedSessionId) return undefined;
+    const token = getAuthToken();
+    if (!token) return `/api/preview/${savedSessionId}`;
+    return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}`;
+  }, [savedSessionId]);
+
+  return (
 
   const DL_FORMATS = [
     { value: "pdf",   label: "PDF",   icon: "📄" },
@@ -469,12 +683,25 @@ export default function GradingForm({ uploadData, onReset }) {
           </h2>
           <div className="space-y-3">
             {current.triples.map((triple) => (
-              <TripleCard
-                key={triple.id}
-                triple={triple}
-                grade={triple.grade}
-                onChange={(grade) => handleGradeChange(triple.id, grade)}
-              />
+              <div key={triple.id}>
+                <TripleCard
+                  triple={triple}
+                  grade={triple.grade}
+                  completeness={triple.completeness}
+                  relation={triple.relation}
+                  author={triple.author}
+                  onChange={(grade) => handleGradeChange(triple.id, grade)}
+                  onCompletenessChange={(completeness) => handleCompletenessChange(triple.id, completeness)}
+                  onRelationChange={(relation) => handleRelationChange(triple.id, relation)}
+                />
+                <TripleSuggestions
+                  triple={triple}
+                  currentUser={currentUser}
+                  onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
+                  onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
+                  onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
+                />
+              </div>
             ))}
           </div>
         </div>

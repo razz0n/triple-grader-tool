@@ -141,3 +141,60 @@ export async function loadSession(sessionId) {
   const { data } = await API.get(`/api/session/${sessionId}`);
   return data;
 }
+
+/**
+ * Add a suggestion to a triple.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} subject
+ * @param {string} predicate
+ * @param {string} object
+ * @param {string} reason
+ * @returns {Promise<{suggestion_id, ok}>}
+ */
+export async function addSuggestion(sessionId, sentenceId, tripleId, subject, predicate, object, reason = "") {
+  const { data } = await API.post("/api/suggestions/add", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    subject,
+    predicate,
+    object,
+    reason,
+  });
+  return data;
+}
+
+/**
+ * Vote on a suggestion.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @param {string} vote
+ * @returns {Promise<{ok}>}
+ */
+export async function voteOnSuggestion(sessionId, sentenceId, tripleId, suggestionId, vote) {
+  const { data } = await API.post("/api/suggestions/vote", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    suggestion_id: suggestionId,
+    vote,
+  });
+  return data;
+}
+
+/**
+ * Delete a suggestion.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @returns {Promise<{ok}>}
+ */
+export async function deleteSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
+  const { data } = await API.delete(`/api/suggestions/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}`);
+  return data;
+}
