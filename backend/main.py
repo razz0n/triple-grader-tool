@@ -546,6 +546,154 @@ async def health():
 
 
 # ---------------------------------------------------------------------------
+# Suggestion and voting endpoints
+# ---------------------------------------------------------------------------
+
+class TripleSuggestionRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    subject: str
+    predicate: str
+    object: str
+    reason: Optional[str] = None
+
+
+class VoteRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    suggestion_id: str
+    vote: str  # "yes", "no", or a numeric grade
+
+
+@app.post("/api/suggestions/add")
+async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+    """Add a suggested triple edit."""
+    user_name = _display_name(user)
+    json_path = _session_path_for_user(user["id"], body.session_id)
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+    
+    # Find the sentence and triple
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    triple = t
+                    break
+            break
+    
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+    
+    # Create suggestion
+    suggestion_id = str(uuid.uuid4())
+    suggestion = {
+        "id": suggestion_id,
+        "author": user_name,
+        "subject": body.subject,
+        "predicate": body.predicate,
+        "object": body.object,
+        "reason": body.reason or "",
+        "created_at": datetime.utcnow().isoformat(),
+        "votes": {},
+    }
+    
+    if "suggestions" not in triple:
+        triple["suggestions"] = []
+    triple["suggestions"].append(suggestion)
+    
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump(session, fh, indent=2, ensure_ascii=False)
+    
+    return {"suggestion_id": suggestion_id, "ok": True}
+
+
+@app.post("/api/suggestions/vote")
+async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_current_user)):
+    """Vote on a suggested triple edit."""
+    user_name = _display_name(user)
+    json_path = _session_path_for_user(user["id"], body.session_id)
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+    
+    # Find the sentence, triple, and suggestion
+    sentence = None
+    triple = None
+    suggestion = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    triple = t
+                    for sug in t.get("suggestions", []):
+                        if sug.get("id") == body.suggestion_id:
+                            suggestion = sug
+                            break
+                    break
+            break
+    
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found.")
+    
+    # Record vote
+    if "votes" not in suggestion:
+        suggestion["votes"] = {}
+    suggestion["votes"][user_name] = body.vote
+    
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump(session, fh, indent=2, ensure_ascii=False)
+    
+    return {"ok": True}
+
+
+@app.delete("/api/suggestions/{session_id}/{sentence_id}/{triple_id}/{suggestion_id}")
+async def delete_suggestion(
+    session_id: str,
+    sentence_id: int,
+    triple_id: str,
+    suggestion_id: str,
+    user: Dict[str, Any] = Depends(_current_user)
+):
+    """Delete a suggestion (only the author can delete)."""
+    user_name = _display_name(user)
+    json_path = _session_path_for_user(user["id"], session_id)
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+    
+    # Find and delete the suggestion
+    for s in session.get("sentences", []):
+        if s.get("id") == sentence_id:
+            for t in s.get("triples", []):
+                if t.get("id") == triple_id:
+                    suggestions = t.get("suggestions", [])
+                    for i, sug in enumerate(suggestions):
+                        if sug.get("id") == suggestion_id:
+                            if sug.get("author") != user_name:
+                                raise HTTPException(status_code=403, detail="Only the author can delete this suggestion.")
+                            suggestions.pop(i)
+                            with open(json_path, "w", encoding="utf-8") as fh:
+                                json.dump(session, fh, indent=2, ensure_ascii=False)
+                            return {"ok": True}
+    
+    raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+
+# ---------------------------------------------------------------------------
 # Serve the React build in production
 # Mount AFTER all API routes so /api/* is never intercepted.
 # ---------------------------------------------------------------------------
