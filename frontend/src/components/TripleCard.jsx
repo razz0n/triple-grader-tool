@@ -2,6 +2,13 @@
 
 export default function TripleCard({ triple, grade, completeness, relation, author, onChange, onCompletenessChange, onRelationChange }) {
   const { subject, predicate, object } = triple;
+  const emitTripleCopy = (field) => {
+    window.dispatchEvent(
+      new CustomEvent("triple-copy", {
+        detail: { tripleId: triple.id, field },
+      })
+    );
+  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -16,17 +23,46 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
 
       {/* Subject → Predicate → Object badges */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+        <button
+          type="button"
+          onClick={() => emitTripleCopy("subject")}
+          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition-colors"
+          title="Copy subject into suggestion form"
+        >
           {subject}
-        </span>
+        </button>
         <span className="text-slate-400 font-bold text-lg">→</span>
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+        <button
+          type="button"
+          onClick={() => emitTripleCopy("predicate")}
+          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-200 hover:bg-indigo-200 transition-colors"
+          title="Copy predicate into suggestion form"
+        >
           {predicate}
-        </span>
+        </button>
         <span className="text-slate-400 font-bold text-lg">→</span>
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-teal-100 text-teal-800 border border-teal-200">
+        <button
+          type="button"
+          onClick={() => emitTripleCopy("object")}
+          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-teal-100 text-teal-800 border border-teal-200 hover:bg-teal-200 transition-colors"
+          title="Copy object into suggestion form"
+        >
           {object}
-        </span>
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent("triple-copy", {
+                detail: { tripleId: triple.id, action: "new" },
+              })
+            )
+          }
+          className="ml-auto px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors font-medium"
+          title="Create a new suggestion"
+        >
+          + New Suggestion
+        </button>
       </div>
 
       {/* Quality Grades Section */}
@@ -79,7 +115,7 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
                     : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
                 ].join(" ")}
               >
-                {n === 10 ? "✓" : n}
+                {n}
               </button>
             ))}
           </div>
@@ -110,7 +146,7 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
                     : "bg-white text-slate-600 border-slate-300 hover:bg-purple-50 hover:border-purple-400",
                 ].join(" ")}
               >
-                {n === 10 ? "✓" : n}
+                {n}
               </button>
             ))}
           </div>

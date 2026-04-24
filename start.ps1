@@ -1,4 +1,4 @@
-# start.ps1 — Launch the Ontology Triple Grader (backend + frontend)
+# start.ps1 - Launch the Ontology Triple Grader (backend + frontend)
 # Run from the workspace root: .\start.ps1
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -6,7 +6,7 @@ $venv_uvicorn = "$root\.venv\Scripts\uvicorn.exe"
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "  Ontology Triple Grader — Startup" -ForegroundColor Cyan
+Write-Host "  Ontology Triple Grader - Startup" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 # --- Backend ---
@@ -33,4 +33,5 @@ Write-Host "  API docs:  http://localhost:8001/docs" -ForegroundColor Green
 Write-Host "  Frontend:  http://localhost:5173  (or 5174)" -ForegroundColor Green
 Write-Host "--------------------------------------------------" -ForegroundColor Green
 Write-Host ""
-Write-Host "Press CTRL+C to stop." -ForegroundColor DarkGray
+Write-Host "Press CTRL+C to stop." -ForegroundColor Gray
+

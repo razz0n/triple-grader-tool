@@ -1,15 +1,19 @@
 // TripleSuggestions.jsx — Displays suggestions for a triple with voting
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function TripleSuggestions({ 
   triple, 
   onAddSuggestion, 
-  onVote, 
+  onVote,
+  onVoteSuggestion,
   onDeleteSuggestion,
-  currentUserName 
+  currentUserName,
+  currentUser,
 }) {
   const { subject, predicate, object, suggestions = [] } = triple;
+  const displayUserName = currentUserName || currentUser?.name || "";
+  const voteHandler = onVote || onVoteSuggestion;
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     subject: "",
@@ -19,11 +23,14 @@ export default function TripleSuggestions({
   });
 
   const handleQuickCopy = (type) => {
-    const value = type === "subject" ? subject : type === "predicate" ? predicate : object;
-    setFormData(prev => ({
-      ...prev,
-      [type]: value
-    }));
+    // Copy full triple, but clear the clicked field so user can edit that part.
+    setFormData({
+      subject,
+      predicate,
+      object,
+      reason: "",
+      [type]: "",
+    });
     setShowForm(true);
   };
 
@@ -51,40 +58,37 @@ export default function TripleSuggestions({
     return Object.values(votes || {}).filter(v => v === voteType).length;
   };
 
+  useEffect(() => {
+    const onTripleCopy = (event) => {
+      const { tripleId, field, action } = event.detail || {};
+      if (tripleId !== triple.id) return;
+      if (action === "new") {
+        setFormData({ subject: "", predicate: "", object: "", reason: "" });
+        setShowForm(true);
+        return;
+      }
+      if (!["subject", "predicate", "object"].includes(field)) return;
+      handleQuickCopy(field);
+    };
+
+    window.addEventListener("triple-copy", onTripleCopy);
+    return () => window.removeEventListener("triple-copy", onTripleCopy);
+  }, [triple.id, subject, predicate, object]);
+
+  if (!showForm && suggestions.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
-      {/* Quick copy buttons */}
-      {!showForm && (
-        <div className="flex gap-2 text-xs">
-          <button
-            onClick={() => handleQuickCopy("subject")}
-            className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
-          >
-            Copy Subject
-          </button>
-          <button
-            onClick={() => handleQuickCopy("predicate")}
-            className="px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors"
-          >
-            Copy Predicate
-          </button>
-          <button
-            onClick={() => handleQuickCopy("object")}
-            className="px-2 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded hover:bg-teal-100 transition-colors"
-          >
-            Copy Object
-          </button>
-          <button
-            onClick={() => {
-              setFormData({ subject: "", predicate: "", object: "", reason: "" });
-              setShowForm(true);
-            }}
-            className="ml-auto px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors font-medium"
-          >
-            + New Suggestion
-          </button>
-        </div>
-      )}
+    <div className="mt-2 mx-3 mb-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="font-semibold text-slate-600">Suggestions for:</span>
+        <span className="inline-flex px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300">{subject}</span>
+        <span className="text-slate-400">→</span>
+        <span className="inline-flex px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-300">{predicate}</span>
+        <span className="text-slate-400">→</span>
+        <span className="inline-flex px-2 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-300">{object}</span>
+      </div>
 
       {/* Suggestion form */}
       {showForm && (
@@ -142,7 +146,7 @@ export default function TripleSuggestions({
         <div className="space-y-2">
           <div className="text-xs font-semibold text-slate-600">Suggestions ({suggestions.length})</div>
           {suggestions.map((sug) => {
-            const canDelete = sug.author === currentUserName;
+            const canDelete = sug.author === displayUserName;
             return (
               <div key={sug.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs">
                 <div className="flex justify-between items-start mb-1">
@@ -177,13 +181,13 @@ export default function TripleSuggestions({
 
                 <div className="flex gap-2 items-center">
                   <button
-                    onClick={() => onVote(sug.id, "yes")}
+                    onClick={() => voteHandler?.(sug.id, "yes")}
                     className="px-2 py-0.5 bg-green-100 text-green-700 border border-green-300 rounded hover:bg-green-200 transition-colors text-xs font-medium"
                   >
                     👍 {countVotes(sug.votes, "yes")}
                   </button>
                   <button
-                    onClick={() => onVote(sug.id, "no")}
+                    onClick={() => voteHandler?.(sug.id, "no")}
                     className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition-colors text-xs font-medium"
                   >
                     👎 {countVotes(sug.votes, "no")}

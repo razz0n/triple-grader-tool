@@ -145,9 +145,14 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
   };
 
   const handleAddSuggestion = async (tripleId, suggestionData) => {
+    // Ensure session is saved before adding suggestion
+    if (!savedSessionId) {
+      await handleSave();
+    }
     try {
+      const sessionId = savedSessionId || initialSessionId;
       await addSuggestion(
-        savedSessionId || initialSessionId,
+        sessionId,
         current.id,
         tripleId,
         suggestionData.subject,
@@ -194,9 +199,14 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
   };
 
   const handleVoteSuggestion = async (tripleId, suggestionId, vote) => {
+    // Ensure session is saved before voting
+    if (!savedSessionId) {
+      await handleSave();
+    }
     try {
+      const sessionId = savedSessionId || initialSessionId;
       await voteOnSuggestion(
-        savedSessionId || initialSessionId,
+        sessionId,
         current.id,
         tripleId,
         suggestionId,
@@ -239,9 +249,14 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
   };
 
   const handleDeleteSuggestion = async (tripleId, suggestionId) => {
+    // Ensure session is saved before deleting
+    if (!savedSessionId) {
+      await handleSave();
+    }
     try {
+      const sessionId = savedSessionId || initialSessionId;
       await deleteSuggestion(
-        savedSessionId || initialSessionId,
+        sessionId,
         current.id,
         tripleId,
         suggestionId
@@ -360,52 +375,6 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
       setSaving(false);
     }
   };
-
-  const DL_FORMATS = [
-    { value: "pdf",   label: "PDF",   icon: "📄" },
-    { value: "word",  label: "Word",  icon: "📝" },
-    { value: "excel", label: "Excel", icon: "📊" },
-    { value: "csv",   label: "CSV",   icon: "⊞" },
-    { value: "json",  label: "JSON",  icon: "{}" },
-  ];
-
-  const handleDownload = async (fmt) => {
-    const target = fmt || dlFmt;
-    setDlOpen(false);
-    setDlError("");
-    if (!savedSessionId) {
-      setDlError("Save the session first.");
-      return;
-    }
-    setDownloading(true);
-    try {
-      await downloadSession(savedSessionId, target);
-    } catch (e) {
-      setDlError(e?.message || "Download failed.");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const gradeColor =
-    sentenceGrade === null
-      ? "text-slate-400"
-      : sentenceGrade === "partial"
-      ? "text-amber-600"
-      : parseFloat(sentenceGrade) >= 7
-      ? "text-green-700"
-      : parseFloat(sentenceGrade) >= 4
-      ? "text-amber-600"
-      : "text-red-600";
-
-  const previewHref = useMemo(() => {
-    if (!savedSessionId) return undefined;
-    const token = getAuthToken();
-    if (!token) return `/api/preview/${savedSessionId}`;
-    return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}`;
-  }, [savedSessionId]);
-
-  return (
 
   const DL_FORMATS = [
     { value: "pdf",   label: "PDF",   icon: "📄" },
