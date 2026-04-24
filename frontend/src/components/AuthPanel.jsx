@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { loginUser, registerUser } from "../api";
 
+const HARDCODED_USERS = [
+  { name: "user_ysh", email: "user_ysh@example.com", password: "psd_ysh_psd" },
+  { name: "user_jw", email: "user_jw@example.com", password: "psd_jw_psd" },
+  { name: "user_rl", email: "user_rl@example.com", password: "psd_rl_psd" },
+];
+
 export default function AuthPanel({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
@@ -61,6 +67,18 @@ export default function AuthPanel({ onAuthenticated }) {
     }
   };
 
+  const quickLogin = async (user) => {
+    setLoading(true);
+    setError("");
+    try {
+      const loggedInUser = await loginUser(user.email, user.password);
+      onAuthenticated(loggedInUser);
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Quick login failed.");
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
@@ -73,6 +91,30 @@ export default function AuthPanel({ onAuthenticated }) {
             {mode === "login" ? "Sign in to your workspace" : "Create your account"}
           </p>
         </div>
+
+        {mode === "login" && (
+          <div className="mb-4">
+            <p className="text-xs text-slate-500 mb-2 font-semibold">Quick login:</p>
+            <div className="grid grid-cols-3 gap-2">
+              {HARDCODED_USERS.map((user) => (
+                <button
+                  key={user.email}
+                  type="button"
+                  onClick={() => quickLogin(user)}
+                  disabled={loading}
+                  className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-2 py-2 text-xs font-medium text-blue-700 transition-colors disabled:opacity-60"
+                >
+                  {user.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 my-3">
+              <div className="flex-1 h-px bg-slate-200"></div>
+              <span className="text-xs text-slate-400">or</span>
+              <div className="flex-1 h-px bg-slate-200"></div>
+            </div>
+          </div>
+        )}
 
         <div className="flex rounded-xl bg-slate-100 p-1 mb-4">
           <button
