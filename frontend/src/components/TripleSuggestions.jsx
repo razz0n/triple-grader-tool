@@ -70,6 +70,7 @@ export default function TripleSuggestions({
   const countVotes = (votes, voteType) => {
     return Object.values(votes || {}).filter(v => v === voteType).length;
   };
+  const gradeOptions = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
   const startEditSuggestion = (sug) => {
     setEditingSuggestionId(sug.id);
@@ -211,6 +212,14 @@ export default function TripleSuggestions({
           {suggestions.map((sug) => {
             const canDelete = sug.author === displayUserName;
             const isEditing = editingSuggestionId === sug.id;
+            const currentUserVote = (sug.votes || {})[displayUserName] ?? null;
+            const gradeVotes = Object.values(sug.votes || {})
+              .map((v) => String(v))
+              .filter((v) => /^(10|[0-9])$/.test(v));
+            const gradeAverage =
+              gradeVotes.length > 0
+                ? (gradeVotes.reduce((a, b) => a + Number(b), 0) / gradeVotes.length).toFixed(1)
+                : null;
             return (
               <div key={sug.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs">
                 <div className="flex justify-between items-start mb-1">
@@ -299,19 +308,52 @@ export default function TripleSuggestions({
                   </>
                 )}
 
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <button
                     onClick={() => voteHandler?.(sug.id, "yes")}
-                    className="px-2 py-0.5 bg-green-100 text-green-700 border border-green-300 rounded hover:bg-green-200 transition-colors text-xs font-medium"
+                    className={[
+                      "px-2 py-0.5 border rounded transition-colors text-xs font-medium",
+                      currentUserVote === "yes"
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-green-100 text-green-700 border-green-300 hover:bg-green-200",
+                    ].join(" ")}
                   >
                     👍 {countVotes(sug.votes, "yes")}
                   </button>
                   <button
                     onClick={() => voteHandler?.(sug.id, "no")}
-                    className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition-colors text-xs font-medium"
+                    className={[
+                      "px-2 py-0.5 border rounded transition-colors text-xs font-medium",
+                      currentUserVote === "no"
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-red-100 text-red-700 border-red-300 hover:bg-red-200",
+                    ].join(" ")}
                   >
                     👎 {countVotes(sug.votes, "no")}
                   </button>
+                  <div className="flex items-center gap-1 ml-1 flex-wrap">
+                    <span className="text-slate-500">Grade:</span>
+                    {gradeOptions.map((grade) => (
+                      <button
+                        key={grade}
+                        onClick={() => voteHandler?.(sug.id, grade)}
+                        className={[
+                          "w-5 h-5 border rounded text-[10px] leading-none font-semibold transition-colors",
+                          currentUserVote === grade
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-blue-100",
+                        ].join(" ")}
+                        title={`Vote grade ${grade}`}
+                      >
+                        {grade}
+                      </button>
+                    ))}
+                  </div>
+                  {gradeAverage !== null && (
+                    <span className="ml-auto text-xs font-semibold text-blue-700 bg-blue-100 border border-blue-300 rounded px-2 py-0.5">
+                      Avg {gradeAverage} ({gradeVotes.length})
+                    </span>
+                  )}
                 </div>
               </div>
             );
