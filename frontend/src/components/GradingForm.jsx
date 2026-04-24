@@ -424,7 +424,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 
       {/* ── Top bar ────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+      <div className="bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm fixed top-0 left-0 right-0 z-30">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
 
           {/* Logo + filename */}
@@ -562,7 +562,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
       </div>
 
       {/* ── Main content ───────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 pt-24 pb-8 space-y-6">
 
         {/* Sentence card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
