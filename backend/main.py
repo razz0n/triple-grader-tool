@@ -323,10 +323,16 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     """Persist a graded session to the storage directory."""
     session_data = body.model_dump()
 
-    # Recompute sentence grades server-side for integrity
+    # Capture user info and recompute sentence grades server-side for integrity
+    user_name = _display_name(user)
     for s in session_data["sentences"]:
         grades = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
         s["sentence_grade"] = round(sum(grades) / len(grades), 2) if grades else None
+        
+        # Set author for triples that have been graded
+        for t in s.get("triples", []):
+            if t.get("grade") is not None and not t.get("author"):
+                t["author"] = user_name
 
     session_data["owner_user_id"] = user["id"]
     out_path = _session_path_for_user(user["id"], body.session_id)

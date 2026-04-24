@@ -345,11 +345,16 @@ def parse_file(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
         first_version = g["versions"][0]
         triples = [
             {
-                "id":        f"{sid}_{i + 1}",
-                "subject":   t["subject"],
-                "predicate": t["predicate"],
-                "object":    t["object"],
-                "grade":     None,
+                "id":           f"{sid}_{i + 1}",
+                "subject":      t["subject"],
+                "predicate":    t["predicate"],
+                "object":       t["object"],
+                "grade":        None,
+                "author":       None,
+                "completeness": None,
+                "relation":     10,
+                "suggestions":  [],
+                "votes":        {},
             }
             for i, t in enumerate(first_version["triples"])
         ]
