@@ -283,6 +283,39 @@ def _load_session_for_access(session_id: str) -> tuple[Path, Dict[str, Any]]:
     return json_path, session
 
 
+def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
+    """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
+    existing_sentences = {
+        s.get("id"): s
+        for s in existing_session.get("sentences", [])
+        if s.get("id") is not None
+    }
+
+    for sentence in incoming_session.get("sentences", []):
+        sentence_id = sentence.get("id")
+        existing_sentence = existing_sentences.get(sentence_id)
+        if not existing_sentence:
+            continue
+
+        existing_triples = {
+            t.get("id"): t
+            for t in existing_sentence.get("triples", [])
+            if t.get("id") is not None
+        }
+
+        for triple in sentence.get("triples", []):
+            triple_id = triple.get("id")
+            existing_triple = existing_triples.get(triple_id)
+            if not existing_triple:
+                continue
+
+            existing_suggestions = existing_triple.get("suggestions")
+            if isinstance(existing_suggestions, list):
+                # Suggestion writes are already persisted server-side by dedicated endpoints.
+                # Preserve them to avoid stale client payloads wiping comments/posts.
+                triple["suggestions"] = existing_suggestions
+
+
 def _ensure_default_users():
     users_data = _load_users()
     users = users_data.get("users", [])
@@ -464,6 +497,15 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             status_code=403,
             detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
         )
+
+    if existing_path and existing_path.exists():
+        try:
+            with open(existing_path, "r", encoding="utf-8") as fh:
+                existing_session = json.load(fh)
+            _merge_existing_suggestions(session_data, existing_session)
+        except Exception:
+            # Fall back to incoming payload if previous session cannot be read.
+            pass
 
     # Capture user info and recompute sentence grades server-side for integrity
     user_name = _display_name(user)
