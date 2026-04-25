@@ -638,12 +638,12 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
             👁 View
           </a>
 
-          {/* New File */}
+          {/* Back to Dashboard */}
           <button
             onClick={onReset}
-            className="text-xs text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 shrink-0 whitespace-nowrap"
+            className="text-xs text-slate-500 hover:text-blue-700 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 shrink-0 whitespace-nowrap flex items-center gap-1"
           >
-            ✕ New File
+            ← Dashboard
           </button>
         </div>
 
