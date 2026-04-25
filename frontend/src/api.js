@@ -224,3 +224,21 @@ export async function deleteSuggestion(sessionId, sentenceId, tripleId, suggesti
   const { data } = await API.delete(`/api/suggestions/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}`);
   return data;
 }
+
+/**
+ * Approve a suggestion (owner only) and apply it to the triple.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @returns {Promise<{ok: boolean, triple: object}>}
+ */
+export async function approveSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
+  const { data } = await API.post("/api/suggestions/approve", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    suggestion_id: suggestionId,
+  });
+  return data;
+}

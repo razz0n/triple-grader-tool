@@ -9,6 +9,8 @@ export default function TripleSuggestions({
   onVote,
   onVoteSuggestion,
   onDeleteSuggestion,
+  onApproveSuggestion,
+  canApprove = false,
   currentUserName,
   currentUser,
 }) {
@@ -224,8 +226,21 @@ export default function TripleSuggestions({
               <div key={sug.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs">
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-medium text-blue-800">By {sug.author}</span>
-                  {canDelete && !isEditing && (
-                    <div className="flex items-center gap-2">
+                  {!isEditing && (
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {canApprove && sug.status !== "approved" && (
+                        <button
+                          onClick={() => onApproveSuggestion?.(sug.id)}
+                          className="text-emerald-700 hover:text-emerald-800 font-semibold"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {sug.status === "approved" && (
+                        <span className="text-emerald-700 font-semibold">Approved</span>
+                      )}
+                      {canDelete && (
+                        <>
                       <button
                         onClick={() => startEditSuggestion(sug)}
                         className="text-blue-600 hover:text-blue-700 font-semibold"
@@ -238,6 +253,8 @@ export default function TripleSuggestions({
                       >
                         ✕
                       </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -304,6 +321,11 @@ export default function TripleSuggestions({
 
                     {sug.reason && (
                       <div className="text-slate-600 italic mb-1">"{sug.reason}"</div>
+                    )}
+                    {sug.status === "approved" && (
+                      <div className="text-emerald-700 mb-1">
+                        Approved by {sug.approved_by || "owner"}
+                      </div>
                     )}
                   </>
                 )}

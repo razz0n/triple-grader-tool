@@ -183,6 +183,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {s.total_sentences} sentences
+                        {s.owner_name && <> &bull; Owner: {s.owner_name}</>}
                         {dateStr && <> &bull; {dateStr}</>}
                       </p>
                     </div>

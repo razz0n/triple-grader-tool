@@ -1,6 +1,6 @@
 // TripleCard.jsx — Displays one triple with ratings and author info
 
-export default function TripleCard({ triple, grade, completeness, relation, author, onChange, onCompletenessChange, onRelationChange }) {
+export default function TripleCard({ triple, grade, completeness, relation, author, readOnly = false, onChange, onCompletenessChange, onRelationChange }) {
   const { subject, predicate, object } = triple;
   const emitTripleCopy = (field) => {
     window.dispatchEvent(
@@ -76,12 +76,14 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
               <button
                 key={n}
                 onClick={() => onChange(n)}
+                disabled={readOnly}
                 className={[
                   "w-6 h-6 rounded-full text-xs font-semibold border transition-all",
                   "focus:outline-none focus:ring-2 focus:ring-blue-400",
                   grade === n
                     ? "bg-blue-700 text-white border-blue-700 scale-110 shadow"
                     : "bg-white text-slate-600 border-slate-300 hover:bg-blue-50 hover:border-blue-400",
+                  readOnly ? "opacity-70 cursor-not-allowed" : "",
                 ].join(" ")}
               >
                 {n}
@@ -107,12 +109,14 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
               <button
                 key={n}
                 onClick={() => onCompletenessChange(n)}
+                disabled={readOnly}
                 className={[
                   "w-5 h-5 rounded text-xs font-semibold border transition-all",
                   "focus:outline-none focus:ring-2 focus:ring-green-400",
                   completeness === n
                     ? "bg-green-600 text-white border-green-600 scale-110 shadow"
                     : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
+                  readOnly ? "opacity-70 cursor-not-allowed" : "",
                 ].join(" ")}
               >
                 {n}
@@ -138,12 +142,14 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
               <button
                 key={n}
                 onClick={() => onRelationChange(n)}
+                disabled={readOnly}
                 className={[
                   "w-5 h-5 rounded text-xs font-semibold border transition-all",
                   "focus:outline-none focus:ring-2 focus:ring-purple-400",
                   relation === n
                     ? "bg-purple-600 text-white border-purple-600 scale-110 shadow"
                     : "bg-white text-slate-600 border-slate-300 hover:bg-purple-50 hover:border-purple-400",
+                  readOnly ? "opacity-70 cursor-not-allowed" : "",
                 ].join(" ")}
               >
                 {n}

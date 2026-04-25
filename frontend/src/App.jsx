@@ -84,7 +84,7 @@ export default function App() {
       );
     }
 
-    return <GradingForm uploadData={gradingData} onReset={handleReset} />;
+    return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} />;
   })();
 
   const greetingName = user?.name || user?.email || "User";

@@ -257,6 +257,32 @@ def _session_path_for_user(user_id: str, session_id: str) -> Path:
     return user_dir / f"{session_id}.json"
 
 
+def _find_existing_session_path(session_id: str) -> Optional[Path]:
+    if not session_id.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid session ID.")
+    for p in SESSIONS_ROOT.glob(f"*/{session_id}.json"):
+        return p
+    return None
+
+
+def _get_session_path_for_access(session_id: str, owner_user_id: Optional[str] = None) -> Path:
+    existing = _find_existing_session_path(session_id)
+    if existing:
+        return existing
+    if owner_user_id:
+        return _session_path_for_user(owner_user_id, session_id)
+    raise HTTPException(status_code=404, detail="Session not found.")
+
+
+def _load_session_for_access(session_id: str) -> tuple[Path, Dict[str, Any]]:
+    json_path = _get_session_path_for_access(session_id)
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Session not found.")
+    with open(json_path, "r", encoding="utf-8") as fh:
+        session = json.load(fh)
+    return json_path, session
+
+
 def _ensure_default_users():
     users_data = _load_users()
     users = users_data.get("users", [])
@@ -432,6 +458,13 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     """Persist a graded session to the storage directory."""
     session_data = body.model_dump()
 
+    existing_path = _find_existing_session_path(body.session_id)
+    if existing_path and existing_path.parent.name != user["id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
+        )
+
     # Capture user info and recompute sentence grades server-side for integrity
     user_name = _display_name(user)
     for s in session_data["sentences"]:
@@ -444,7 +477,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
                 t["author"] = user_name
 
     session_data["owner_user_id"] = user["id"]
-    out_path = _session_path_for_user(user["id"], body.session_id)
+    out_path = _get_session_path_for_access(body.session_id, owner_user_id=user["id"])
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(session_data, fh, indent=2, ensure_ascii=False)
 
@@ -454,7 +487,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
 @app.get("/api/download/{session_id}/{fmt}")
 async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Depends(_current_user)):
     """Download a saved session in the requested format."""
-    json_path = _session_path_for_user(user["id"], session_id)
+    json_path = _get_session_path_for_access(session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
 
@@ -497,7 +530,7 @@ async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Dep
 @app.get("/api/session/{session_id}")
 async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
     """Return the full saved session JSON (used by the frontend to resume a session)."""
-    json_path = _session_path_for_user(user["id"], session_id)
+    json_path = _get_session_path_for_access(session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found.")
     with open(json_path, "r", encoding="utf-8") as fh:
@@ -512,7 +545,7 @@ async def preview_session(
 ):
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
     user = _current_user_from_bearer_or_query(request, token)
-    json_path = _session_path_for_user(user["id"], session_id)
+    json_path = _get_session_path_for_access(session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
 
@@ -630,19 +663,21 @@ async def preview_session(
 
 @app.get("/api/sessions")
 async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
-    """List all saved session files."""
+    """List all saved session files across all users for collaboration."""
     sessions = []
-    user_dir = SESSIONS_ROOT / user["id"]
-    user_dir.mkdir(exist_ok=True)
-    for p in sorted(user_dir.glob("*.json")):
+    for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
         try:
             with open(p, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
+            owner_user_id = data.get("owner_user_id") or p.parent.name
+            owner_user = _get_user_by_id(owner_user_id)
             sessions.append({
                 "session_id":      p.stem,
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
+                "owner_user_id": owner_user_id,
+                "owner_name": _display_name(owner_user) if owner_user else owner_user_id,
             })
         except Exception:
             pass
@@ -687,16 +722,18 @@ class EditSuggestionRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class ApproveSuggestionRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    suggestion_id: str
+
+
 @app.post("/api/suggestions/add")
 async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
     """Add a suggested triple edit."""
     user_name = _display_name(user)
-    json_path = _session_path_for_user(user["id"], body.session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-    
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    json_path, session = _load_session_for_access(body.session_id)
     
     # Find the sentence and triple
     sentence = None
@@ -740,12 +777,7 @@ async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = D
 async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_current_user)):
     """Vote on a suggested triple edit."""
     user_name = _display_name(user)
-    json_path = _session_path_for_user(user["id"], body.session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-    
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    json_path, session = _load_session_for_access(body.session_id)
     
     # Find the sentence, triple, and suggestion
     sentence = None
@@ -786,12 +818,7 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_
 async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
     """Edit a suggestion (only the author can edit)."""
     user_name = _display_name(user)
-    json_path = _session_path_for_user(user["id"], body.session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    json_path, session = _load_session_for_access(body.session_id)
 
     for s in session.get("sentences", []):
         if s.get("id") == body.sentence_id:
@@ -823,12 +850,7 @@ async def delete_suggestion(
 ):
     """Delete a suggestion (only the author can delete)."""
     user_name = _display_name(user)
-    json_path = _session_path_for_user(user["id"], session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-    
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    json_path, session = _load_session_for_access(session_id)
     
     # Find and delete the suggestion
     for s in session.get("sentences", []):
@@ -845,6 +867,48 @@ async def delete_suggestion(
                                 json.dump(session, fh, indent=2, ensure_ascii=False)
                             return {"ok": True}
     
+    raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+
+@app.post("/api/suggestions/approve")
+async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+    """Approve a suggestion and apply it to a triple (owner only)."""
+    json_path, session = _load_session_for_access(body.session_id)
+
+    owner_user_id = session.get("owner_user_id") or json_path.parent.name
+    if owner_user_id != user["id"]:
+        raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
+
+    owner_name = _display_name(user)
+
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    for sug in t.get("suggestions", []):
+                        if sug.get("id") == body.suggestion_id:
+                            t["subject"] = sug.get("subject", t.get("subject"))
+                            t["predicate"] = sug.get("predicate", t.get("predicate"))
+                            t["object"] = sug.get("object", t.get("object"))
+                            t["author"] = owner_name
+                            sug["status"] = "approved"
+                            sug["approved_by"] = owner_name
+                            sug["approved_at"] = datetime.utcnow().isoformat()
+
+                            with open(json_path, "w", encoding="utf-8") as out:
+                                json.dump(session, out, indent=2, ensure_ascii=False)
+
+                            return {
+                                "ok": True,
+                                "triple": {
+                                    "id": t.get("id"),
+                                    "subject": t.get("subject"),
+                                    "predicate": t.get("predicate"),
+                                    "object": t.get("object"),
+                                    "author": t.get("author"),
+                                },
+                            }
+
     raise HTTPException(status_code=404, detail="Suggestion not found.")
 
 

@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import TripleSuggestions from "./TripleSuggestions";
-import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion } from "../api";
+import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
@@ -14,7 +14,11 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     sentences: initialSentences,
     uploaded_at,
     resumed,
+    owner_user_id,
   } = uploadData;
+
+  const sessionOwnerUserId = owner_user_id || currentUser?.id || null;
+  const canApproveSuggestions = !sessionOwnerUserId || sessionOwnerUserId === currentUser?.id;
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -191,7 +195,6 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
               }
         )
       );
-      hasUnsavedChangesRef.current = true;
     } catch (err) {
       console.error("Error adding suggestion:", err);
       throw err;
@@ -242,7 +245,6 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
               }
         )
       );
-      hasUnsavedChangesRef.current = true;
     } catch (err) {
       console.error("Error editing suggestion:", err);
       throw err;
@@ -302,7 +304,6 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
               }
         )
       );
-      hasUnsavedChangesRef.current = true;
     } catch (err) {
       console.error("Error voting on suggestion:", err);
       throw err;
@@ -341,11 +342,44 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
               }
         )
       );
-      hasUnsavedChangesRef.current = true;
     } catch (err) {
       console.error("Error deleting suggestion:", err);
       throw err;
     }
+  };
+
+  const handleApproveSuggestion = async (tripleId, suggestionId) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    const result = await approveSuggestion(sessionId, current.id, tripleId, suggestionId);
+
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id !== tripleId
+                  ? t
+                  : {
+                      ...t,
+                      subject: result?.triple?.subject ?? t.subject,
+                      predicate: result?.triple?.predicate ?? t.predicate,
+                      object: result?.triple?.object ?? t.object,
+                      author: result?.triple?.author ?? t.author,
+                      suggestions: (t.suggestions || []).map((sug) =>
+                        sug.id === suggestionId
+                          ? { ...sug, status: "approved", approved_by: currentUser?.name || "Owner", approved_at: new Date().toISOString() }
+                          : sug
+                      ),
+                    }
+              ),
+            }
+      )
+    );
   };
 
   const buildPayload = () => ({
@@ -416,6 +450,10 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
   }, []);
 
   const handleSave = async () => {
+    if (!canApproveSuggestions) {
+      setSaveError("Only the owner can save direct triple edits. Use suggestions and voting.");
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setSaveMsg("");
@@ -521,7 +559,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
             <div className="flex flex-col items-end">
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !canApproveSuggestions}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
               >
                 {saving ? "Saving…" : "💾 Save"}
@@ -720,6 +758,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                   completeness={triple.completeness}
                   relation={triple.relation}
                   author={triple.author}
+                  readOnly={!canApproveSuggestions}
                   onChange={(grade) => handleGradeChange(triple.id, grade)}
                   onCompletenessChange={(completeness) => handleCompletenessChange(triple.id, completeness)}
                   onRelationChange={(relation) => handleRelationChange(triple.id, relation)}
@@ -727,10 +766,12 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                 <TripleSuggestions
                   triple={triple}
                   currentUser={currentUser}
+                  canApprove={canApproveSuggestions}
                   onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
                   onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
                   onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
                   onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
+                  onApproveSuggestion={(suggestionId) => handleApproveSuggestion(triple.id, suggestionId)}
                 />
               </div>
             ))}
@@ -746,9 +787,15 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
             value={current.suggestion}
             onChange={(e) => handleSuggestionChange(e.target.value)}
             rows={3}
+            disabled={!canApproveSuggestions}
             placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
-            className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300"
+            className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
           />
+          {!canApproveSuggestions && (
+            <p className="mt-2 text-xs text-slate-500">
+              Collaboration mode: only the owner can directly edit triples or approve changes. You can still add suggestions and vote.
+            </p>
+          )}
         </div>
 
         <div className="h-8" />
