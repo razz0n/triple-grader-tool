@@ -14,6 +14,7 @@ import os
 import uuid
 import hashlib
 import secrets
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -35,6 +36,8 @@ DEFAULT_USERS = [
     {"username": "user_ab", "name": "user_ab", "email": "user_ab@example.com", "password": "psd_ab_psd"},
     {"username": "user_cd", "name": "user_cd", "email": "user_cd@example.com", "password": "psd_cd_psd"},
 ]
+
+USERNAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{2,23}$")
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -96,6 +99,10 @@ def _norm_email(email: str) -> str:
 
 def _norm_username(username: str) -> str:
     return username.strip().lower()
+
+
+def _is_valid_username(username: str) -> bool:
+    return bool(USERNAME_PATTERN.fullmatch(_norm_username(username)))
 
 
 def _display_name(user: Dict[str, Any]) -> str:
@@ -306,6 +313,7 @@ class AuthRequest(BaseModel):
 
 class RegisterRequest(BaseModel):
     name: str = Field(min_length=2, max_length=80)
+    username: str = Field(min_length=3, max_length=24)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
@@ -319,13 +327,21 @@ _ensure_default_users()
 @app.post("/api/auth/register")
 async def register(body: RegisterRequest):
     email = _norm_email(str(body.email))
+    username = _norm_username(body.username)
+
+    if not _is_valid_username(username):
+        raise HTTPException(
+            status_code=422,
+            detail="Username must be 3-24 chars, start with a letter, and use only lowercase letters, numbers, or underscore.",
+        )
+
     if _get_user_by_email(email):
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    if _get_user_by_username(username):
+        raise HTTPException(status_code=409, detail="This username is already taken.")
 
     hashed = _hash_password(body.password)
     users_data = _load_users()
-    username_base = email.split("@", 1)[0]
-    username = _make_unique_username(username_base, users_data["users"])
 
     user = {
         "id": str(uuid.uuid4()),
@@ -343,7 +359,7 @@ async def register(body: RegisterRequest):
     return {
         "ok": True,
         "message": "Account created successfully. Please log in.",
-        "user": {"id": user["id"], "name": _display_name(user), "email": user["email"]},
+        "user": {"id": user["id"], "username": user["username"], "name": _display_name(user), "email": user["email"]},
     }
 
 

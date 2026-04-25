@@ -39,8 +39,8 @@ API.interceptors.response.use(
   }
 );
 
-export async function registerUser(name, email, password) {
-  const { data } = await API.post("/api/auth/register", { name, email, password });
+export async function registerUser(name, username, email, password) {
+  const { data } = await API.post("/api/auth/register", { name, username, email, password });
   return data;
 }
 

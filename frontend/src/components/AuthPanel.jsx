@@ -4,6 +4,7 @@ import { loginUser, registerUser } from "../api";
 export default function AuthPanel({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,6 +24,14 @@ export default function AuthPanel({ onAuthenticated }) {
     mode === "register" && confirmPassword && password !== confirmPassword
       ? "Confirm password does not match."
       : "";
+  const usernameTrimmed = username.trim().toLowerCase();
+  const usernameRegex = /^[a-z][a-z0-9_]{2,23}$/;
+  const usernameHasTypingSignals = usernameTrimmed.length > 0;
+  const isUsernameValid = usernameRegex.test(usernameTrimmed);
+  const usernameError =
+    mode === "register" && usernameHasTypingSignals && !isUsernameValid
+      ? "Username must be 3-24 chars, start with a letter, and use lowercase letters, numbers, or _."
+      : "";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -34,6 +43,10 @@ export default function AuthPanel({ onAuthenticated }) {
     if (mode === "register") {
       if (!name.trim()) {
         setError("Please enter your name.");
+        return;
+      }
+      if (!isUsernameValid) {
+        setError("Please enter a valid username.");
         return;
       }
       if (password !== confirmPassword) {
@@ -48,10 +61,11 @@ export default function AuthPanel({ onAuthenticated }) {
         const user = await loginUser(identifier, password);
         onAuthenticated(user);
       } else {
-        await registerUser(name.trim(), identifier, password);
+        await registerUser(name.trim(), usernameTrimmed, identifier, password);
         setMode("login");
         setPassword("");
         setConfirmPassword("");
+        setUsername("");
         setInfo("Account created successfully. Please log in.");
       }
     } catch (err) {
@@ -72,11 +86,6 @@ export default function AuthPanel({ onAuthenticated }) {
           <p className="text-sm text-slate-500 mt-1">
             {mode === "login" ? "Sign in to your workspace" : "Create your account"}
           </p>
-          {mode === "login" && (
-            <p className="text-xs text-slate-500 mt-2">
-              Default users: user_ysh / psd_ysh_psd, user_jw / psd_jw_psd, user_rl / psd_rl_psd, user_ab / psd_ab_psd, user_cd / psd_cd_psd
-            </p>
-          )}
         </div>
         <div className="flex rounded-xl bg-slate-100 p-1 mb-4">
           <button
@@ -118,6 +127,22 @@ export default function AuthPanel({ onAuthenticated }) {
               required
               className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
+          )}
+
+          {mode === "register" && (
+            <div>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username (e.g. user_name)"
+                minLength={3}
+                maxLength={24}
+                required
+                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              {usernameError && <p className="text-xs text-amber-700 mt-1">{usernameError}</p>}
+            </div>
           )}
 
           <div>
