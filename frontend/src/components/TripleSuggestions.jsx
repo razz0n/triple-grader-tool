@@ -147,19 +147,19 @@ export default function TripleSuggestions({
       {/* Suggestions header bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-amber-100 border-b border-amber-200">
         <div className="flex items-center gap-2">
-          <span className="text-amber-600 text-sm">💡</span>
-          <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Suggestions</span>
+          <span className="text-slate-500 text-sm">💡</span>
+          <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Suggestions</span>
           {suggestions.length > 0 && (
-            <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+            <span className="bg-slate-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
               {suggestions.length}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-xs text-amber-600">
+        <div className="flex items-center gap-1 text-xs text-slate-500">
           <span className="font-medium">{subject}</span>
-          <span className="text-amber-400">→</span>
+          <span className="text-slate-400">→</span>
           <span className="font-medium">{predicate}</span>
-          <span className="text-amber-400">→</span>
+          <span className="text-slate-400">→</span>
           <span className="font-medium">{object}</span>
         </div>
       </div>
