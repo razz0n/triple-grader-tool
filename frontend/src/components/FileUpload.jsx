@@ -137,26 +137,6 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
           </div>
         )}
 
-        {/* Format hint */}
-        <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-4 text-xs text-slate-500 space-y-1.5 shadow-sm">
-          <p className="font-semibold text-slate-600 text-sm mb-2">
-            Expected file format
-          </p>
-          <p>
-            •{" "}
-            <span className="font-medium text-slate-700">Col 1–3:</span>{" "}
-            Subject · Predicate · Object (one triple per row)
-          </p>
-          <p>
-            •{" "}
-            <span className="font-medium text-slate-700">Col 8:</span>{" "}
-            Natural-language sentence (may span multiple rows per group)
-          </p>
-          <p>
-            • Groups are separated by blank rows or ======= divider lines
-          </p>
-        </div>
-
         {/* ── Recent Sessions ── */}
         {sessions.length > 0 && (
           <div className="mt-6">
@@ -203,6 +183,26 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
             )}
           </div>
         )}
+
+        {/* Format hint */}
+        <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-4 text-xs text-slate-500 space-y-1.5 shadow-sm">
+          <p className="font-semibold text-slate-600 text-sm mb-2">
+            Expected file format
+          </p>
+          <p>
+            •{" "}
+            <span className="font-medium text-slate-700">Col 1–3:</span>{" "}
+            Subject · Predicate · Object (one triple per row)
+          </p>
+          <p>
+            •{" "}
+            <span className="font-medium text-slate-700">Col 8:</span>{" "}
+            Natural-language sentence (may span multiple rows per group)
+          </p>
+          <p>
+            • Groups are separated by blank rows or ======= divider lines
+          </p>
+        </div>
       </div>
     </div>
   );
