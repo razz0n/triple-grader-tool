@@ -11,15 +11,25 @@ export default function TripleCard({ triple, grade, completeness, relation, auth
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-      {/* Author badge in top-right */}
-      {author && (
-        <div className="flex justify-end mb-2">
+    <div className="bg-white border-t border-r border-b border-slate-200 border-l-4 border-l-blue-500 rounded-none p-4 shadow-none transition-shadow">
+      {/* Header row: author badge + read-only indicator */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+            Triple
+          </span>
+          {readOnly && (
+            <span className="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+              Read-only · Add suggestions below
+            </span>
+          )}
+        </div>
+        {author && (
           <span className="text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300 px-2 py-1 rounded-full">
             By {author}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Subject → Predicate → Object badges */}
       <div className="flex flex-wrap items-center gap-2 mb-4">

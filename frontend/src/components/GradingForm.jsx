@@ -749,9 +749,20 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
             Triples ({current.triples.length})
           </h2>
-          <div className="space-y-3">
-            {current.triples.map((triple) => (
-              <div key={triple.id}>
+          <div className="space-y-4">
+            {current.triples.map((triple, idx) => (
+              <div key={triple.id} className="rounded-xl shadow-md overflow-hidden">
+                {/* Triple number pill */}
+                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-1.5 flex items-center gap-2">
+                  <span className="text-white text-[11px] font-bold uppercase tracking-wider">
+                    Triple {idx + 1}
+                  </span>
+                  {triple.grade !== null && triple.grade !== undefined && (
+                    <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Quality: {triple.grade}/10
+                    </span>
+                  )}
+                </div>
                 <TripleCard
                   triple={triple}
                   grade={triple.grade}

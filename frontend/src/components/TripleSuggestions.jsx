@@ -143,20 +143,35 @@ export default function TripleSuggestions({
   }
 
   return (
-    <div className="mt-2 mx-3 mb-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="font-semibold text-slate-600">Suggestions for:</span>
-        <span className="inline-flex px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300">{subject}</span>
-        <span className="text-slate-400">→</span>
-        <span className="inline-flex px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-300">{predicate}</span>
-        <span className="text-slate-400">→</span>
-        <span className="inline-flex px-2 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-300">{object}</span>
+    <div className="border-t border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 overflow-hidden">
+      {/* Suggestions header bar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-amber-100 border-b border-amber-200">
+        <div className="flex items-center gap-2">
+          <span className="text-amber-600 text-sm">💡</span>
+          <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Suggestions</span>
+          {suggestions.length > 0 && (
+            <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {suggestions.length}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 text-xs text-amber-600">
+          <span className="font-medium">{subject}</span>
+          <span className="text-amber-400">→</span>
+          <span className="font-medium">{predicate}</span>
+          <span className="text-amber-400">→</span>
+          <span className="font-medium">{object}</span>
+        </div>
       </div>
+
+      <div className="p-3 space-y-3">
 
       {/* Suggestion form */}
       {showForm && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-          <div className="text-xs font-semibold text-slate-600 mb-2">Add Triple Suggestion</div>
+        <div className="bg-white border border-amber-200 rounded-lg p-3 space-y-2 shadow-sm">
+          <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
+            <span>✏️</span> New Triple Suggestion
+          </div>
           <input
             type="text"
             ref={subjectInputRef}
@@ -193,13 +208,13 @@ export default function TripleSuggestions({
                 setFormData({ subject: "", predicate: "", object: "", reason: "" });
                 setShowForm(false);
               }}
-              className="px-2 py-1 text-xs bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors"
+              className="px-2 py-1 text-xs bg-white border border-amber-300 text-amber-700 rounded hover:bg-amber-50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmitSuggestion}
-              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-medium"
+              className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors font-medium"
             >
               Save Suggestion
             </button>
@@ -210,7 +225,6 @@ export default function TripleSuggestions({
       {/* Suggestions list */}
       {suggestions.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-semibold text-slate-600">Suggestions ({suggestions.length})</div>
           {suggestions.map((sug) => {
             const canDelete = sug.author === displayUserName;
             const isEditing = editingSuggestionId === sug.id;
@@ -223,33 +237,45 @@ export default function TripleSuggestions({
                 ? (gradeVotes.reduce((a, b) => a + Number(b), 0) / gradeVotes.length).toFixed(1)
                 : null;
             return (
-              <div key={sug.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-medium text-blue-800">By {sug.author}</span>
+              <div key={sug.id} className={[
+                "bg-white border rounded-lg p-3 text-xs shadow-sm",
+                sug.status === "approved"
+                  ? "border-emerald-300 border-l-4 border-l-emerald-500"
+                  : "border-amber-200 border-l-4 border-l-amber-400",
+              ].join(" ")}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {sug.author?.[0]?.toUpperCase() || "?"}
+                    </span>
+                    <span className="font-semibold text-slate-700">{sug.author}</span>
+                    {sug.status === "approved" && (
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 border border-emerald-300 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                        ✓ Approved
+                      </span>
+                    )}
+                  </div>
                   {!isEditing && (
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       {canApprove && sug.status !== "approved" && (
                         <button
                           onClick={() => onApproveSuggestion?.(sug.id)}
-                          className="text-emerald-700 hover:text-emerald-800 font-semibold"
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition-colors"
                         >
-                          Approve
+                          ✓ Approve
                         </button>
-                      )}
-                      {sug.status === "approved" && (
-                        <span className="text-emerald-700 font-semibold">Approved</span>
                       )}
                       {canDelete && (
                         <>
                       <button
                         onClick={() => startEditSuggestion(sug)}
-                        className="text-blue-600 hover:text-blue-700 font-semibold"
+                        className="text-slate-500 hover:text-blue-700 font-semibold"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => onDeleteSuggestion(sug.id)}
-                        className="text-red-600 hover:text-red-700 font-bold"
+                        className="text-slate-400 hover:text-red-600 font-bold"
                       >
                         ✕
                       </button>
@@ -320,11 +346,11 @@ export default function TripleSuggestions({
                     </div>
 
                     {sug.reason && (
-                      <div className="text-slate-600 italic mb-1">"{sug.reason}"</div>
+                      <div className="text-slate-500 italic mb-1 text-[11px]">"{sug.reason}"</div>
                     )}
                     {sug.status === "approved" && (
-                      <div className="text-emerald-700 mb-1">
-                        Approved by {sug.approved_by || "owner"}
+                      <div className="text-emerald-600 text-[11px] mb-1 font-medium">
+                        ✓ Approved by {sug.approved_by || "owner"}
                       </div>
                     )}
                   </>
@@ -382,6 +408,7 @@ export default function TripleSuggestions({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
