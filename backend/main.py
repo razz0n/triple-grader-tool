@@ -28,6 +28,14 @@ from pydantic import BaseModel, EmailStr, Field
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
 from parser import parse_file, parse_file_rich
 
+DEFAULT_USERS = [
+    {"username": "user_ysh", "name": "user_ysh", "email": "user_ysh@example.com", "password": "psd_ysh_psd"},
+    {"username": "user_jw", "name": "user_jw", "email": "user_jw@example.com", "password": "psd_jw_psd"},
+    {"username": "user_rl", "name": "user_rl", "email": "user_rl@example.com", "password": "psd_rl_psd"},
+    {"username": "user_ab", "name": "user_ab", "email": "user_ab@example.com", "password": "psd_ab_psd"},
+    {"username": "user_cd", "name": "user_cd", "email": "user_cd@example.com", "password": "psd_cd_psd"},
+]
+
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
@@ -86,6 +94,10 @@ def _norm_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _norm_username(username: str) -> str:
+    return username.strip().lower()
+
+
 def _display_name(user: Dict[str, Any]) -> str:
     name = (user.get("name") or "").strip()
     if name:
@@ -128,6 +140,17 @@ def _save_tokens(tokens: Dict[str, Any]):
     _save_json(TOKENS_FILE, tokens)
 
 
+def _make_unique_username(base_username: str, users: list) -> str:
+    base = _norm_username(base_username) or "user"
+    existing = {_norm_username(user.get("username", "")) for user in users}
+    if base not in existing:
+        return base
+    suffix = 2
+    while f"{base}_{suffix}" in existing:
+        suffix += 1
+    return f"{base}_{suffix}"
+
+
 def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     users = _load_users()["users"]
     target = _norm_email(email)
@@ -135,6 +158,29 @@ def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         if user.get("email") == target:
             return user
     return None
+
+
+def _get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    users = _load_users()["users"]
+    target = _norm_username(username)
+    for user in users:
+        if _norm_username(user.get("username", "")) == target:
+            return user
+    return None
+
+
+def _find_user_for_login(login_value: str) -> Optional[Dict[str, Any]]:
+    identifier = login_value.strip()
+    if not identifier:
+        return None
+    if "@" in identifier:
+        by_email = _get_user_by_email(identifier)
+        if by_email:
+            return by_email
+    by_username = _get_user_by_username(identifier)
+    if by_username:
+        return by_username
+    return _get_user_by_email(identifier)
 
 
 def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
@@ -204,6 +250,44 @@ def _session_path_for_user(user_id: str, session_id: str) -> Path:
     return user_dir / f"{session_id}.json"
 
 
+def _ensure_default_users():
+    users_data = _load_users()
+    users = users_data.get("users", [])
+    changed = False
+
+    for seed in DEFAULT_USERS:
+        email = _norm_email(seed["email"])
+        username = _norm_username(seed["username"])
+        existing = next((u for u in users if _norm_email(u.get("email", "")) == email), None)
+
+        if existing:
+            if not existing.get("username"):
+                existing["username"] = username
+                changed = True
+            continue
+
+        if any(_norm_username(u.get("username", "")) == username for u in users):
+            continue
+
+        hashed = _hash_password(seed["password"])
+        users.append(
+            {
+                "id": str(uuid.uuid4()),
+                "username": username,
+                "name": seed["name"],
+                "email": email,
+                "password_salt": hashed["salt"],
+                "password_hash": hashed["hash"],
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
+        changed = True
+
+    if changed:
+        users_data["users"] = users
+        _save_users(users_data)
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
@@ -216,17 +300,21 @@ class SaveRequest(BaseModel):
 
 
 class AuthRequest(BaseModel):
-    email: EmailStr
+    login: str = Field(min_length=2, max_length=120)
     password: str = Field(min_length=8, max_length=128)
 
 
-class RegisterRequest(AuthRequest):
+class RegisterRequest(BaseModel):
     name: str = Field(min_length=2, max_length=80)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
 
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+_ensure_default_users()
 
 @app.post("/api/auth/register")
 async def register(body: RegisterRequest):
@@ -235,8 +323,13 @@ async def register(body: RegisterRequest):
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
 
     hashed = _hash_password(body.password)
+    users_data = _load_users()
+    username_base = email.split("@", 1)[0]
+    username = _make_unique_username(username_base, users_data["users"])
+
     user = {
         "id": str(uuid.uuid4()),
+        "username": username,
         "name": body.name.strip(),
         "email": email,
         "password_salt": hashed["salt"],
@@ -244,7 +337,6 @@ async def register(body: RegisterRequest):
         "created_at": datetime.utcnow().isoformat(),
     }
 
-    users_data = _load_users()
     users_data["users"].append(user)
     _save_users(users_data)
 
@@ -257,13 +349,12 @@ async def register(body: RegisterRequest):
 
 @app.post("/api/auth/login")
 async def login(body: AuthRequest):
-    email = _norm_email(str(body.email))
-    user = _get_user_by_email(email)
+    user = _find_user_for_login(body.login)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
+        raise HTTPException(status_code=401, detail="Invalid username/email or password.")
 
     if not _verify_password(body.password, user["password_salt"], user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
+        raise HTTPException(status_code=401, detail="Invalid username/email or password.")
 
     token = _issue_token(user["id"])
     return {

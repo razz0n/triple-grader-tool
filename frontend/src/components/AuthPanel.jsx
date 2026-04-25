@@ -1,16 +1,10 @@
 import { useState } from "react";
 import { loginUser, registerUser } from "../api";
 
-const HARDCODED_USERS = [
-  { name: "user_ysh", email: "user_ysh@example.com", password: "psd_ysh_psd" },
-  { name: "user_jw", email: "user_jw@example.com", password: "psd_jw_psd" },
-  { name: "user_rl", email: "user_rl@example.com", password: "psd_rl_psd" },
-];
-
 export default function AuthPanel({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,7 +12,7 @@ export default function AuthPanel({ onAuthenticated }) {
   const [info, setInfo] = useState("");
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const emailTrimmed = email.trim();
+  const emailTrimmed = identifier.trim();
   const emailHasTypingSignals = emailTrimmed.includes("@") || emailTrimmed.includes(".");
   const isEmailValid = emailRegex.test(emailTrimmed);
   const emailError =
@@ -33,7 +27,7 @@ export default function AuthPanel({ onAuthenticated }) {
   const submit = async (e) => {
     e.preventDefault();
     setInfo("");
-    if (!isEmailValid) {
+    if (mode === "register" && !isEmailValid) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -51,10 +45,10 @@ export default function AuthPanel({ onAuthenticated }) {
     setError("");
     try {
       if (mode === "login") {
-        const user = await loginUser(email, password);
+        const user = await loginUser(identifier, password);
         onAuthenticated(user);
       } else {
-        await registerUser(name.trim(), email, password);
+        await registerUser(name.trim(), identifier, password);
         setMode("login");
         setPassword("");
         setConfirmPassword("");
@@ -63,18 +57,6 @@ export default function AuthPanel({ onAuthenticated }) {
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Authentication failed.");
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const quickLogin = async (user) => {
-    setLoading(true);
-    setError("");
-    try {
-      const loggedInUser = await loginUser(user.email, user.password);
-      onAuthenticated(loggedInUser);
-    } catch (err) {
-      setError(err?.response?.data?.detail || err?.message || "Quick login failed.");
       setLoading(false);
     }
   };
@@ -90,32 +72,12 @@ export default function AuthPanel({ onAuthenticated }) {
           <p className="text-sm text-slate-500 mt-1">
             {mode === "login" ? "Sign in to your workspace" : "Create your account"}
           </p>
+          {mode === "login" && (
+            <p className="text-xs text-slate-500 mt-2">
+              Default users: user_ysh / psd_ysh_psd, user_jw / psd_jw_psd, user_rl / psd_rl_psd, user_ab / psd_ab_psd, user_cd / psd_cd_psd
+            </p>
+          )}
         </div>
-
-        {mode === "login" && (
-          <div className="mb-4">
-            <p className="text-xs text-slate-500 mb-2 font-semibold">Quick login:</p>
-            <div className="grid grid-cols-3 gap-2">
-              {HARDCODED_USERS.map((user) => (
-                <button
-                  key={user.email}
-                  type="button"
-                  onClick={() => quickLogin(user)}
-                  disabled={loading}
-                  className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-2 py-2 text-xs font-medium text-blue-700 transition-colors disabled:opacity-60"
-                >
-                  {user.name}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 my-3">
-              <div className="flex-1 h-px bg-slate-200"></div>
-              <span className="text-xs text-slate-400">or</span>
-              <div className="flex-1 h-px bg-slate-200"></div>
-            </div>
-          </div>
-        )}
-
         <div className="flex rounded-xl bg-slate-100 p-1 mb-4">
           <button
             type="button"
@@ -161,20 +123,20 @@ export default function AuthPanel({ onAuthenticated }) {
           <div>
             <div className="relative">
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                type={mode === "login" ? "text" : "email"}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder={mode === "login" ? "Username or email" : "Email"}
                 required
                 className="w-full border border-slate-300 rounded-xl px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
-              {isEmailValid && (
+              {mode === "register" && isEmailValid && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 text-sm font-bold" aria-label="valid email">
                   ✓
                 </span>
               )}
             </div>
-            {emailError && <p className="text-xs text-amber-700 mt-1">{emailError}</p>}
+            {mode === "register" && emailError && <p className="text-xs text-amber-700 mt-1">{emailError}</p>}
           </div>
 
           <input

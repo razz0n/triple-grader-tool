@@ -44,8 +44,8 @@ export async function registerUser(name, email, password) {
   return data;
 }
 
-export async function loginUser(email, password) {
-  const { data } = await API.post("/api/auth/login", { email, password });
+export async function loginUser(login, password) {
+  const { data } = await API.post("/api/auth/login", { login, password });
   setAuthToken(data.access_token);
   return data.user;
 }
