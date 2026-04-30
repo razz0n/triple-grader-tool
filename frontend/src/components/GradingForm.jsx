@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import TripleSuggestions from "./TripleSuggestions";
-import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion } from "../api";
+import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion, unapproveSuggestion } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
@@ -344,12 +344,14 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     }
   };
 
-  const handleApproveSuggestion = async (tripleId, suggestionId) => {
+  const handleToggleSuggestionApproval = async (tripleId, suggestionId, isApproved) => {
     if (!savedSessionId) {
       await handleSave();
     }
     const sessionId = savedSessionId || initialSessionId;
-    const result = await approveSuggestion(sessionId, current.id, tripleId, suggestionId);
+    const result = isApproved
+      ? await unapproveSuggestion(sessionId, current.id, tripleId, suggestionId)
+      : await approveSuggestion(sessionId, current.id, tripleId, suggestionId);
 
     setSentences((prev) =>
       prev.map((s, i) =>
@@ -362,13 +364,15 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                   ? t
                   : {
                       ...t,
-                      subject: result?.triple?.subject ?? t.subject,
-                      predicate: result?.triple?.predicate ?? t.predicate,
-                      object: result?.triple?.object ?? t.object,
-                      author: result?.triple?.author ?? t.author,
+                      subject: isApproved ? t.subject : (result?.triple?.subject ?? t.subject),
+                      predicate: isApproved ? t.predicate : (result?.triple?.predicate ?? t.predicate),
+                      object: isApproved ? t.object : (result?.triple?.object ?? t.object),
+                      author: isApproved ? t.author : (result?.triple?.author ?? t.author),
                       suggestions: (t.suggestions || []).map((sug) =>
                         sug.id === suggestionId
-                          ? { ...sug, status: "approved", approved_by: currentUser?.name || "Owner", approved_at: new Date().toISOString() }
+                          ? isApproved
+                            ? { ...sug, status: "pending", approved_by: undefined, approved_at: undefined }
+                            : { ...sug, status: "approved", approved_by: currentUser?.name || "Owner", approved_at: new Date().toISOString() }
                           : sug
                       ),
                     }
@@ -854,7 +858,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                   onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
                   onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
                   onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
-                  onApproveSuggestion={(suggestionId) => handleApproveSuggestion(triple.id, suggestionId)}
+                  onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
                 />
               </div>
             ))}

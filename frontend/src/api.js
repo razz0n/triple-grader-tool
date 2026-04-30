@@ -242,3 +242,21 @@ export async function approveSuggestion(sessionId, sentenceId, tripleId, suggest
   });
   return data;
 }
+
+/**
+ * Undo approval for a suggestion (owner only).
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function unapproveSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
+  const { data } = await API.post("/api/suggestions/unapprove", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    suggestion_id: suggestionId,
+  });
+  return data;
+}

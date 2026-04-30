@@ -257,12 +257,17 @@ export default function TripleSuggestions({
                   </div>
                   {!isEditing && (
                     <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {canApprove && sug.status !== "approved" && (
+                      {canApprove && (
                         <button
-                          onClick={() => onApproveSuggestion?.(sug.id)}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition-colors"
+                          onClick={() => onApproveSuggestion?.(sug.id, sug.status === "approved")}
+                          className={[
+                            "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors",
+                            sug.status === "approved"
+                              ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                              : "bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200",
+                          ].join(" ")}
                         >
-                          ✓ Approve
+                          {sug.status === "approved" ? "↺ Undo approve" : "✓ Approve"}
                         </button>
                       )}
                       {canDelete && (

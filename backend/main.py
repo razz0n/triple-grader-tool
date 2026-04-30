@@ -1128,6 +1128,29 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
     raise HTTPException(status_code=404, detail="Suggestion not found.")
 
 
+@app.post("/api/suggestions/unapprove")
+async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+    """Undo approval status for a suggestion (owner only)."""
+    json_path, session = _load_session_for_access(body.session_id)
+
+    if not _is_session_owner(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can unapprove suggestions.")
+
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    for sug in t.get("suggestions", []):
+                        if sug.get("id") == body.suggestion_id:
+                            sug["status"] = "pending"
+                            sug.pop("approved_by", None)
+                            sug.pop("approved_at", None)
+                            _save_loaded_session(json_path, session)
+                            return {"ok": True}
+
+    raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+
 # ---------------------------------------------------------------------------
 # Serve the React build in production
 # Mount AFTER all API routes so /api/* is never intercepted.
