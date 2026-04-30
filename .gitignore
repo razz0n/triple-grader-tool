@@ -26,6 +26,8 @@ Thumbs.db
 graphify-out/cache/
 graphify-out/manifest.json
 graphify-out/cost.json
+# intermediate pipeline working files (not useful to share)
+graphify-out/.graphify_*
 # legacy paths from earlier approach (no longer used)
 backend/kg_output/
 backend/knowledge_graph/
