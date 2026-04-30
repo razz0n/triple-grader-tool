@@ -143,22 +143,50 @@ def load_users_db() -> Dict[str, Any]:
 
 
 def save_users_db(users_data: Dict[str, Any]) -> None:
+    """Bulk-upsert all users from a dict; rows for IDs not in the list are deleted."""
     users = users_data.get("users", []) if isinstance(users_data, dict) else []
+    incoming_ids = {str(u.get("id", "")) for u in users if u.get("id")}
     with SessionLocal() as db:
-        db.query(UserRecord).delete()
+        # Remove rows whose IDs are no longer present
+        if incoming_ids:
+            db.query(UserRecord).filter(UserRecord.id.notin_(incoming_ids)).delete(synchronize_session=False)
+        else:
+            db.query(UserRecord).delete(synchronize_session=False)
+        # Upsert each incoming user
         for user in users:
-            db.add(
-                UserRecord(
-                    id=str(user.get("id", "")),
-                    username=user.get("username"),
-                    name=str(user.get("name", "")),
-                    email=str(user.get("email", "")),
-                    password_salt=str(user.get("password_salt", "")),
-                    password_hash=str(user.get("password_hash", "")),
-                    created_at=str(user.get("created_at", "")),
-                )
-            )
+            _upsert_user(db, user)
         db.commit()
+
+
+def upsert_user_db(user_dict: Dict[str, Any]) -> None:
+    """Upsert a single user record (used for registration / profile updates)."""
+    with SessionLocal() as db:
+        _upsert_user(db, user_dict)
+        db.commit()
+
+
+def _upsert_user(db, user: Dict[str, Any]) -> None:
+    uid = str(user.get("id", "")).strip()
+    if not uid:
+        return
+    row = db.get(UserRecord, uid)
+    if row:
+        row.username = user.get("username")
+        row.name = str(user.get("name", ""))
+        row.email = str(user.get("email", ""))
+        row.password_salt = str(user.get("password_salt", ""))
+        row.password_hash = str(user.get("password_hash", ""))
+        row.created_at = str(user.get("created_at", ""))
+    else:
+        db.add(UserRecord(
+            id=uid,
+            username=user.get("username"),
+            name=str(user.get("name", "")),
+            email=str(user.get("email", "")),
+            password_salt=str(user.get("password_salt", "")),
+            password_hash=str(user.get("password_hash", "")),
+            created_at=str(user.get("created_at", "")),
+        ))
 
 
 def load_tokens_db() -> Dict[str, Any]:
@@ -176,18 +204,46 @@ def load_tokens_db() -> Dict[str, Any]:
 
 
 def save_tokens_db(tokens_data: Dict[str, Any]) -> None:
+    """Bulk-upsert all tokens from a dict; tokens not in the list are deleted."""
     tokens = tokens_data.get("tokens", {}) if isinstance(tokens_data, dict) else {}
+    incoming_keys = set(tokens.keys())
     with SessionLocal() as db:
-        db.query(TokenRecord).delete()
+        # Remove tokens no longer present
+        if incoming_keys:
+            db.query(TokenRecord).filter(TokenRecord.token.notin_(incoming_keys)).delete(synchronize_session=False)
+        else:
+            db.query(TokenRecord).delete(synchronize_session=False)
+        # Upsert each incoming token
         for token, payload in tokens.items():
-            db.add(
-                TokenRecord(
-                    token=str(token),
-                    user_id=str(payload.get("user_id", "")),
-                    created_at=str(payload.get("created_at", "")),
-                )
-            )
+            _upsert_token(db, token, payload)
         db.commit()
+
+
+def add_token_db(token: str, user_id: str, created_at: str) -> None:
+    """Insert a single new auth token (used right after login/register)."""
+    with SessionLocal() as db:
+        _upsert_token(db, token, {"user_id": user_id, "created_at": created_at})
+        db.commit()
+
+
+def delete_token_db(token: str) -> None:
+    """Delete a single token (used on logout)."""
+    with SessionLocal() as db:
+        db.query(TokenRecord).filter(TokenRecord.token == token).delete(synchronize_session=False)
+        db.commit()
+
+
+def _upsert_token(db, token: str, payload: Dict[str, Any]) -> None:
+    row = db.get(TokenRecord, token)
+    if row:
+        row.user_id = str(payload.get("user_id", ""))
+        row.created_at = str(payload.get("created_at", ""))
+    else:
+        db.add(TokenRecord(
+            token=str(token),
+            user_id=str(payload.get("user_id", "")),
+            created_at=str(payload.get("created_at", "")),
+        ))
 
 
 def load_session_db(session_id: str) -> Dict[str, Any] | None:

@@ -27,6 +27,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 
 from database import (
+    add_token_db,
+    delete_token_db,
     init_database,
     list_sessions_db,
     load_session_db,
@@ -35,6 +37,7 @@ from database import (
     save_single_session_db,
     save_tokens_db,
     save_users_db,
+    upsert_user_db,
     use_database_storage,
 )
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
@@ -229,12 +232,13 @@ def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
 
 def _issue_token(user_id: str) -> str:
     token = secrets.token_urlsafe(40)
-    tokens = _load_tokens()
-    tokens["tokens"][token] = {
-        "user_id": user_id,
-        "created_at": datetime.utcnow().isoformat(),
-    }
-    _save_tokens(tokens)
+    created_at = datetime.utcnow().isoformat()
+    if use_database_storage():
+        add_token_db(token, user_id, created_at)
+    else:
+        tokens = _load_tokens()
+        tokens["tokens"][token] = {"user_id": user_id, "created_at": created_at}
+        _save_tokens(tokens)
     return token
 
 
@@ -247,10 +251,13 @@ def _user_from_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 def _revoke_token(token: str):
-    tokens = _load_tokens()
-    if token in tokens["tokens"]:
-        del tokens["tokens"][token]
-        _save_tokens(tokens)
+    if use_database_storage():
+        delete_token_db(token)
+    else:
+        tokens = _load_tokens()
+        if token in tokens["tokens"]:
+            del tokens["tokens"][token]
+            _save_tokens(tokens)
 
 
 async def _current_user(
@@ -521,7 +528,10 @@ async def register(body: RegisterRequest):
     }
 
     users_data["users"].append(user)
-    _save_users(users_data)
+    if use_database_storage():
+        upsert_user_db(user)
+    else:
+        _save_users(users_data)
 
     return {
         "ok": True,
