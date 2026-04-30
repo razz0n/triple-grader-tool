@@ -22,7 +22,11 @@ Thumbs.db
 # Logs
 *.log
 
-# Knowledge graph generated artifacts (graphifyy outputs)
+# graphifyy - keep graph outputs (committed for shared context), skip heavy/local-only files
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json
+# legacy paths from earlier approach (no longer used)
 backend/kg_output/
 backend/knowledge_graph/
 backend/*.graphml
