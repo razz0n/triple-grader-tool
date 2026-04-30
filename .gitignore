@@ -21,3 +21,15 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Knowledge graph generated artifacts (graphifyy outputs)
+backend/kg_output/
+backend/knowledge_graph/
+backend/*.graphml
+backend/*.gexf
+backend/*.ttl
+backend/*.rdf
+backend/*.jsonld
+
+# Local runtime DB
+backend/storage/app.db
