@@ -28,8 +28,11 @@ from pydantic import BaseModel, EmailStr, Field
 
 from database import (
     init_database,
+    list_sessions_db,
+    load_session_db,
     load_tokens_db,
     load_users_db,
+    save_single_session_db,
     save_tokens_db,
     save_users_db,
     use_database_storage,
@@ -286,6 +289,8 @@ def _session_path_for_user(user_id: str, session_id: str) -> Path:
 def _find_existing_session_path(session_id: str) -> Optional[Path]:
     if not session_id.replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid session ID.")
+    if use_database_storage():
+        return None
     for p in SESSIONS_ROOT.glob(f"*/{session_id}.json"):
         return p
     return None
@@ -300,7 +305,13 @@ def _get_session_path_for_access(session_id: str, owner_user_id: Optional[str] =
     raise HTTPException(status_code=404, detail="Session not found.")
 
 
-def _load_session_for_access(session_id: str) -> tuple[Path, Dict[str, Any]]:
+def _load_session_for_access(session_id: str) -> tuple[Optional[Path], Dict[str, Any]]:
+    if use_database_storage():
+        session = load_session_db(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        return None, session
+
     json_path = _get_session_path_for_access(session_id)
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -309,7 +320,36 @@ def _load_session_for_access(session_id: str) -> tuple[Path, Dict[str, Any]]:
     return json_path, session
 
 
-def _is_session_owner(session: Dict[str, Any], session_path: Path, user: Dict[str, Any]) -> bool:
+def _save_loaded_session(session_path: Optional[Path], session: Dict[str, Any], owner_user_id: Optional[str] = None) -> None:
+    if use_database_storage():
+        if owner_user_id and not session.get("owner_user_id"):
+            session["owner_user_id"] = owner_user_id
+        save_single_session_db(session)
+        return
+
+    target_path = session_path
+    if not target_path:
+        target_user_id = owner_user_id or session.get("owner_user_id")
+        target_path = _get_session_path_for_access(str(session.get("session_id", "")), owner_user_id=target_user_id)
+    with open(target_path, "w", encoding="utf-8") as fh:
+        json.dump(session, fh, indent=2, ensure_ascii=False)
+
+
+def _load_existing_session(session_id: str) -> tuple[Optional[Path], Optional[Dict[str, Any]]]:
+    if use_database_storage():
+        return None, load_session_db(session_id)
+
+    existing_path = _find_existing_session_path(session_id)
+    if not existing_path or not existing_path.exists():
+        return None, None
+    try:
+        with open(existing_path, "r", encoding="utf-8") as fh:
+            return existing_path, json.load(fh)
+    except Exception:
+        return existing_path, None
+
+
+def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
     user_id = user.get("id", "")
     user_username = _norm_username(user.get("username", ""))
     user_email = _norm_email(user.get("email", ""))
@@ -339,7 +379,7 @@ def _is_session_owner(session: Dict[str, Any], session_path: Path, user: Dict[st
 
     # Legacy fallback for sessions saved before owner metadata was persisted,
     # where folders/IDs may have used username or email identifiers.
-    parent_owner = str(session_path.parent.name or "").strip()
+    parent_owner = str(session_path.parent.name or "").strip() if session_path else ""
     return bool(
         parent_owner
         and (
@@ -448,7 +488,7 @@ class RegisterRequest(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
-init_database(users_json_path=USERS_FILE, tokens_json_path=TOKENS_FILE)
+init_database(users_json_path=USERS_FILE, tokens_json_path=TOKENS_FILE, sessions_root=SESSIONS_ROOT)
 _ensure_default_users()
 
 @app.post("/api/auth/register")
@@ -569,27 +609,21 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     """Persist a graded session to the storage directory."""
     session_data = body.model_dump()
 
-    existing_path = _find_existing_session_path(body.session_id)
-    existing_session = None
-    if existing_path and existing_path.exists():
-        try:
-            with open(existing_path, "r", encoding="utf-8") as fh:
-                existing_session = json.load(fh)
-        except Exception:
-            existing_session = None
+    existing_path, existing_session = _load_existing_session(body.session_id)
 
-        if existing_session and not _is_session_owner(existing_session, existing_path, user):
-            raise HTTPException(
-                status_code=403,
-                detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
-            )
-        if not existing_session and existing_path.parent.name != user["id"]:
-            raise HTTPException(
-                status_code=403,
-                detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
-            )
+    if existing_session and not _is_session_owner(existing_session, existing_path, user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
+        )
 
-    if existing_path and existing_session:
+    if existing_path and not existing_session and existing_path.parent.name != user["id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
+        )
+
+    if existing_session:
         try:
             _merge_existing_suggestions(session_data, existing_session)
         except Exception:
@@ -629,9 +663,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     session_data["owner_name"] = _display_name(user)
     session_data["owner_email"] = _norm_email(user.get("email", ""))
     session_data["owner_username"] = _norm_username(user.get("username", ""))
-    out_path = _get_session_path_for_access(body.session_id, owner_user_id=user["id"])
-    with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(session_data, fh, indent=2, ensure_ascii=False)
+    _save_loaded_session(existing_path, session_data, owner_user_id=user["id"])
 
     return {"session_id": body.session_id, "saved_at": datetime.utcnow().isoformat()}
 
@@ -639,12 +671,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
 @app.get("/api/download/{session_id}/{fmt}")
 async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Depends(_current_user)):
     """Download a saved session in the requested format."""
-    json_path = _get_session_path_for_access(session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
-
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    _, session = _load_session_for_access(session_id)
 
     fmt = fmt.lower()
     filename_base = session.get("source_filename", "graded").rsplit(".", 1)[0]
@@ -682,12 +709,8 @@ async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Dep
 @app.get("/api/session/{session_id}")
 async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
     """Return the full saved session JSON (used by the frontend to resume a session)."""
-    json_path = _get_session_path_for_access(session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
-    session["can_edit"] = _is_session_owner(session, json_path, user)
+    session_path, session = _load_session_for_access(session_id)
+    session["can_edit"] = _is_session_owner(session, session_path, user)
     return session
 
 
@@ -699,12 +722,7 @@ async def preview_session(
 ):
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
     user = _current_user_from_bearer_or_query(request, token)
-    json_path = _get_session_path_for_access(session_id)
-    if not json_path.exists():
-        raise HTTPException(status_code=404, detail="Session not found. Save the session first.")
-
-    with open(json_path, "r", encoding="utf-8") as fh:
-        session = json.load(fh)
+    _, session = _load_session_for_access(session_id)
 
     sentences   = session.get("sentences", [])
     filename    = session.get("source_filename", "")
@@ -832,6 +850,23 @@ async def preview_session(
 async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
     """List all saved session files across all users for collaboration."""
     sessions = []
+    if use_database_storage():
+        source_sessions = list_sessions_db()
+        for data in source_sessions:
+            owner_user_id = data.get("owner_user_id") or ""
+            owner_user = _get_user_by_id(owner_user_id)
+            is_owner = _is_session_owner(data, None, user)
+            sessions.append({
+                "session_id":      data.get("session_id", ""),
+                "source_filename": data.get("source_filename", "unknown"),
+                "uploaded_at":     data.get("uploaded_at", ""),
+                "total_sentences": len(data.get("sentences", [])),
+                "owner_user_id": owner_user_id,
+                "owner_name": _display_name(owner_user) if owner_user else owner_user_id,
+                "is_owner": is_owner,
+            })
+        return sessions
+
     for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
         try:
             with open(p, "r", encoding="utf-8") as fh:
@@ -862,7 +897,7 @@ async def health():
 async def storage_info():
     return {
         "backend": "database" if use_database_storage() else "json",
-        "notes": "Set STORAGE_BACKEND=database and DATABASE_URL for production DB-backed users/tokens.",
+        "notes": "Set STORAGE_BACKEND=database and DATABASE_URL for production DB-backed users/tokens/sessions.",
     }
 
 
@@ -943,10 +978,9 @@ async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = D
     if "suggestions" not in triple:
         triple["suggestions"] = []
     triple["suggestions"].append(suggestion)
-    
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(session, fh, indent=2, ensure_ascii=False)
-    
+
+    _save_loaded_session(json_path, session)
+
     return {"suggestion_id": suggestion_id, "ok": True}
 
 
@@ -984,10 +1018,9 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_
         suggestion["votes"].pop(user_name, None)
     else:
         suggestion["votes"][user_name] = body.vote
-    
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(session, fh, indent=2, ensure_ascii=False)
-    
+
+    _save_loaded_session(json_path, session)
+
     return {"ok": True}
 
 
@@ -1010,8 +1043,7 @@ async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = De
                             sug["object"] = body.object
                             sug["reason"] = body.reason or ""
                             sug["updated_at"] = datetime.utcnow().isoformat()
-                            with open(json_path, "w", encoding="utf-8") as out:
-                                json.dump(session, out, indent=2, ensure_ascii=False)
+                            _save_loaded_session(json_path, session)
                             return {"ok": True}
 
     raise HTTPException(status_code=404, detail="Suggestion not found.")
@@ -1040,8 +1072,7 @@ async def delete_suggestion(
                             if sug.get("author") != user_name:
                                 raise HTTPException(status_code=403, detail="Only the author can delete this suggestion.")
                             suggestions.pop(i)
-                            with open(json_path, "w", encoding="utf-8") as fh:
-                                json.dump(session, fh, indent=2, ensure_ascii=False)
+                            _save_loaded_session(json_path, session)
                             return {"ok": True}
     
     raise HTTPException(status_code=404, detail="Suggestion not found.")
@@ -1052,8 +1083,7 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
     """Approve a suggestion and apply it to a triple (owner only)."""
     json_path, session = _load_session_for_access(body.session_id)
 
-    owner_user_id = session.get("owner_user_id") or json_path.parent.name
-    if owner_user_id != user["id"]:
+    if not _is_session_owner(session, json_path, user):
         raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
 
     owner_name = _display_name(user)
@@ -1072,8 +1102,7 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
                             sug["approved_by"] = owner_name
                             sug["approved_at"] = datetime.utcnow().isoformat()
 
-                            with open(json_path, "w", encoding="utf-8") as out:
-                                json.dump(session, out, indent=2, ensure_ascii=False)
+                            _save_loaded_session(json_path, session)
 
                             return {
                                 "ok": True,
