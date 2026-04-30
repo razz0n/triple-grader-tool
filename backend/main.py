@@ -26,6 +26,14 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 
+from database import (
+    init_database,
+    load_tokens_db,
+    load_users_db,
+    save_tokens_db,
+    save_users_db,
+    use_database_storage,
+)
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
 from parser import parse_file, parse_file_rich
 
@@ -126,6 +134,12 @@ def _verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
 
 
 def _load_users() -> Dict[str, Any]:
+    if use_database_storage():
+        users = load_users_db()
+        if "users" not in users:
+            users = {"users": []}
+        return users
+
     users = _load_json(USERS_FILE, {"users": []})
     if "users" not in users:
         users = {"users": []}
@@ -133,10 +147,19 @@ def _load_users() -> Dict[str, Any]:
 
 
 def _save_users(users: Dict[str, Any]):
+    if use_database_storage():
+        save_users_db(users)
+        return
     _save_json(USERS_FILE, users)
 
 
 def _load_tokens() -> Dict[str, Any]:
+    if use_database_storage():
+        tokens = load_tokens_db()
+        if "tokens" not in tokens:
+            tokens = {"tokens": {}}
+        return tokens
+
     tokens = _load_json(TOKENS_FILE, {"tokens": {}})
     if "tokens" not in tokens:
         tokens = {"tokens": {}}
@@ -144,6 +167,9 @@ def _load_tokens() -> Dict[str, Any]:
 
 
 def _save_tokens(tokens: Dict[str, Any]):
+    if use_database_storage():
+        save_tokens_db(tokens)
+        return
     _save_json(TOKENS_FILE, tokens)
 
 
@@ -422,6 +448,7 @@ class RegisterRequest(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+init_database(users_json_path=USERS_FILE, tokens_json_path=TOKENS_FILE)
 _ensure_default_users()
 
 @app.post("/api/auth/register")
@@ -829,6 +856,14 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/storage/info")
+async def storage_info():
+    return {
+        "backend": "database" if use_database_storage() else "json",
+        "notes": "Set STORAGE_BACKEND=database and DATABASE_URL for production DB-backed users/tokens.",
+    }
 
 
 # ---------------------------------------------------------------------------
