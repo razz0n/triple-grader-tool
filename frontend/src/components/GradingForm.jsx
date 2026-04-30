@@ -25,11 +25,18 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     initialSentences.map((s) => ({
       ...s,
       suggestion: s.suggestion || "",
+      completeness:
+        s.completeness ??
+        s.triples.find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness ??
+        null,
+      external_relation:
+        s.external_relation ??
+        s.relation ??
+        s.triples.find((t) => t.relation !== null && t.relation !== undefined)?.relation ??
+        null,
       triples: s.triples.map((t) => ({ 
         ...t, 
         grade: t.grade ?? null,
-        completeness: t.completeness ?? null,
-        relation: t.relation ?? 10,
         author: t.author || null,
         suggestions: t.suggestions || [],
       })),
@@ -109,7 +116,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     );
   };
 
-  const handleCompletenessChange = (tripleId, completeness) => {
+  const handleSentenceMetricChange = (field, value) => {
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) =>
@@ -117,25 +124,7 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
           ? s
           : {
               ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId ? { ...t, completeness } : t
-              ),
-            }
-      )
-    );
-  };
-
-  const handleRelationChange = (tripleId, relation) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId ? { ...t, relation } : t
-              ),
+              [field]: value,
             }
       )
     );
@@ -396,7 +385,13 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
               (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(2)
             )
           : null;
-      return { ...s, sentence_grade: avg };
+      return {
+        ...s,
+        sentence_grade: avg,
+        completeness: s.completeness ?? null,
+        external_relation: s.external_relation ?? null,
+        triples: s.triples.map(({ completeness, relation, ...t }) => t),
+      };
     }),
   });
 
@@ -697,6 +692,72 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
             {current.text}
           </blockquote>
 
+          <div className="mt-5 border-t border-slate-100 pt-4 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Sentence-level Metrics
+            </h3>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">Completeness (0-10)</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <button
+                    key={`comp-${n}`}
+                    onClick={() => handleSentenceMetricChange("completeness", n)}
+                    disabled={!canApproveSuggestions}
+                    className={[
+                      "w-6 h-6 rounded text-xs font-semibold border transition-all",
+                      "focus:outline-none focus:ring-2 focus:ring-green-400",
+                      current.completeness === n
+                        ? "bg-green-600 text-white border-green-600 scale-110 shadow"
+                        : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
+                      !canApproveSuggestions ? "opacity-70 cursor-not-allowed" : "",
+                    ].join(" ")}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              {current.completeness !== null && current.completeness !== undefined ? (
+                <span className="ml-1 text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                  {current.completeness}/10
+                </span>
+              ) : (
+                <span className="ml-1 text-xs text-slate-400 italic">not set</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">External Relation (0-10)</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <button
+                    key={`rel-${n}`}
+                    onClick={() => handleSentenceMetricChange("external_relation", n)}
+                    disabled={!canApproveSuggestions}
+                    className={[
+                      "w-6 h-6 rounded text-xs font-semibold border transition-all",
+                      "focus:outline-none focus:ring-2 focus:ring-indigo-400",
+                      current.external_relation === n
+                        ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow"
+                        : "bg-white text-slate-600 border-slate-300 hover:bg-indigo-50 hover:border-indigo-400",
+                      !canApproveSuggestions ? "opacity-70 cursor-not-allowed" : "",
+                    ].join(" ")}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              {current.external_relation !== null && current.external_relation !== undefined ? (
+                <span className="ml-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                  {current.external_relation}/10
+                </span>
+              ) : (
+                <span className="ml-1 text-xs text-slate-400 italic">not set</span>
+              )}
+            </div>
+          </div>
+
           {/* Navigation arrows */}
           <div className="flex items-center justify-between mt-5">
             <button
@@ -766,13 +827,9 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
                 <TripleCard
                   triple={triple}
                   grade={triple.grade}
-                  completeness={triple.completeness}
-                  relation={triple.relation}
                   author={triple.author}
                   readOnly={!canApproveSuggestions}
                   onChange={(grade) => handleGradeChange(triple.id, grade)}
-                  onCompletenessChange={(completeness) => handleCompletenessChange(triple.id, completeness)}
-                  onRelationChange={(relation) => handleRelationChange(triple.id, relation)}
                 />
                 <TripleSuggestions
                   triple={triple}
