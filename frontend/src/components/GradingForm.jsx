@@ -15,10 +15,17 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
     uploaded_at,
     resumed,
     owner_user_id,
+    owner_email,
+    can_edit,
   } = uploadData;
 
   const sessionOwnerUserId = owner_user_id || currentUser?.id || null;
-  const canApproveSuggestions = !sessionOwnerUserId || sessionOwnerUserId === currentUser?.id;
+  const canApproveSuggestions =
+    can_edit ??
+    (!sessionOwnerUserId ||
+      sessionOwnerUserId === currentUser?.id ||
+      (owner_email && currentUser?.email && owner_email === currentUser.email));
+  const viewerMode = resumed && !canApproveSuggestions;
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -655,8 +662,16 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
         )}
       </div>
 
+      {viewerMode && (
+        <div className="bg-amber-50 border-b border-amber-200 fixed top-[57px] left-0 right-0 z-20">
+          <div className="max-w-4xl mx-auto px-4 py-2 text-xs sm:text-sm text-amber-800">
+            Viewer mode: You are viewing another user's session. You can add suggestions and vote, but direct grading and edits are restricted.
+          </div>
+        </div>
+      )}
+
       {/* ── Main content ───────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 pt-24 pb-8 space-y-6">
+      <div className={`max-w-4xl mx-auto px-4 pb-8 space-y-6 ${viewerMode ? "pt-36" : "pt-24"}`}>
 
         {/* Sentence card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">

@@ -87,7 +87,9 @@ export default function App() {
     return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} />;
   })();
 
-  const greetingName = user?.name || user?.email || "User";
+  const firstName = (user?.name || "").trim().split(/\s+/)[0] || "";
+  const greetingName = firstName || user?.username || user?.email || "User";
+  const usernameTag = user?.username ? `@${user.username}` : "";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -95,6 +97,7 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <p className="text-xs sm:text-sm text-slate-600">
             Welcome, <span className="font-semibold text-slate-800">{greetingName}</span>
+            {usernameTag && <span className="ml-2 text-slate-400">({usernameTag})</span>}
           </p>
           <button
             onClick={handleLogout}

@@ -2,6 +2,10 @@
   "session_id": "4607482b-7ff5-4682-a0bb-b78d18c4c6c5",
   "source_filename": "long_coe_tuples(Golden_dataset).csv",
   "uploaded_at": "2026-04-24T14:52:53.713567",
+  "owner_user_id": "f8ce2398-cfc9-4bde-a510-afb257cf3a60",
+  "owner_name": "user_rl",
+  "owner_email": "user_rl@example.com",
+  "owner_username": "user_rl",
   "sentences": [
     {
       "id": 1,
@@ -18,7 +22,28 @@
           "completeness": null,
           "relation": 10,
           "author": null,
-          "suggestions": []
+          "suggestions": [
+            {
+              "id": "3b21cca7-f452-403d-bb3d-781f409936bf",
+              "author": "Rajan Lamichhane",
+              "subject": "This",
+              "predicate": "is",
+              "object": "code",
+              "reason": "",
+              "created_at": "2026-04-24T16:44:48.750682",
+              "votes": {}
+            },
+            {
+              "id": "b3633070-8449-4436-a1f3-68caa73fdc2f",
+              "author": "user_jw",
+              "subject": "This",
+              "predicate": "is",
+              "object": "good",
+              "reason": "",
+              "created_at": "2026-04-25T00:50:44.665652",
+              "votes": {}
+            }
+          ]
         },
         {
           "id": "1_2",
@@ -31,13 +56,13 @@
           "author": null,
           "suggestions": [
             {
-              "id": "bd7aa7f7-ba9d-4613-809b-5ea2d074ff35",
-              "author": "Rajan Lamichhane",
+              "id": "zpg8in9nm",
+              "author": "user",
               "subject": "this computer",
               "predicate": "have",
               "object": "role_001",
               "reason": "",
-              "created_at": "2026-04-24T14:57:01.536970",
+              "created_at": "2026-04-24T14:57:01.550Z",
               "votes": {}
             }
           ]
@@ -62,7 +87,20 @@
           "completeness": null,
           "relation": 10,
           "author": null,
-          "suggestions": []
+          "suggestions": [
+            {
+              "id": "fb67242b-200b-4c72-b111-52bd99e0ad22",
+              "author": "user_jw",
+              "subject": "My",
+              "predicate": "name_is",
+              "object": "Jeff",
+              "reason": "",
+              "created_at": "2026-04-25T00:51:50.231355",
+              "votes": {
+                "user_rl": "yes"
+              }
+            }
+          ]
         },
         {
           "id": "1_5",
@@ -86,14 +124,16 @@
           "author": null,
           "suggestions": [
             {
-              "id": "8eb3cb8d-0f96-4ee6-9951-2216fdd0cd05",
-              "author": "Rajan Lamichhane",
+              "id": "lz4efpx34",
+              "author": "user",
               "subject": "rajan_001",
               "predicate": "is_in",
               "object": "medicine",
               "reason": "",
-              "created_at": "2026-04-24T14:53:08.877236",
-              "votes": {}
+              "created_at": "2026-04-24T14:53:08.893Z",
+              "votes": {
+                "Rajan Lamichhane": "yes"
+              }
             }
           ]
         },
@@ -3449,6 +3489,5 @@
         }
       ]
     }
-  ],
-  "owner_user_id": "ed952c87-e8e5-41b9-b9cc-051c77d81294"
+  ]
 }

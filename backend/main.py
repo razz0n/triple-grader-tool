@@ -283,6 +283,47 @@ def _load_session_for_access(session_id: str) -> tuple[Path, Dict[str, Any]]:
     return json_path, session
 
 
+def _is_session_owner(session: Dict[str, Any], session_path: Path, user: Dict[str, Any]) -> bool:
+    user_id = user.get("id", "")
+    user_username = _norm_username(user.get("username", ""))
+    user_email = _norm_email(user.get("email", ""))
+
+    owner_user_id = str(session.get("owner_user_id") or "").strip()
+    if owner_user_id and (
+        owner_user_id == user_id
+        or _norm_username(owner_user_id) == user_username
+        or _norm_email(owner_user_id) == user_email
+    ):
+        return True
+
+    owner_email = session.get("owner_email")
+    if owner_email and _norm_email(owner_email) == user_email:
+        return True
+
+    owner_username = session.get("owner_username")
+    if owner_username and _norm_username(owner_username) == user_username:
+        return True
+
+    owner_name = (session.get("owner_name") or "").strip()
+    if owner_name and owner_name in {
+        (user.get("name") or "").strip(),
+        user_username,
+    }:
+        return True
+
+    # Legacy fallback for sessions saved before owner metadata was persisted,
+    # where folders/IDs may have used username or email identifiers.
+    parent_owner = str(session_path.parent.name or "").strip()
+    return bool(
+        parent_owner
+        and (
+            parent_owner == user_id
+            or _norm_username(parent_owner) == user_username
+            or _norm_email(parent_owner) == user_email
+        )
+    )
+
+
 def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
     """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
     existing_sentences = {
@@ -435,13 +476,23 @@ async def login(body: AuthRequest):
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user["id"], "name": _display_name(user), "email": user["email"]},
+        "user": {
+            "id": user["id"],
+            "username": user.get("username", ""),
+            "name": _display_name(user),
+            "email": user["email"],
+        },
     }
 
 
 @app.get("/api/auth/me")
 async def me(user: Dict[str, Any] = Depends(_current_user)):
-    return {"id": user["id"], "name": _display_name(user), "email": user["email"]}
+    return {
+        "id": user["id"],
+        "username": user.get("username", ""),
+        "name": _display_name(user),
+        "email": user["email"],
+    }
 
 
 @app.post("/api/auth/logout")
@@ -492,16 +543,27 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     session_data = body.model_dump()
 
     existing_path = _find_existing_session_path(body.session_id)
-    if existing_path and existing_path.parent.name != user["id"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
-        )
-
+    existing_session = None
     if existing_path and existing_path.exists():
         try:
             with open(existing_path, "r", encoding="utf-8") as fh:
                 existing_session = json.load(fh)
+        except Exception:
+            existing_session = None
+
+        if existing_session and not _is_session_owner(existing_session, existing_path, user):
+            raise HTTPException(
+                status_code=403,
+                detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
+            )
+        if not existing_session and existing_path.parent.name != user["id"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
+            )
+
+    if existing_path and existing_session:
+        try:
             _merge_existing_suggestions(session_data, existing_session)
         except Exception:
             # Fall back to incoming payload if previous session cannot be read.
@@ -537,6 +599,9 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
                 t["author"] = user_name
 
     session_data["owner_user_id"] = user["id"]
+    session_data["owner_name"] = _display_name(user)
+    session_data["owner_email"] = _norm_email(user.get("email", ""))
+    session_data["owner_username"] = _norm_username(user.get("username", ""))
     out_path = _get_session_path_for_access(body.session_id, owner_user_id=user["id"])
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(session_data, fh, indent=2, ensure_ascii=False)
@@ -594,7 +659,9 @@ async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_u
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Session not found.")
     with open(json_path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+        session = json.load(fh)
+    session["can_edit"] = _is_session_owner(session, json_path, user)
+    return session
 
 
 @app.get("/api/preview/{session_id}", response_class=HTMLResponse)
@@ -744,6 +811,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 data = json.load(fh)
             owner_user_id = data.get("owner_user_id") or p.parent.name
             owner_user = _get_user_by_id(owner_user_id)
+            is_owner = _is_session_owner(data, p, user)
             sessions.append({
                 "session_id":      p.stem,
                 "source_filename": data.get("source_filename", "unknown"),
@@ -751,6 +819,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "total_sentences": len(data.get("sentences", [])),
                 "owner_user_id": owner_user_id,
                 "owner_name": _display_name(owner_user) if owner_user else owner_user_id,
+                "is_owner": is_owner,
             })
         except Exception:
             pass
