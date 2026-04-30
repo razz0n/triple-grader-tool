@@ -510,11 +510,29 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     # Capture user info and recompute sentence grades server-side for integrity
     user_name = _display_name(user)
     for s in session_data["sentences"]:
+        # Normalize sentence-level metrics and preserve backward compatibility.
+        if s.get("completeness") is None:
+            s["completeness"] = next(
+                (t.get("completeness") for t in s.get("triples", []) if t.get("completeness") is not None),
+                None,
+            )
+        external_relation = s.get("external_relation")
+        if external_relation is None:
+            external_relation = s.get("relation")
+        if external_relation is None:
+            external_relation = next(
+                (t.get("relation") for t in s.get("triples", []) if t.get("relation") is not None),
+                None,
+            )
+        s["external_relation"] = external_relation
+
         grades = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
         s["sentence_grade"] = round(sum(grades) / len(grades), 2) if grades else None
         
         # Set author for triples that have been graded
         for t in s.get("triples", []):
+            t.pop("completeness", None)
+            t.pop("relation", None)
             if t.get("grade") is not None and not t.get("author"):
                 t["author"] = user_name
 
@@ -626,6 +644,18 @@ async def preview_session(
         )
         suggestion = s.get("suggestion", "").strip()
         sug_html = f'<p style="margin:8px 0 0;font-size:12px;color:#64748b;"><em>💬 {suggestion}</em></p>' if suggestion else ""
+        completeness = s.get("completeness")
+        external_relation = s.get("external_relation")
+        metrics_html = ""
+        if completeness is not None or external_relation is not None:
+            comp_label = "—" if completeness is None else str(completeness)
+            rel_label = "—" if external_relation is None else str(external_relation)
+            metrics_html = (
+            '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
+            f'<span style="font-size:11px;padding:3px 8px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:999px;color:#166534;">Completeness: {comp_label}/10</span>'
+            f'<span style="font-size:11px;padding:3px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;color:#3730a3;">External Relation: {rel_label}/10</span>'
+            '</div>'
+            )
         rows_html.append(f"""
           <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);">
             <div style="background:#1e3a5f;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
@@ -634,6 +664,7 @@ async def preview_session(
             </div>
             <div style="padding:12px 16px 4px;">
               <p style="margin:0 0 10px;font-size:14px;color:#1e293b;line-height:1.6;border-left:3px solid #93c5fd;padding-left:10px;">{s.get('text','')}</p>
+                            {metrics_html}
               {sug_html}
             </div>
             <div style="overflow-x:auto;">

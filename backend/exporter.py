@@ -61,6 +61,18 @@ def _avg_str(sentence) -> str:
     return f"{avg:.1f}"
 
 
+def _sentence_metric(sentence, key: str, legacy_triple_key: str):
+    value = sentence.get(key)
+    if value is None and key == "external_relation":
+        value = sentence.get("relation")
+    if value is None:
+        for triple in sentence.get("triples", []):
+            triple_value = triple.get(legacy_triple_key)
+            if triple_value is not None:
+                return triple_value
+    return value
+
+
 # ---------------------------------------------------------------------------
 # JSON
 # ---------------------------------------------------------------------------
@@ -77,12 +89,16 @@ def to_csv(session: Dict[str, Any]) -> bytes:
     rows = []
     for s in session.get("sentences", []):
         sent_grade = _avg_str(s)
+        sent_completeness = _sentence_metric(s, "completeness", "completeness")
+        sent_external_relation = _sentence_metric(s, "external_relation", "relation")
         for t in s.get("triples", []):
             rows.append({
                 "Sentence ID":       s["id"],
                 "Sentence":          s["text"],
                 "Suggestion":        s.get("suggestion", ""),
                 "Sentence Grade":    sent_grade,
+                "Completeness":      _grade_str(sent_completeness),
+                "External Relation":  _grade_str(sent_external_relation),
                 "Triple ID":         t["id"],
                 "Subject":           t["subject"],
                 "Predicate":         t["predicate"],
@@ -134,21 +150,25 @@ def to_excel(session: Dict[str, Any]) -> bytes:
     ws_sum.title = "Summary"
     ws_sum["A1"] = "Ontology Triple Grading — Summary"
     ws_sum["A1"].font = _TITLE_FONT
-    ws_sum.merge_cells("A1:F1")
+    ws_sum.merge_cells("A1:G1")
     ws_sum.row_dimensions[1].height = 26
 
-    headers_sum = ["Sentence ID", "Sentence", "# Triples", "Sentence Grade", "Suggestion"]
+    headers_sum = ["Sentence ID", "Sentence", "# Triples", "Sentence Grade", "Completeness", "External Relation", "Suggestion"]
     ws_sum.append([])          # blank row 2
     ws_sum.append(headers_sum) # row 3
     _style_header_row(ws_sum, 3, len(headers_sum))
     ws_sum.row_dimensions[3].height = 22
 
     for i, s in enumerate(session.get("sentences", []), start=1):
+        sent_completeness = _sentence_metric(s, "completeness", "completeness")
+        sent_external_relation = _sentence_metric(s, "external_relation", "relation")
         row = [
             s["id"],
             s["text"],
             len(s.get("triples", [])),
             _avg_str(s),
+            _grade_str(sent_completeness),
+            _grade_str(sent_external_relation),
             s.get("suggestion", ""),
         ]
         ws_sum.append(row)
@@ -161,17 +181,19 @@ def to_excel(session: Dict[str, Any]) -> bytes:
     ws_sum.column_dimensions["B"].width = 60
     ws_sum.column_dimensions["C"].width = 10
     ws_sum.column_dimensions["D"].width = 14
-    ws_sum.column_dimensions["E"].width = 50
+    ws_sum.column_dimensions["E"].width = 14
+    ws_sum.column_dimensions["F"].width = 16
+    ws_sum.column_dimensions["G"].width = 50
 
     # ── Sheet 2: Details (one row per triple) ───────────────────────────
     ws_det = wb.create_sheet("Details")
     ws_det["A1"] = "Ontology Triple Grading — Details"
     ws_det["A1"].font = _TITLE_FONT
-    ws_det.merge_cells("A1:I1")
+    ws_det.merge_cells("A1:K1")
     ws_det.row_dimensions[1].height = 26
 
     headers_det = [
-        "Sentence ID", "Sentence", "Sentence Grade", "Suggestion",
+        "Sentence ID", "Sentence", "Sentence Grade", "Completeness", "External Relation", "Suggestion",
         "Triple ID", "Subject", "Predicate", "Object", "Triple Grade"
     ]
     ws_det.append([])
@@ -182,9 +204,11 @@ def to_excel(session: Dict[str, Any]) -> bytes:
     row_idx = 4
     for s in session.get("sentences", []):
         sent_grade = _avg_str(s)
+        sent_completeness = _sentence_metric(s, "completeness", "completeness")
+        sent_external_relation = _sentence_metric(s, "external_relation", "relation")
         for t in s.get("triples", []):
             row = [
-                s["id"], s["text"], sent_grade, s.get("suggestion", ""),
+                s["id"], s["text"], sent_grade, _grade_str(sent_completeness), _grade_str(sent_external_relation), s.get("suggestion", ""),
                 t["id"], t["subject"], t["predicate"], t["object"],
                 _grade_str(t.get("grade")),
             ]
@@ -194,7 +218,7 @@ def to_excel(session: Dict[str, Any]) -> bytes:
                 _style_data_cell(ws_det.cell(row=row_idx, column=col), alt=alt)
             row_idx += 1
 
-    col_widths_det = [12, 50, 14, 40, 10, 22, 22, 22, 12]
+    col_widths_det = [12, 45, 14, 14, 16, 34, 10, 20, 20, 20, 12]
     for i, w in enumerate(col_widths_det, start=1):
         ws_det.column_dimensions[get_column_letter(i)].width = w
 
@@ -242,6 +266,8 @@ def to_pdf(session: Dict[str, Any]) -> bytes:
 
     for s in sentences:
         sent_grade = _avg_str(s)
+        sent_completeness = _grade_str(_sentence_metric(s, "completeness", "completeness"))
+        sent_external_relation = _grade_str(_sentence_metric(s, "external_relation", "relation"))
 
         # ── Sentence heading ─────────────────────────────────────────────
         pdf.set_fill_color(30, 58, 95)
@@ -257,6 +283,12 @@ def to_pdf(session: Dict[str, Any]) -> bytes:
         pdf.set_x(8)
         pdf.multi_cell(0, 5, _t(s["text"]))
         pdf.ln(2)
+
+        pdf.set_font(_PDF_FONT, "", 8)
+        pdf.set_text_color(70, 70, 70)
+        pdf.set_x(8)
+        pdf.multi_cell(0, 4, _t(f"Completeness: {sent_completeness}/10    External relation: {sent_external_relation}/10"))
+        pdf.ln(1)
 
         # ── Suggestion ───────────────────────────────────────────────────
         suggestion = s.get("suggestion", "").strip()
@@ -314,6 +346,8 @@ def to_word(session: Dict[str, Any]) -> bytes:
 
     for s in sentences:
         sent_grade = _avg_str(s)
+        sent_completeness = _grade_str(_sentence_metric(s, "completeness", "completeness"))
+        sent_external_relation = _grade_str(_sentence_metric(s, "external_relation", "relation"))
 
         # Sentence heading
         heading_text = f"Sentence {s['id']} of {total}  —  Grade: {sent_grade}"
@@ -324,6 +358,9 @@ def to_word(session: Dict[str, Any]) -> bytes:
         # Sentence text
         p = doc.add_paragraph(s["text"])
         p.runs[0].font.size = Pt(10)
+
+        metric_line = doc.add_paragraph(f"Completeness: {sent_completeness}/10   External relation: {sent_external_relation}/10")
+        metric_line.runs[0].font.size = Pt(9)
 
         # Suggestion
         suggestion = s.get("suggestion", "").strip()

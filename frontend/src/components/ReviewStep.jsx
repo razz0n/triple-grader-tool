@@ -311,6 +311,8 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         text: g.editedText || "(no sentence text)",
         suggestion: "",
         sentence_grade: null,
+        completeness: null,
+        external_relation: null,
         triples,
       });
       sentId++;
