@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import FileUpload from "./components/FileUpload";
 import ReviewStep from "./components/ReviewStep";
 import GradingForm from "./components/GradingForm";
+import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
 import { getAuthToken, logoutUser, meUser } from "./api";
 
@@ -11,8 +12,9 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   // uploadData  : raw parse result from /api/upload (sentence_groups)
   // gradingData : cleaned/confirmed sentences built by ReviewStep
-  const [uploadData, setUploadData]   = useState(null);
-  const [gradingData, setGradingData] = useState(null);
+  const [uploadData, setUploadData]     = useState(null);
+  const [gradingData, setGradingData]   = useState(null);
+  const [evalSession, setEvalSession]   = useState(null); // { sessionId, sourceFilename }
 
   useEffect(() => {
     const token = getAuthToken();
@@ -41,9 +43,18 @@ export default function App() {
     setUploadData(null);
   };
 
+  const handleOpenEval = (sessionId, sourceFilename) => {
+    setEvalSession({ sessionId, sourceFilename });
+  };
+
+  const handleCloseEval = () => {
+    setEvalSession(null);
+  };
+
   const handleReset = () => {
     setUploadData(null);
     setGradingData(null);
+    setEvalSession(null);
   };
 
   const handleLogout = async () => {
@@ -84,7 +95,17 @@ export default function App() {
       );
     }
 
-    return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} />;
+    if (evalSession) {
+      return (
+        <EvaluationPanel
+          sessionId={evalSession.sessionId}
+          sourceFilename={evalSession.sourceFilename}
+          onBack={handleCloseEval}
+        />
+      );
+    }
+
+    return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} onEvaluate={handleOpenEval} />;
   })();
 
   const firstName = (user?.name || "").trim().split(/\s+/)[0] || "";

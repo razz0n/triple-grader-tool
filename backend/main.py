@@ -1152,6 +1152,141 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
 
 
 # ---------------------------------------------------------------------------
+# Evaluation endpoints
+# ---------------------------------------------------------------------------
+
+class EvaluationRequest(BaseModel):
+    match_mode: str = "soft"  # "exact" or "soft"
+
+
+@app.post("/api/evaluate/{session_id}")
+async def evaluate_session_endpoint(
+    session_id: str,
+    body: EvaluationRequest,
+    user: Dict[str, Any] = Depends(_current_user),
+):
+    """Run OpenIE evaluation against a graded session and return P/R/F1 results."""
+    _, session = _load_session_for_access(session_id)
+
+    if body.match_mode not in ("exact", "soft"):
+        raise HTTPException(status_code=400, detail="match_mode must be 'exact' or 'soft'.")
+
+    # Lazy import so stanza only loads when this endpoint is called
+    try:
+        from openie_eval import evaluate_session as _eval_session
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenIE evaluation module not available. Ensure stanza is installed.",
+        )
+
+    try:
+        result = _eval_session(session, match_mode=body.match_mode)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exc)}")
+
+    # Store result on the session so it can be retrieved later
+    session["evaluation"] = result
+    session["evaluation"]["evaluated_at"] = datetime.utcnow().isoformat()
+    session_path, _ = _load_session_for_access(session_id)
+    _save_loaded_session(session_path, session)
+
+    return result
+
+
+@app.get("/api/evaluate/{session_id}/download/{fmt}")
+async def download_evaluation(
+    session_id: str,
+    fmt: str,
+    user: Dict[str, Any] = Depends(_current_user),
+):
+    """Download the last evaluation result for a session as JSON or CSV."""
+    _, session = _load_session_for_access(session_id)
+
+    evaluation = session.get("evaluation")
+    if not evaluation:
+        raise HTTPException(
+            status_code=404,
+            detail="No evaluation found for this session. Run POST /api/evaluate/{session_id} first.",
+        )
+
+    fmt = fmt.lower()
+    filename_base = session.get("source_filename", "session").rsplit(".", 1)[0]
+
+    if fmt == "json":
+        data = json.dumps(evaluation, indent=2, ensure_ascii=False).encode("utf-8")
+        media_type = "application/json"
+        disposition = f'attachment; filename="{filename_base}_evaluation.json"'
+
+    elif fmt == "csv":
+        import io as _io
+        import csv as _csv
+        rows = []
+        for s in evaluation.get("per_sentence", []):
+            gold_str = "; ".join(
+                f"{t.get('subject','')} | {t.get('predicate','')} | {t.get('object','')}"
+                for t in s.get("gold_triples", [])
+            )
+            pred_str = "; ".join(
+                f"{t.get('subject','')} | {t.get('predicate','')} | {t.get('object','')}"
+                for t in s.get("pred_triples", [])
+            )
+            rows.append({
+                "session_id":     evaluation.get("session_id", ""),
+                "source_file":    evaluation.get("source_filename", ""),
+                "match_mode":     evaluation.get("match_mode", ""),
+                "sentence_id":    s["sentence_id"],
+                "sentence_text":  s["sentence_text"],
+                "n_gold":         s["n_gold"],
+                "n_pred":         s["n_pred"],
+                "true_positives": s["true_positives"],
+                "precision":      s["precision"],
+                "recall":         s["recall"],
+                "f1":             s["f1"],
+                "gold_triples":   gold_str,
+                "pred_triples":   pred_str,
+            })
+        for agg_key in ("macro", "micro"):
+            agg = evaluation.get(agg_key, {})
+            rows.append({
+                "session_id": evaluation.get("session_id", ""),
+                "source_file": evaluation.get("source_filename", ""),
+                "match_mode": evaluation.get("match_mode", ""),
+                "sentence_id": f"[{agg_key}]",
+                "sentence_text": "",
+                "n_gold": agg.get("n_gold", ""),
+                "n_pred": agg.get("n_pred", ""),
+                "true_positives": agg.get("true_positives", ""),
+                "precision": agg.get("precision", ""),
+                "recall": agg.get("recall", ""),
+                "f1": agg.get("f1", ""),
+                "gold_triples": "",
+                "pred_triples": "",
+            })
+        fieldnames = [
+            "session_id", "source_file", "match_mode", "sentence_id",
+            "sentence_text", "n_gold", "n_pred", "true_positives",
+            "precision", "recall", "f1", "gold_triples", "pred_triples",
+        ]
+        buf = _io.StringIO()
+        writer = _csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+        data = buf.getvalue().encode("utf-8-sig")
+        media_type = "text/csv"
+        disposition = f'attachment; filename="{filename_base}_evaluation.csv"'
+
+    else:
+        raise HTTPException(status_code=400, detail="Format must be 'json' or 'csv'.")
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": disposition},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Serve the React build in production
 # Mount AFTER all API routes so /api/* is never intercepted.
 # ---------------------------------------------------------------------------
