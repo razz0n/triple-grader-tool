@@ -170,6 +170,63 @@ _STOP = {
     "this", "these", "those", "it", "its", "and", "or", "but", "not",
 }
 
+_ONTOLOGY_ID_RE = re.compile(r"^(?P<base>[a-z][a-z0-9]*(?:_[a-z0-9]+)*)_(?P<idx>\d+)$")
+
+# Canonical forms used during matching to reduce representation mismatch
+# between ontology labels and surface OpenIE text.
+_RELATION_ALIASES = {
+    "is in": "in",
+    "located in": "in",
+    "part of": "in",
+    "belongs to": "in",
+    "has": "have",
+    "had": "have",
+    "contains": "have",
+    "include": "have",
+    "includes": "have",
+    "is": "be",
+    "are": "be",
+    "was": "be",
+    "were": "be",
+    "been": "be",
+    "being": "be",
+    "name is": "be",
+    "contribute to": "contribute",
+    "contributes to": "contribute",
+    "contributed to": "contribute",
+    "is has importance": "importance",
+    "has importance": "importance",
+    "is has trend": "trend",
+    "has trend": "trend",
+}
+
+
+def _normalise_entity(v: str) -> str:
+    raw = re.sub(r"\s+", " ", str(v or "").strip().lower())
+    raw = raw.replace("-", "_")
+
+    m = _ONTOLOGY_ID_RE.fullmatch(raw)
+    if m:
+        raw = m.group("base")
+
+    raw = raw.replace("_", " ").replace("/", " ")
+    return re.sub(r"\s+", " ", raw).strip()
+
+
+def _normalise_relation(v: str) -> str:
+    raw = re.sub(r"\s+", " ", str(v or "").strip().lower())
+    raw = raw.replace("_", " ").replace("/", " ")
+    raw = re.sub(r"\s+", " ", raw).strip()
+    return _RELATION_ALIASES.get(raw, raw)
+
+
+def _normalise_triple(t: dict) -> Dict[str, str]:
+    return {
+        "subject": _normalise_entity(str(t.get("subject", ""))),
+        "predicate": _normalise_relation(str(t.get("predicate", ""))),
+        "object": _normalise_entity(str(t.get("object", ""))),
+    }
+
 
 def _tokenise(text: str) -> Set[str]:
     """Lower-case, split on non-alphanumerics, remove stop words."""
@@ -189,10 +246,12 @@ def _jaccard(a: str, b: str) -> float:
 
 def _triple_jaccard(t1: dict, t2: dict) -> float:
     """Average Jaccard over subject, predicate, object."""
+    nt1 = _normalise_triple(t1)
+    nt2 = _normalise_triple(t2)
     return (
-        _jaccard(str(t1.get("subject", "")), str(t2.get("subject", "")))
-        + _jaccard(str(t1.get("predicate", "")), str(t2.get("predicate", "")))
-        + _jaccard(str(t1.get("object", "")), str(t2.get("object", "")))
+        _jaccard(nt1["subject"], nt2["subject"])
+        + _jaccard(nt1["predicate"], nt2["predicate"])
+        + _jaccard(nt1["object"], nt2["object"])
     ) / 3.0
 
 
@@ -201,10 +260,11 @@ def _normalise(v: str) -> str:
 
 
 def _triple_key(t: dict) -> Tuple[str, str, str]:
+    nt = _normalise_triple(t)
     return (
-        _normalise(str(t.get("subject", ""))),
-        _normalise(str(t.get("predicate", ""))),
-        _normalise(str(t.get("object", ""))),
+        _normalise(nt["subject"]),
+        _normalise(nt["predicate"]),
+        _normalise(nt["object"]),
     )
 
 
