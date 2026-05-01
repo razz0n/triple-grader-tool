@@ -7,7 +7,7 @@ import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSugges
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
-export default function GradingForm({ uploadData, onReset, currentUser }) {
+export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate }) {
   const {
     session_id: initialSessionId,
     source_filename,
@@ -643,6 +643,23 @@ export default function GradingForm({ uploadData, onReset, currentUser }) {
           >
             👁 View
           </a>
+
+          {/* ── Evaluate button ── */}
+          {onEvaluate && (
+            <button
+              onClick={() => onEvaluate(savedSessionId, source_filename)}
+              disabled={!savedSessionId}
+              className={[
+                "flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+                savedSessionId
+                  ? "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-500"
+                  : "border-slate-200 text-slate-300 cursor-not-allowed",
+              ].join(" ")}
+              title={savedSessionId ? "Run OpenIE evaluation" : "Save the session first"}
+            >
+              🔬 Evaluate
+            </button>
+          )}
 
           {/* Back to Dashboard */}
           <button

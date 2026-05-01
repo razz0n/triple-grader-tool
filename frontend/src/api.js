@@ -260,3 +260,54 @@ export async function unapproveSuggestion(sessionId, sentenceId, tripleId, sugge
   });
   return data;
 }
+
+/**
+ * Run OpenIE evaluation for a session.
+ * @param {string} sessionId
+ * @param {"exact"|"soft"} matchMode
+ * @param {"graded_only"|"all"} goldSource
+ * @returns {Promise<object>} evaluation result
+ */
+export async function runEvaluation(sessionId, matchMode = "soft", goldSource = "graded_only") {
+  const { data } = await API.post(`/api/evaluate/${sessionId}`, {
+    match_mode: matchMode,
+    gold_source: goldSource,
+  });
+  return data;
+}
+
+/**
+ * Download evaluation results as JSON or CSV.
+ * @param {string} sessionId
+ * @param {"json"|"csv"} fmt
+ */
+export async function downloadEvaluation(sessionId, fmt) {
+  let response;
+  try {
+    response = await API.get(`/api/evaluate/${sessionId}/download/${fmt}`, {
+      responseType: "blob",
+    });
+  } catch (e) {
+    if (e?.response?.data instanceof Blob) {
+      const text = await e.response.data.text();
+      let msg = `Download failed (HTTP ${e.response.status})`;
+      try { msg = JSON.parse(text).detail || msg; } catch {}
+      throw new Error(msg);
+    }
+    throw e;
+  }
+
+  const disposition = response.headers["content-disposition"] || "";
+  let filename = `evaluation.${fmt}`;
+  const match = disposition.match(/filename="([^"]+)"/);
+  if (match) filename = match[1];
+
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
