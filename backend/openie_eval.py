@@ -68,7 +68,12 @@ _AUX_RELS  = {"aux", "auxpass", "neg", "compound:prt", "prt"}
 _SKIP_RELS = {"punct", "cc", "mark", "expl"} | _AUX_RELS
 
 
-def _collect_span(token, sent_tokens: list, exclude_ids: Set[int]) -> str:
+def _collect_span(
+    token,
+    sent_tokens: list,
+    exclude_ids: Set[int],
+    exclude_conj: bool = False,
+) -> str:
     """
     Collect the surface span for a head token by gathering its dependency
     subtree (excluding punctuation, auxiliaries, and already-used tokens).
@@ -82,12 +87,70 @@ def _collect_span(token, sent_tokens: list, exclude_ids: Set[int]) -> str:
             continue
         if tok.deprel in _SKIP_RELS and tok.id != token.id:
             continue
+        if exclude_conj and tok.deprel == "conj" and tok.id != token.id:
+            continue
         included.append(tok)
         for child in sent_tokens:
             if child.head == tok.id and child.id not in exclude_ids:
                 stack.append(child)
     included.sort(key=lambda t: t.id)
     return " ".join(t.text for t in included).strip()
+
+
+def _collect_subtree_ids(token, sent_tokens: list, exclude_ids: Set[int]) -> Set[int]:
+    """Collect token ids in a dependency subtree using the same skip rules as _collect_span."""
+    ids: Set[int] = set()
+    stack = [token]
+    while stack:
+        tok = stack.pop()
+        if tok.id in ids or tok.id in exclude_ids:
+            continue
+        if tok.deprel in _SKIP_RELS and tok.id != token.id:
+            continue
+        ids.add(tok.id)
+        for child in sent_tokens:
+            if child.head == tok.id and child.id not in ids and child.id not in exclude_ids:
+                stack.append(child)
+    return ids
+
+
+def _expand_coordinated_object_spans(token, sent_tokens: list, exclude_ids: Set[int]) -> List[str]:
+    """
+    Expand coordinated object lists into separate spans.
+
+    Example:
+      "... role in commerce, industry, government ..."
+    becomes separate object spans:
+      "commerce", "industry", "government", ...
+    """
+    base_span = _collect_span(token, sent_tokens, exclude_ids=exclude_ids)
+    subtree_ids = _collect_subtree_ids(token, sent_tokens, exclude_ids=exclude_ids)
+
+    best_cluster: List[Any] = []
+    for head in sent_tokens:
+        if head.id not in subtree_ids:
+            continue
+        conjs = [
+            child for child in sent_tokens
+            if child.id in subtree_ids and child.head == head.id and child.deprel == "conj"
+        ]
+        if len(conjs) + 1 > len(best_cluster):
+            best_cluster = [head] + conjs
+
+    if len(best_cluster) < 2:
+        return [base_span] if base_span else []
+
+    spans: List[str] = []
+    for item in sorted(best_cluster, key=lambda t: t.id):
+        span = _collect_span(
+            item,
+            sent_tokens,
+            exclude_ids=exclude_ids,
+            exclude_conj=True,
+        )
+        if span and span not in spans:
+            spans.append(span)
+    return spans or ([base_span] if base_span else [])
 
 
 def _extract_triples_from_sentence(sentence) -> List[Dict[str, str]]:
@@ -142,18 +205,19 @@ def _extract_triples_from_sentence(sentence) -> List[Dict[str, str]]:
         for subj in subjects:
             subj_span = _collect_span(subj, tokens, exclude_ids=set())
             for obj in objects:
-                obj_span = _collect_span(obj, tokens, exclude_ids=exclude)
-                if not subj_span or not obj_span:
-                    continue
-                key = (subj_span.lower(), predicate.lower(), obj_span.lower())
-                if key in seen:
-                    continue
-                seen.add(key)
-                triples.append({
-                    "subject":   subj_span,
-                    "predicate": predicate,
-                    "object":    obj_span,
-                })
+                obj_spans = _expand_coordinated_object_spans(obj, tokens, exclude_ids=exclude)
+                for obj_span in obj_spans:
+                    if not subj_span or not obj_span:
+                        continue
+                    key = (subj_span.lower(), predicate.lower(), obj_span.lower())
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    triples.append({
+                        "subject":   subj_span,
+                        "predicate": predicate,
+                        "object":    obj_span,
+                    })
 
     return triples
 
