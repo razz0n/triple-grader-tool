@@ -27,7 +27,7 @@ Public API
 ----------
 run_openie(sentences)                    → dict[sentence_id, list[triple_dict]]
 compute_metrics(tp, n_gold, n_pred)      → dict with precision/recall/f1
-evaluate_session(session, match_mode)    → full evaluation result dict
+evaluate_session(session, match_mode, gold_source) → full evaluation result dict
 """
 
 from __future__ import annotations
@@ -433,6 +433,7 @@ def compute_metrics(tp: int, n_gold: int, n_pred: int) -> Dict[str, float]:
 def evaluate_session(
     session: Dict[str, Any],
     match_mode: str = "soft",
+    gold_source: str = "graded_only",
 ) -> Dict[str, Any]:
     """
     Evaluate a graded session against OpenIE predictions.
@@ -441,6 +442,7 @@ def evaluate_session(
     ----------
     session    : full graded session dict (from grading tool JSON export)
     match_mode : "exact" or "soft"
+    gold_source: "graded_only" (default) or "all"
 
     Returns
     -------
@@ -452,17 +454,20 @@ def evaluate_session(
     """
     if match_mode not in ("exact", "soft"):
         raise ValueError(f"match_mode must be 'exact' or 'soft', got '{match_mode}'")
+    if gold_source not in ("graded_only", "all"):
+        raise ValueError(f"gold_source must be 'graded_only' or 'all', got '{gold_source}'")
 
     sentences = session.get("sentences", [])
 
-    # ── Build gold triples (only graded triples count) ───────────────────
+    # ── Build gold triples according to selected source ───────────────────
     gold_by_sid: Dict[int, List[dict]] = {}
     for s in sentences:
         sid = s["id"]
-        gold_by_sid[sid] = [
-            t for t in s.get("triples", [])
-            if t.get("grade") is not None
-        ]
+        triples = s.get("triples", [])
+        if gold_source == "graded_only":
+            gold_by_sid[sid] = [t for t in triples if t.get("grade") is not None]
+        else:
+            gold_by_sid[sid] = list(triples)
 
     # ── Run OpenIE ────────────────────────────────────────────────────────
     pred_by_sid = run_openie(sentences)
@@ -511,6 +516,7 @@ def evaluate_session(
         "session_id":      session.get("session_id", ""),
         "source_filename": session.get("source_filename", ""),
         "match_mode":      match_mode,
+        "gold_source":     gold_source,
         "per_sentence":    per_sentence,
         "macro":           macro,
         "micro":           micro,

@@ -265,10 +265,14 @@ export async function unapproveSuggestion(sessionId, sentenceId, tripleId, sugge
  * Run OpenIE evaluation for a session.
  * @param {string} sessionId
  * @param {"exact"|"soft"} matchMode
+ * @param {"graded_only"|"all"} goldSource
  * @returns {Promise<object>} evaluation result
  */
-export async function runEvaluation(sessionId, matchMode = "soft") {
-  const { data } = await API.post(`/api/evaluate/${sessionId}`, { match_mode: matchMode });
+export async function runEvaluation(sessionId, matchMode = "soft", goldSource = "graded_only") {
+  const { data } = await API.post(`/api/evaluate/${sessionId}`, {
+    match_mode: matchMode,
+    gold_source: goldSource,
+  });
   return data;
 }
 

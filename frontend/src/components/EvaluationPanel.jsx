@@ -31,6 +31,7 @@ function MetricCard({ label, p, r, f1 }) {
 
 export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
   const [matchMode, setMatchMode] = useState("soft");
+  const [goldSource, setGoldSource] = useState("graded_only");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +46,7 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
         if (session?.evaluation) {
           setResult(session.evaluation);
           setMatchMode(session.evaluation.match_mode || "soft");
+          setGoldSource(session.evaluation.gold_source || "graded_only");
         }
       })
       .catch(() => {});
@@ -54,7 +56,7 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
     setError("");
     setLoading(true);
     try {
-      const data = await runEvaluation(sessionId, matchMode);
+      const data = await runEvaluation(sessionId, matchMode, goldSource);
       setResult(data);
     } catch (e) {
       setError(e?.response?.data?.detail || e?.message || "Evaluation failed.");
@@ -108,6 +110,28 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
                 ].join(" ")}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Gold source selector */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-slate-500 font-medium">Gold:</span>
+            {[
+              { value: "graded_only", label: "Graded" },
+              { value: "all", label: "All" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setGoldSource(opt.value)}
+                className={[
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                  goldSource === opt.value
+                    ? "bg-emerald-700 text-white border-emerald-700 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                {opt.label}
               </button>
             ))}
           </div>
@@ -172,7 +196,7 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
             <span className="text-4xl">🔬</span>
             <p className="text-slate-700 font-semibold">No evaluation yet</p>
             <p className="text-sm text-slate-400 max-w-sm">
-              Choose a match mode and click <strong>Run Evaluation</strong> to compare OpenIE-extracted triples against the human-graded gold standard.
+              Choose a match mode and gold source, then click <strong>Run Evaluation</strong> to compare OpenIE-extracted triples against your selected gold standard.
             </p>
             <p className="text-xs text-slate-400 mt-1">
               <strong>Soft</strong> match uses Jaccard ≥ 0.5. <strong>Exact</strong> match requires normalised string equality.
@@ -199,6 +223,10 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
               <span>Source: <span className="font-semibold text-slate-700">{result.source_filename}</span></span>
               <span className="text-slate-300">|</span>
               <span>Mode: <span className={`font-semibold ${result.match_mode === "exact" ? "text-orange-600" : "text-blue-600"}`}>{result.match_mode}</span></span>
+              <span className="text-slate-300">|</span>
+              <span>
+                Gold: <span className="font-semibold text-emerald-700">{result.gold_source === "all" ? "all triples" : "graded only"}</span>
+              </span>
               {result.evaluated_at && (
                 <>
                   <span className="text-slate-300">|</span>

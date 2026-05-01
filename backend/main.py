@@ -1157,6 +1157,7 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
 
 class EvaluationRequest(BaseModel):
     match_mode: str = "soft"  # "exact" or "soft"
+    gold_source: str = "graded_only"  # "graded_only" or "all"
 
 
 @app.post("/api/evaluate/{session_id}")
@@ -1170,6 +1171,8 @@ async def evaluate_session_endpoint(
 
     if body.match_mode not in ("exact", "soft"):
         raise HTTPException(status_code=400, detail="match_mode must be 'exact' or 'soft'.")
+    if body.gold_source not in ("graded_only", "all"):
+        raise HTTPException(status_code=400, detail="gold_source must be 'graded_only' or 'all'.")
 
     # Lazy import so stanza only loads when this endpoint is called
     try:
@@ -1181,7 +1184,11 @@ async def evaluate_session_endpoint(
         )
 
     try:
-        result = _eval_session(session, match_mode=body.match_mode)
+        result = _eval_session(
+            session,
+            match_mode=body.match_mode,
+            gold_source=body.gold_source,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exc)}")
 
@@ -1235,6 +1242,7 @@ async def download_evaluation(
                 "session_id":     evaluation.get("session_id", ""),
                 "source_file":    evaluation.get("source_filename", ""),
                 "match_mode":     evaluation.get("match_mode", ""),
+                "gold_source":    evaluation.get("gold_source", "graded_only"),
                 "sentence_id":    s["sentence_id"],
                 "sentence_text":  s["sentence_text"],
                 "n_gold":         s["n_gold"],
@@ -1252,6 +1260,7 @@ async def download_evaluation(
                 "session_id": evaluation.get("session_id", ""),
                 "source_file": evaluation.get("source_filename", ""),
                 "match_mode": evaluation.get("match_mode", ""),
+                "gold_source": evaluation.get("gold_source", "graded_only"),
                 "sentence_id": f"[{agg_key}]",
                 "sentence_text": "",
                 "n_gold": agg.get("n_gold", ""),
@@ -1265,6 +1274,7 @@ async def download_evaluation(
             })
         fieldnames = [
             "session_id", "source_file", "match_mode", "sentence_id",
+            "gold_source",
             "sentence_text", "n_gold", "n_pred", "true_positives",
             "precision", "recall", "f1", "gold_triples", "pred_triples",
         ]
