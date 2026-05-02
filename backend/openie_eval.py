@@ -236,6 +236,17 @@ _STOP = {
 
 _ONTOLOGY_ID_RE = re.compile(r"^(?P<base>[a-z][a-z0-9]*(?:_[a-z0-9]+)*)_(?P<idx>\d+)$")
 
+# Common misspellings and spelling variants observed in ontology datasets.
+_WORD_ALIASES = {
+    "algoirthm": "algorithm",
+    "algorithim": "algorithm",
+    "comission": "commission",
+    "judgement": "judgment",
+    "judgements": "judgments",
+    "organisation": "organization",
+    "organisations": "organizations",
+}
+
 # Canonical forms used during matching to reduce representation mismatch
 # between ontology labels and surface OpenIE text.
 _RELATION_ALIASES = {
@@ -262,7 +273,15 @@ _RELATION_ALIASES = {
     "has importance": "importance",
     "is has trend": "trend",
     "has trend": "trend",
+    "requires": "require",
+    "should influence": "influence",
+    "shall maintain": "maintain",
 }
+
+
+def _apply_word_aliases(text: str) -> str:
+    parts = text.split()
+    return " ".join(_WORD_ALIASES.get(p, p) for p in parts)
 
 
 def _normalise_entity(v: str) -> str:
@@ -273,13 +292,17 @@ def _normalise_entity(v: str) -> str:
     if m:
         raw = m.group("base")
 
+    raw = re.sub(r"[^a-z0-9_/\s]", " ", raw)
     raw = raw.replace("_", " ").replace("/", " ")
+    raw = _apply_word_aliases(raw)
     return re.sub(r"\s+", " ", raw).strip()
 
 
 def _normalise_relation(v: str) -> str:
     raw = re.sub(r"\s+", " ", str(v or "").strip().lower())
+    raw = re.sub(r"[^a-z0-9_/\s]", " ", raw)
     raw = raw.replace("_", " ").replace("/", " ")
+    raw = _apply_word_aliases(raw)
     raw = re.sub(r"\s+", " ", raw).strip()
     return _RELATION_ALIASES.get(raw, raw)
 
