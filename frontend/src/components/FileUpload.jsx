@@ -1,6 +1,6 @@
 // FileUpload.jsx — Drag-and-drop / click file uploader
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { uploadFile, listSessions, loadSession, createOrLoadSessionCopy } from "../api";
 
 export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual }) {
@@ -13,6 +13,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   const [resuming, setResuming]       = useState(null); // session_id being loaded
   const [resumeError, setResumeError] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
+  const [collapsedSourceGroups, setCollapsedSourceGroups] = useState({});
 
   // Fetch saved sessions on mount
   useEffect(() => {
@@ -83,8 +84,47 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
       if (sessionFilter === "mine") return !!s.is_owner;
       if (sessionFilter === "others") return !s.is_owner;
       return true;
-    })
-    .slice(0, 5);
+    });
+
+  const groupedSessions = useMemo(() => {
+    const grouped = new Map();
+    filteredSessions.forEach((session) => {
+      const sourceKey = session.source_filename || "Unknown file";
+      if (!grouped.has(sourceKey)) {
+        grouped.set(sourceKey, []);
+      }
+      grouped.get(sourceKey).push(session);
+    });
+
+    return [...grouped.entries()]
+      .map(([sourceKey, sourceSessions]) => {
+        const sortedSessions = [...sourceSessions].sort((a, b) =>
+          (b.uploaded_at || "").localeCompare(a.uploaded_at || "")
+        );
+        const latestUploadedAt = sortedSessions[0]?.uploaded_at || "";
+        const copyCount = sortedSessions.filter((s) => !!s.is_copy).length;
+        const originalCount = sortedSessions.length - copyCount;
+
+        return {
+          sourceKey,
+          sourceFilename: sourceKey,
+          sessions: sortedSessions,
+          latestUploadedAt,
+          totalSessions: sortedSessions.length,
+          copyCount,
+          originalCount,
+        };
+      })
+      .sort((a, b) => (b.latestUploadedAt || "").localeCompare(a.latestUploadedAt || ""))
+      .slice(0, 5);
+  }, [filteredSessions]);
+
+  const toggleSourceGroup = (sourceKey) => {
+    setCollapsedSourceGroups((prev) => ({
+      ...prev,
+      [sourceKey]: !prev[sourceKey],
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-6">
@@ -256,70 +296,108 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
               </div>
             </div>
             <div className="space-y-2">
-              {filteredSessions.map((s) => {
-                const dateStr = s.uploaded_at
-                  ? new Date(s.uploaded_at + "Z").toLocaleString([], {
-                      month: "short", day: "numeric",
-                      hour: "2-digit", minute: "2-digit",
+              {groupedSessions.map((group) => {
+                const headerDate = group.latestUploadedAt
+                  ? new Date(group.latestUploadedAt + "Z").toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })
                   : "";
-                const isLoading = resuming === s.session_id;
-                const sessionType = s.is_copy
-                  ? (s.is_owner ? "Your Copy" : "Shared Copy")
-                  : "Original";
-                const sessionTypeClass = s.is_copy
-                  ? (s.is_owner
-                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                      : "bg-amber-100 text-amber-700 border-amber-200")
-                  : "bg-blue-100 text-blue-700 border-blue-200";
-                const sourceInfo = s.is_copy
-                  ? `Source owner: ${s.source_owner_name || s.owner_name || "Unknown"}`
-                  : `Owner: ${s.owner_name || "Unknown"}`;
-                const roleHint = s.is_owner
-                  ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
-                  : (s.can_approve
-                      ? "You can review and approve suggestions here."
-                      : "Open your own copy to grade and save." );
-                const actionLabel = isLoading
-                  ? "Loading…"
-                  : s.is_owner
-                    ? "▶ Resume"
-                    : s.is_copy
-                      ? "📄 Open Copy"
-                      : "📄 Open My Copy";
+                const isCollapsed = !!collapsedSourceGroups[group.sourceKey];
+
                 return (
-                  <div
-                    key={s.session_id}
-                    className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:border-blue-300 hover:bg-blue-50/30 transition-all"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-slate-700 truncate max-w-[310px]">
-                          {s.source_filename}
-                        </p>
-                        <span className={`text-[10px] font-semibold border px-2 py-0.5 rounded-full ${sessionTypeClass}`}>
-                          {sessionType}
+                  <div key={group.sourceKey} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                    <button
+                      onClick={() => toggleSourceGroup(group.sourceKey)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">
+                            {group.sourceFilename}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {group.totalSessions} sessions &bull; {group.originalCount} original &bull; {group.copyCount} copies
+                            {headerDate && <> &bull; Latest {headerDate}</>}
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold text-slate-600">
+                          {isCollapsed ? "Show" : "Hide"}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {s.total_sentences} sentences &bull; {sourceInfo}
-                        {dateStr && <> &bull; {dateStr}</>}
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        {roleHint}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleResume(s)}
-                      disabled={!!resuming}
-                      className="ml-3 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {actionLabel}
                     </button>
+
+                    {!isCollapsed && (
+                      <div className="border-t border-slate-100 bg-slate-50/60 p-2 space-y-2">
+                        {group.sessions.map((s) => {
+                          const dateStr = s.uploaded_at
+                            ? new Date(s.uploaded_at + "Z").toLocaleString([], {
+                                month: "short", day: "numeric",
+                                hour: "2-digit", minute: "2-digit",
+                              })
+                            : "";
+                          const isLoading = resuming === s.session_id;
+                          const sessionType = s.is_copy
+                            ? (s.is_owner ? "Your Copy" : "Shared Copy")
+                            : "Original";
+                          const sessionTypeClass = s.is_copy
+                            ? (s.is_owner
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                : "bg-amber-100 text-amber-700 border-amber-200")
+                            : "bg-blue-100 text-blue-700 border-blue-200";
+                          const sourceInfo = s.is_copy
+                            ? `Source owner: ${s.source_owner_name || s.owner_name || "Unknown"}`
+                            : `Owner: ${s.owner_name || "Unknown"}`;
+                          const roleHint = s.is_owner
+                            ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
+                            : (s.can_approve
+                                ? "You can review and approve suggestions here."
+                                : "Open your own copy to grade and save.");
+                          const actionLabel = isLoading
+                            ? "Loading…"
+                            : s.is_owner
+                              ? "▶ Resume"
+                              : s.is_copy
+                                ? "📄 Open Copy"
+                                : "📄 Open My Copy";
+
+                          return (
+                            <div
+                              key={s.session_id}
+                              className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2.5 hover:border-blue-300 hover:bg-blue-50/30 transition-all"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-[10px] font-semibold border px-2 py-0.5 rounded-full ${sessionTypeClass}`}>
+                                    {sessionType}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {s.total_sentences} sentences &bull; {sourceInfo}
+                                  {dateStr && <> &bull; {dateStr}</>}
+                                </p>
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                  {roleHint}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleResume(s)}
+                                disabled={!!resuming}
+                                className="ml-3 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {actionLabel}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-              {filteredSessions.length === 0 && (
+              {groupedSessions.length === 0 && (
                 <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-2">
                   No sessions in this filter.
                 </div>

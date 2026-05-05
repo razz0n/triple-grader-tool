@@ -76,6 +76,12 @@ function GroupCard({
   onMoveDown,
   canMoveUp,
   canMoveDown,
+  isDragging,
+  isDropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [newTriple, setNewTriple] = useState({ subject: "", predicate: "", object: "" });
@@ -157,6 +163,12 @@ function GroupCard({
     setNewTriple({ subject: "", predicate: "", object: "" });
   };
 
+  const handleCardDragStart = (e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(group.groupId));
+    onDragStart?.();
+  };
+
   // ── status dot color ──
   const dot = group.included
     ? includedCount === totalTriples
@@ -168,8 +180,17 @@ function GroupCard({
 
   return (
     <div
+      draggable
+      onDragStart={handleCardDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       className={`border rounded-xl mb-3 overflow-hidden transition-all ${
         group.included ? "border-gray-200" : "border-gray-200 opacity-60"
+      } ${
+        isDropTarget ? "ring-2 ring-blue-300 border-blue-300" : ""
+      } ${
+        isDragging ? "opacity-50" : ""
       }`}
     >
       {/* ── header row ── */}
@@ -182,6 +203,14 @@ function GroupCard({
           title={group.included ? "Exclude this sentence" : "Include this sentence"}
           className="shrink-0 w-4 h-4 accent-blue-600 cursor-pointer"
         />
+
+        {/* drag handle */}
+        <span
+          title="Drag this card to reorder sentence"
+          className="shrink-0 cursor-grab active:cursor-grabbing text-xs text-gray-500 border border-gray-200 bg-white rounded px-1.5 py-0.5 hover:text-gray-700"
+        >
+          ::
+        </span>
 
         {/* status dot */}
         <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${dot}`} />
@@ -387,6 +416,8 @@ function GroupCard({
 export default function ReviewStep({ uploadData, onConfirm, onReset }) {
   const { session_id, source_filename, uploaded_at, sentence_groups, manual_mode } = uploadData;
   const isManualMode = !!manual_mode;
+  const [draggingGroupId, setDraggingGroupId] = useState(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState(null);
 
   // Initialise mutable group state from the upload payload
   const [groups, setGroups] = useState(() =>
@@ -443,6 +474,50 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       next.splice(toIndex, 0, moved);
       return next;
     });
+  }, []);
+
+  const reorderSentenceGroups = useCallback((fromGroupId, toGroupId) => {
+    setGroups((prev) => {
+      const fromIndex = prev.findIndex((g) => g.groupId === fromGroupId);
+      const toIndex = prev.findIndex((g) => g.groupId === toGroupId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const handleDragStartGroup = useCallback((groupId) => {
+    setDraggingGroupId(groupId);
+    setDragOverGroupId(groupId);
+  }, []);
+
+  const handleDragOverGroup = useCallback((groupId, e) => {
+    e.preventDefault();
+    if (draggingGroupId == null || draggingGroupId === groupId) {
+      return;
+    }
+    setDragOverGroupId(groupId);
+  }, [draggingGroupId]);
+
+  const handleDropOnGroup = useCallback((groupId, e) => {
+    e.preventDefault();
+    if (draggingGroupId == null) {
+      return;
+    }
+    if (draggingGroupId !== groupId) {
+      reorderSentenceGroups(draggingGroupId, groupId);
+    }
+    setDraggingGroupId(null);
+    setDragOverGroupId(null);
+  }, [draggingGroupId, reorderSentenceGroups]);
+
+  const handleDragEndGroup = useCallback(() => {
+    setDraggingGroupId(null);
+    setDragOverGroupId(null);
   }, []);
 
   const handleAddSentenceGroup = () => {
@@ -577,7 +652,8 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-800">
           <strong>How to use:</strong> Check each sentence group below. Use the checkbox to include/exclude it.
           Click <strong>▼</strong> to expand and edit the sentence text, choose a version (if multiple were detected),
-          toggle individual triples on/off, and add manual sentences/triples when needed. Use <strong>Insert sentence above/below</strong> to place new sentences anywhere in order.
+          toggle individual triples on/off, and add manual sentences/triples when needed. Use <strong>Insert sentence above/below</strong> to place new sentences anywhere in order,
+          or drag cards by the <strong>::</strong> handle for quick reordering.
           When ready, click <strong>Start Grading</strong>.
         </div>
 
@@ -603,6 +679,16 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
             onMoveDown={() => moveSentenceGroup(index, index + 1)}
             canMoveUp={index > 0}
             canMoveDown={index < groups.length - 1}
+            isDragging={draggingGroupId === g.groupId}
+            isDropTarget={
+              draggingGroupId != null &&
+              dragOverGroupId === g.groupId &&
+              draggingGroupId !== g.groupId
+            }
+            onDragStart={() => handleDragStartGroup(g.groupId)}
+            onDragEnd={handleDragEndGroup}
+            onDragOver={(e) => handleDragOverGroup(g.groupId, e)}
+            onDrop={(e) => handleDropOnGroup(g.groupId, e)}
           />
         ))}
 
