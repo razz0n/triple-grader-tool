@@ -592,7 +592,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
           <h1 className="text-lg font-bold text-gray-900">{isManualMode ? "Manual Entry" : "Review & Clean"}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {isManualMode
-              ? `${groups.length} sentence groups in your manual workspace`
+              ? `${source_filename || "Manual Entry"} — ${groups.length} sentence groups in your manual workspace`
               : `${source_filename} — ${groups.length} groups found`}
           </p>
         </div>

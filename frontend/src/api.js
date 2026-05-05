@@ -143,6 +143,16 @@ export async function loadSession(sessionId) {
 }
 
 /**
+ * Delete a saved session (owner only).
+ * @param {string} sessionId
+ * @returns {Promise<{ok: boolean, deleted_session_id: string}>}
+ */
+export async function deleteSession(sessionId) {
+  const { data } = await API.delete(`/api/session/${sessionId}`);
+  return data;
+}
+
+/**
  * Create or return the current user's personal grading copy of a shared session.
  * If the user owns the source session, the same session may be returned.
  * @param {string} sessionId

@@ -29,6 +29,7 @@ from pydantic import BaseModel, EmailStr, Field
 from database import (
     add_token_db,
     delete_token_db,
+    delete_session_db,
     init_database,
     list_sessions_db,
     load_session_db,
@@ -890,6 +891,26 @@ async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_u
     """Return the full saved session JSON (used by the frontend to resume a session)."""
     session_path, session = _load_session_for_access(session_id)
     return _with_session_access_flags(session, session_path, user)
+
+
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
+    """Delete a saved session (owner only)."""
+    session_path, session = _load_session_for_access(session_id)
+
+    if not _is_session_owner(session, session_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can delete this file.")
+
+    if use_database_storage():
+        delete_session_db(session_id)
+    else:
+        if session_path and session_path.exists():
+            session_path.unlink()
+
+    return {
+        "ok": True,
+        "deleted_session_id": session_id,
+    }
 
 
 @app.post("/api/session/{session_id}/copy")

@@ -7,15 +7,17 @@ import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
 import { getAuthToken, logoutUser, meUser } from "./api";
 
-function createManualSessionSeed() {
+function createManualSessionSeed(options = {}) {
   const randomId =
     globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
       : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+  const sourceFilename = String(options.sourceFilename || "").trim() || "Manual Entry.csv";
+
   return {
     session_id: randomId,
-    source_filename: "Manual Entry",
+    source_filename: sourceFilename,
     uploaded_at: new Date().toISOString(),
     total_groups: 0,
     sentence_groups: [],
@@ -49,8 +51,8 @@ export default function App() {
     setGradingData(null);
   };
 
-  const handleStartManual = () => {
-    setUploadData(createManualSessionSeed());
+  const handleStartManual = (manualConfig = {}) => {
+    setUploadData(createManualSessionSeed(manualConfig));
     setGradingData(null);
   };
 

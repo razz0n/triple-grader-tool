@@ -305,3 +305,10 @@ def save_single_session_db(session_data: Dict[str, Any]) -> None:
                 )
             )
         db.commit()
+
+
+def delete_session_db(session_id: str) -> None:
+    """Delete a single saved session by session_id."""
+    with SessionLocal() as db:
+        db.query(SessionRecord).filter(SessionRecord.session_id == session_id).delete(synchronize_session=False)
+        db.commit()

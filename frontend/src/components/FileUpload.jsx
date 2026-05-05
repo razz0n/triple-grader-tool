@@ -1,17 +1,41 @@
 // FileUpload.jsx — Drag-and-drop / click file uploader
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { uploadFile, listSessions, loadSession, createOrLoadSessionCopy } from "../api";
+import { uploadFile, listSessions, loadSession, createOrLoadSessionCopy, deleteSession } from "../api";
+
+const MANUAL_FORMAT_OPTIONS = [
+  { value: "csv", label: "CSV (.csv)" },
+  { value: "xlsx", label: "Excel (.xlsx)" },
+  { value: "json", label: "JSON (.json)" },
+  { value: "txt", label: "Text (.txt)" },
+];
+
+function buildManualSourceFilename(baseName, format) {
+  const cleanFormat = String(format || "csv").toLowerCase().replace(/^\.+/, "") || "csv";
+  const normalizedBase = String(baseName || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+    .replace(/\.+$/, "")
+    .replace(/\s+/g, " ");
+
+  const withoutExt = normalizedBase.replace(/\.[a-z0-9]+$/i, "").trim();
+  const safeBase = withoutExt || "manual-entry";
+  return `${safeBase}.${cleanFormat}`;
+}
 
 export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual }) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [startMode, setStartMode] = useState("file");
+  const [manualFilename, setManualFilename] = useState("manual-entry");
+  const [manualFormat, setManualFormat] = useState("csv");
 
   const [sessions, setSessions]       = useState([]);
   const [resuming, setResuming]       = useState(null); // session_id being loaded
+  const [deleting, setDeleting]       = useState(null); // session_id being deleted
   const [resumeError, setResumeError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
   const [collapsedSourceGroups, setCollapsedSourceGroups] = useState({});
 
@@ -45,6 +69,26 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
       setResumeError(e?.response?.data?.detail || "Failed to load session.");
     } finally {
       setResuming(null);
+    }
+  };
+
+  const handleDelete = async (sessionMeta) => {
+    const sessionId = sessionMeta?.session_id;
+    if (!sessionId || !sessionMeta?.is_owner) return;
+
+    const label = sessionMeta?.is_copy ? "copy" : "file";
+    const ok = window.confirm(`Delete this ${label}? This cannot be undone.`);
+    if (!ok) return;
+
+    setDeleteError("");
+    setDeleting(sessionId);
+    try {
+      await deleteSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+    } catch (e) {
+      setDeleteError(e?.response?.data?.detail || "Failed to delete file.");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -183,6 +227,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             <p className="font-semibold text-emerald-800 mb-1">Manual mode tips</p>
             <p>• Add sentences in any order, including inserting above or below existing ones.</p>
             <p>• Add one or many triples per sentence before starting grading.</p>
+            <p>• Choose a filename and format below; after saving, other users can see this file and create their own copy.</p>
             <p>• You can still return and upload a file at any time.</p>
           </div>
         )}
@@ -236,8 +281,47 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
               Open the manual page to add sentences and triples in your preferred order, then continue to grading.
             </p>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2 text-left max-w-lg mx-auto">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  File name
+                </label>
+                <input
+                  type="text"
+                  value={manualFilename}
+                  onChange={(e) => setManualFilename(e.target.value)}
+                  placeholder="e.g., software_ethics_round1"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Format
+                </label>
+                <select
+                  value={manualFormat}
+                  onChange={(e) => setManualFormat(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                >
+                  {MANUAL_FORMAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Will be saved as: <span className="font-semibold text-slate-700">{buildManualSourceFilename(manualFilename, manualFormat)}</span>
+            </p>
             <button
-              onClick={() => onStartManual?.()}
+              onClick={() => {
+                setError("");
+                onStartManual?.({
+                  sourceFilename: buildManualSourceFilename(manualFilename, manualFormat),
+                  sourceFormat: manualFormat,
+                });
+              }}
               className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
             >
               Start Manual Entry →
@@ -362,6 +446,12 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                               : s.is_copy
                                 ? "📄 Open Copy"
                                 : "📄 Open My Copy";
+                          const isDeleting = deleting === s.session_id;
+                          const deleteLabel = isDeleting
+                            ? "Deleting…"
+                            : s.is_copy
+                              ? "Delete Copy"
+                              : "Delete File";
 
                           return (
                             <div
@@ -382,13 +472,24 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   {roleHint}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => handleResume(s)}
-                                disabled={!!resuming}
-                                className="ml-3 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
-                              >
-                                {actionLabel}
-                              </button>
+                              <div className="ml-3 shrink-0 flex items-center gap-2">
+                                {s.is_owner && (
+                                  <button
+                                    onClick={() => handleDelete(s)}
+                                    disabled={!!resuming || !!deleting}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {deleteLabel}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleResume(s)}
+                                  disabled={!!resuming || !!deleting}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                                >
+                                  {actionLabel}
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -405,6 +506,9 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             </div>
             {resumeError && (
               <p className="mt-2 text-xs text-red-600">⚠ {resumeError}</p>
+            )}
+            {deleteError && (
+              <p className="mt-2 text-xs text-red-600">⚠ {deleteError}</p>
             )}
           </div>
         )}
