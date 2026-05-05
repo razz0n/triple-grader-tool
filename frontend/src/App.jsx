@@ -7,6 +7,22 @@ import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
 import { getAuthToken, logoutUser, meUser } from "./api";
 
+function createManualSessionSeed() {
+  const randomId =
+    globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return {
+    session_id: randomId,
+    source_filename: "Manual Entry",
+    uploaded_at: new Date().toISOString(),
+    total_groups: 0,
+    sentence_groups: [],
+    manual_mode: true,
+  };
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -30,6 +46,11 @@ export default function App() {
 
   const handleUploadSuccess = (data) => {
     setUploadData(data);
+    setGradingData(null);
+  };
+
+  const handleStartManual = () => {
+    setUploadData(createManualSessionSeed());
     setGradingData(null);
   };
 
@@ -81,6 +102,7 @@ export default function App() {
         <FileUpload
           onUploadSuccess={handleUploadSuccess}
           onLoadSession={handleLoadSession}
+          onStartManual={handleStartManual}
         />
       );
     }

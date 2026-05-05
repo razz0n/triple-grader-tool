@@ -397,6 +397,140 @@ def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], use
     )
 
 
+def _root_session_id(session: Dict[str, Any]) -> str:
+    return str(session.get("root_session_id") or session.get("session_id") or "").strip()
+
+
+def _is_root_session_owner(session: Dict[str, Any], user: Dict[str, Any]) -> bool:
+    user_id = user.get("id", "")
+    user_username = _norm_username(user.get("username", ""))
+    user_email = _norm_email(user.get("email", ""))
+
+    source_owner_user_id = str(session.get("source_owner_user_id") or session.get("owner_user_id") or "").strip()
+    if source_owner_user_id and (
+        source_owner_user_id == user_id
+        or _norm_username(source_owner_user_id) == user_username
+        or _norm_email(source_owner_user_id) == user_email
+    ):
+        return True
+
+    source_owner_email = session.get("source_owner_email") or session.get("owner_email")
+    if source_owner_email and _norm_email(source_owner_email) == user_email:
+        return True
+
+    source_owner_username = session.get("source_owner_username") or session.get("owner_username")
+    if source_owner_username and _norm_username(source_owner_username) == user_username:
+        return True
+
+    source_owner_name = (session.get("source_owner_name") or session.get("owner_name") or "").strip()
+    if source_owner_name and source_owner_name in {
+        (user.get("name") or "").strip(),
+        user_username,
+    }:
+        return True
+
+    return False
+
+
+def _can_approve_session(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
+    return _is_session_owner(session, session_path, user) or _is_root_session_owner(session, user)
+
+
+def _with_session_access_flags(
+    session: Dict[str, Any],
+    session_path: Optional[Path],
+    user: Dict[str, Any],
+) -> Dict[str, Any]:
+    data = dict(session)
+    root_id = _root_session_id(data)
+    session_id = str(data.get("session_id") or "").strip()
+    data["root_session_id"] = root_id or session_id
+    data["is_copy"] = bool(data.get("is_copy")) or (
+        bool(data["root_session_id"]) and data["root_session_id"] != session_id
+    )
+    data["can_edit"] = _is_session_owner(session, session_path, user)
+    data["can_approve"] = _can_approve_session(session, session_path, user)
+    data["is_owner"] = data["can_edit"]
+    return data
+
+
+def _find_user_copy_session(user: Dict[str, Any], root_session_id: str) -> tuple[Optional[Path], Optional[Dict[str, Any]]]:
+    if not root_session_id:
+        return None, None
+
+    if use_database_storage():
+        for payload in list_sessions_db():
+            payload_root = _root_session_id(payload)
+            if payload_root != root_session_id:
+                continue
+            if not bool(payload.get("is_copy")):
+                continue
+            if _is_session_owner(payload, None, user):
+                return None, payload
+        return None, None
+
+    for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except Exception:
+            continue
+
+        payload_root = _root_session_id(payload)
+        if payload_root != root_session_id:
+            continue
+        if not bool(payload.get("is_copy")):
+            continue
+        if _is_session_owner(payload, p, user):
+            return p, payload
+
+    return None, None
+
+
+def _session_copy_payload_for_user(
+    source_session: Dict[str, Any],
+    user: Dict[str, Any],
+    copied_from_session_id: str,
+) -> Dict[str, Any]:
+    # JSON roundtrip gives a deep copy while keeping payload schema-compatible.
+    copied = json.loads(json.dumps(source_session, ensure_ascii=False))
+
+    copied["session_id"] = str(uuid.uuid4())
+    copied["uploaded_at"] = datetime.utcnow().isoformat()
+    copied["evaluation"] = None
+
+    copied["owner_user_id"] = user.get("id", "")
+    copied["owner_name"] = _display_name(user)
+    copied["owner_email"] = _norm_email(user.get("email", ""))
+    copied["owner_username"] = _norm_username(user.get("username", ""))
+
+    copied["root_session_id"] = _root_session_id(source_session)
+    copied["is_copy"] = True
+    copied["copied_from_session_id"] = copied_from_session_id
+    copied["copied_at"] = datetime.utcnow().isoformat()
+
+    copied["source_owner_user_id"] = str(
+        source_session.get("source_owner_user_id") or source_session.get("owner_user_id") or ""
+    ).strip()
+    copied["source_owner_name"] = (
+        source_session.get("source_owner_name")
+        or source_session.get("owner_name")
+        or ""
+    )
+    copied["source_owner_email"] = (
+        source_session.get("source_owner_email")
+        or source_session.get("owner_email")
+        or ""
+    )
+    copied["source_owner_username"] = (
+        source_session.get("source_owner_username")
+        or source_session.get("owner_username")
+        or ""
+    )
+
+    return copied
+
+
 def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
     """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
     existing_sentences = {
@@ -669,6 +803,41 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             if t.get("grade") is not None and not t.get("author"):
                 t["author"] = user_name
 
+    if existing_session:
+        session_data["root_session_id"] = _root_session_id(existing_session) or body.session_id
+        session_data["is_copy"] = bool(existing_session.get("is_copy"))
+        session_data["source_owner_user_id"] = str(
+            existing_session.get("source_owner_user_id")
+            or existing_session.get("owner_user_id")
+            or user.get("id", "")
+        ).strip()
+        session_data["source_owner_name"] = (
+            existing_session.get("source_owner_name")
+            or existing_session.get("owner_name")
+            or _display_name(user)
+        )
+        session_data["source_owner_email"] = (
+            existing_session.get("source_owner_email")
+            or existing_session.get("owner_email")
+            or _norm_email(user.get("email", ""))
+        )
+        session_data["source_owner_username"] = (
+            existing_session.get("source_owner_username")
+            or existing_session.get("owner_username")
+            or _norm_username(user.get("username", ""))
+        )
+        if existing_session.get("copied_from_session_id"):
+            session_data["copied_from_session_id"] = existing_session.get("copied_from_session_id")
+        if existing_session.get("copied_at"):
+            session_data["copied_at"] = existing_session.get("copied_at")
+    else:
+        session_data["root_session_id"] = body.session_id
+        session_data["is_copy"] = False
+        session_data["source_owner_user_id"] = user.get("id", "")
+        session_data["source_owner_name"] = _display_name(user)
+        session_data["source_owner_email"] = _norm_email(user.get("email", ""))
+        session_data["source_owner_username"] = _norm_username(user.get("username", ""))
+
     session_data["owner_user_id"] = user["id"]
     session_data["owner_name"] = _display_name(user)
     session_data["owner_email"] = _norm_email(user.get("email", ""))
@@ -720,8 +889,50 @@ async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Dep
 async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
     """Return the full saved session JSON (used by the frontend to resume a session)."""
     session_path, session = _load_session_for_access(session_id)
-    session["can_edit"] = _is_session_owner(session, session_path, user)
-    return session
+    return _with_session_access_flags(session, session_path, user)
+
+
+@app.post("/api/session/{session_id}/copy")
+async def get_or_create_session_copy(
+    session_id: str,
+    user: Dict[str, Any] = Depends(_current_user),
+):
+    """Create or return the current user's grading copy for a shared session."""
+    source_path, source_session = _load_session_for_access(session_id)
+
+    # Owners work in their own session directly.
+    if _is_session_owner(source_session, source_path, user):
+        result = _with_session_access_flags(source_session, source_path, user)
+        result["copy_created"] = False
+        return result
+
+    root_session_id = _root_session_id(source_session)
+    existing_copy_path, existing_copy = _find_user_copy_session(user, root_session_id)
+    if existing_copy:
+        result = _with_session_access_flags(existing_copy, existing_copy_path, user)
+        result["copy_created"] = False
+        return result
+
+    base_session = source_session
+    if root_session_id and root_session_id != str(source_session.get("session_id") or ""):
+        try:
+            _, root_session = _load_session_for_access(root_session_id)
+            base_session = root_session
+        except HTTPException:
+            # Fall back to the selected source session if canonical root cannot be loaded.
+            base_session = source_session
+
+    copied = _session_copy_payload_for_user(
+        base_session,
+        user,
+        copied_from_session_id=str(source_session.get("session_id") or session_id),
+    )
+    _save_loaded_session(None, copied, owner_user_id=user.get("id", ""))
+
+    copied_path, copied_session = _load_session_for_access(str(copied.get("session_id", "")))
+    result = _with_session_access_flags(copied_session, copied_path, user)
+    result["copy_created"] = True
+    return result
 
 
 @app.get("/api/preview/{session_id}", response_class=HTMLResponse)
@@ -863,17 +1074,32 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
     if use_database_storage():
         source_sessions = list_sessions_db()
         for data in source_sessions:
-            owner_user_id = data.get("owner_user_id") or ""
+            owner_user_id = str(data.get("owner_user_id") or "").strip()
+            root_session_id = _root_session_id(data) or str(data.get("session_id") or "").strip()
+            source_owner_user_id = str(
+                data.get("source_owner_user_id") or data.get("owner_user_id") or ""
+            ).strip()
+
             owner_user = _get_user_by_id(owner_user_id)
+            source_owner_user = _get_user_by_id(source_owner_user_id)
             is_owner = _is_session_owner(data, None, user)
+
             sessions.append({
                 "session_id":      data.get("session_id", ""),
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
                 "owner_user_id": owner_user_id,
-                "owner_name": _display_name(owner_user) if owner_user else owner_user_id,
+                "owner_name": data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id),
                 "is_owner": is_owner,
+                "can_approve": _can_approve_session(data, None, user),
+                "root_session_id": root_session_id,
+                "is_copy": bool(data.get("is_copy")) or (root_session_id != str(data.get("session_id") or "")),
+                "source_owner_user_id": source_owner_user_id,
+                "source_owner_name": data.get("source_owner_name") or (
+                    _display_name(source_owner_user) if source_owner_user else source_owner_user_id
+                ),
+                "copied_from_session_id": data.get("copied_from_session_id"),
             })
         return sessions
 
@@ -881,17 +1107,33 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
         try:
             with open(p, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
-            owner_user_id = data.get("owner_user_id") or p.parent.name
+
+            owner_user_id = str(data.get("owner_user_id") or p.parent.name).strip()
+            root_session_id = _root_session_id(data) or p.stem
+            source_owner_user_id = str(
+                data.get("source_owner_user_id") or data.get("owner_user_id") or p.parent.name
+            ).strip()
+
             owner_user = _get_user_by_id(owner_user_id)
+            source_owner_user = _get_user_by_id(source_owner_user_id)
             is_owner = _is_session_owner(data, p, user)
+
             sessions.append({
                 "session_id":      p.stem,
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
                 "owner_user_id": owner_user_id,
-                "owner_name": _display_name(owner_user) if owner_user else owner_user_id,
+                "owner_name": data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id),
                 "is_owner": is_owner,
+                "can_approve": _can_approve_session(data, p, user),
+                "root_session_id": root_session_id,
+                "is_copy": bool(data.get("is_copy")) or (root_session_id != p.stem),
+                "source_owner_user_id": source_owner_user_id,
+                "source_owner_name": data.get("source_owner_name") or (
+                    _display_name(source_owner_user) if source_owner_user else source_owner_user_id
+                ),
+                "copied_from_session_id": data.get("copied_from_session_id"),
             })
         except Exception:
             pass
@@ -1090,11 +1332,11 @@ async def delete_suggestion(
 
 @app.post("/api/suggestions/approve")
 async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
-    """Approve a suggestion and apply it to a triple (owner only)."""
+    """Approve a suggestion and apply it to a triple (session owner or source owner)."""
     json_path, session = _load_session_for_access(body.session_id)
 
-    if not _is_session_owner(session, json_path, user):
-        raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
+    if not _can_approve_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner or source-file owner can approve suggestions.")
 
     owner_name = _display_name(user)
 
@@ -1130,11 +1372,11 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
 
 @app.post("/api/suggestions/unapprove")
 async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
-    """Undo approval status for a suggestion (owner only)."""
+    """Undo approval status for a suggestion (session owner or source owner)."""
     json_path, session = _load_session_for_access(body.session_id)
 
-    if not _is_session_owner(session, json_path, user):
-        raise HTTPException(status_code=403, detail="Only the session owner can unapprove suggestions.")
+    if not _can_approve_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner or source-file owner can unapprove suggestions.")
 
     for s in session.get("sentences", []):
         if s.get("id") == body.sentence_id:

@@ -80,6 +80,9 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
   const perSentence = result?.per_sentence ?? [];
   const macro = result?.macro;
   const micro = result?.micro;
+  const effectiveGoldSource = result?.gold_source || goldSource;
+  const showNoGradedGoldWarning =
+    !!result && effectiveGoldSource === "graded_only" && (micro?.n_gold ?? 0) === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -187,6 +190,26 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
         {dlError && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
             Download error: {dlError}
+          </div>
+        )}
+
+        {/* Graded-only warning */}
+        {showNoGradedGoldWarning && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">⚠️</div>
+            <div className="flex-1">
+              <p className="font-semibold">No triple quality grades found for graded-only gold.</p>
+              <p className="text-xs mt-1">
+                I can only use triples with a non-empty quality score in this mode. Switch Gold to All,
+                or grade triples first, save, and run evaluation again.
+              </p>
+            </div>
+            <button
+              onClick={() => setGoldSource("all")}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
+            >
+              Switch Gold to All
+            </button>
           </div>
         )}
 

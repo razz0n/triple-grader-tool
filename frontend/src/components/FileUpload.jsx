@@ -1,12 +1,13 @@
 // FileUpload.jsx — Drag-and-drop / click file uploader
 
 import { useCallback, useEffect, useState } from "react";
-import { uploadFile, listSessions, loadSession } from "../api";
+import { uploadFile, listSessions, loadSession, createOrLoadSessionCopy } from "../api";
 
-export default function FileUpload({ onUploadSuccess, onLoadSession }) {
+export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual }) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [startMode, setStartMode] = useState("file");
 
   const [sessions, setSessions]       = useState([]);
   const [resuming, setResuming]       = useState(null); // session_id being loaded
@@ -26,11 +27,18 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
       .catch(() => {}); // silently ignore if backend not ready
   }, []);
 
-  const handleResume = async (sessionId) => {
+  const handleResume = async (sessionMeta) => {
+    const sessionId = sessionMeta?.session_id;
+    const isOwner = !!sessionMeta?.is_owner;
+
+    if (!sessionId) return;
+
     setResumeError("");
     setResuming(sessionId);
     try {
-      const session = await loadSession(sessionId);
+      const session = isOwner
+        ? await loadSession(sessionId)
+        : await createOrLoadSessionCopy(sessionId);
       onLoadSession(session);
     } catch (e) {
       setResumeError(e?.response?.data?.detail || "Failed to load session.");
@@ -91,53 +99,111 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
             Ontology Triple Grader
           </h1>
           <p className="mt-2 text-slate-500 text-sm">
-            Upload a CSV or Excel file containing sentences and their triples
-            to begin grading.
+            Choose how to start: upload a file or manually add sentences and triples.
           </p>
         </div>
 
-        {/* Drop zone */}
-        <label
-          htmlFor="file-input"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          className={[
-            "flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all",
-            dragging
-              ? "border-blue-500 bg-blue-50 scale-[1.01]"
-              : "border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50/40",
-          ].join(" ")}
-        >
-          {loading ? (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-slate-500">Parsing file…</span>
-            </div>
-          ) : (
-            <>
-              <div className="text-5xl mb-3 select-none">📂</div>
-              <p className="text-sm font-semibold text-slate-600">
-                Drag &amp; drop your file here
-              </p>
-              <p className="text-xs text-slate-400 mt-1">or click to browse</p>
-              <p className="text-xs text-slate-400 mt-3 bg-slate-100 px-3 py-1 rounded-full">
-                CSV · XLSX · XLS
-              </p>
-            </>
-          )}
-          <input
-            id="file-input"
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            className="hidden"
-            onChange={onInputChange}
-            disabled={loading}
-          />
-        </label>
+        {/* Start options */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <button
+            onClick={() => setStartMode("file")}
+            className={[
+              "rounded-xl border px-4 py-3 text-left transition-all",
+              startMode === "file"
+                ? "border-blue-500 bg-blue-50 shadow-sm"
+                : "border-slate-200 bg-white hover:border-blue-300",
+            ].join(" ")}
+          >
+            <p className="text-sm font-semibold text-slate-800">Option 1: Upload File</p>
+            <p className="text-xs text-slate-500 mt-1">Parse CSV/Excel, then review and clean.</p>
+          </button>
+          <button
+            onClick={() => setStartMode("manual")}
+            className={[
+              "rounded-xl border px-4 py-3 text-left transition-all",
+              startMode === "manual"
+                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                : "border-slate-200 bg-white hover:border-emerald-300",
+            ].join(" ")}
+          >
+            <p className="text-sm font-semibold text-slate-800">Option 2: Manual Entry</p>
+            <p className="text-xs text-slate-500 mt-1">Start from scratch and add sentences/triples manually.</p>
+          </button>
+        </div>
+
+        {startMode === "file" ? (
+          <div className="mb-4 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3 leading-relaxed">
+            <p className="font-semibold text-slate-600 mb-1">Expected file format</p>
+            <p>• Col 1–3: Subject · Predicate · Object (one triple per row)</p>
+            <p>• Col 8: Natural-language sentence (may span multiple rows per group)</p>
+            <p>• Groups are separated by blank rows or ======= divider lines</p>
+          </div>
+        ) : (
+          <div className="mb-4 text-xs text-slate-500 bg-emerald-50 border border-emerald-200 rounded-xl p-3 leading-relaxed">
+            <p className="font-semibold text-emerald-800 mb-1">Manual mode tips</p>
+            <p>• Add sentences in any order, including inserting above or below existing ones.</p>
+            <p>• Add one or many triples per sentence before starting grading.</p>
+            <p>• You can still return and upload a file at any time.</p>
+          </div>
+        )}
+
+        {startMode === "file" ? (
+          <label
+            htmlFor="file-input"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            className={[
+              "flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all",
+              dragging
+                ? "border-blue-500 bg-blue-50 scale-[1.01]"
+                : "border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50/40",
+            ].join(" ")}
+          >
+            {loading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-slate-500">Parsing file…</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-5xl mb-3 select-none">📂</div>
+                <p className="text-sm font-semibold text-slate-600">
+                  Drag &amp; drop your file here
+                </p>
+                <p className="text-xs text-slate-400 mt-1">or click to browse</p>
+                <p className="text-xs text-slate-400 mt-3 bg-slate-100 px-3 py-1 rounded-full">
+                  CSV · XLSX · XLS
+                </p>
+              </>
+            )}
+            <input
+              id="file-input"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              onChange={onInputChange}
+              disabled={loading}
+            />
+          </label>
+        ) : (
+          <div className="w-full rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-sm">
+            <div className="text-4xl mb-2 select-none">✍</div>
+            <p className="text-base font-semibold text-slate-800">Manual Sentence and Triple Builder</p>
+            <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+              Open the manual page to add sentences and triples in your preferred order, then continue to grading.
+            </p>
+            <button
+              onClick={() => onStartManual?.()}
+              className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+            >
+              Start Manual Entry →
+            </button>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -198,38 +264,57 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
                     })
                   : "";
                 const isLoading = resuming === s.session_id;
+                const sessionType = s.is_copy
+                  ? (s.is_owner ? "Your Copy" : "Shared Copy")
+                  : "Original";
+                const sessionTypeClass = s.is_copy
+                  ? (s.is_owner
+                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      : "bg-amber-100 text-amber-700 border-amber-200")
+                  : "bg-blue-100 text-blue-700 border-blue-200";
+                const sourceInfo = s.is_copy
+                  ? `Source owner: ${s.source_owner_name || s.owner_name || "Unknown"}`
+                  : `Owner: ${s.owner_name || "Unknown"}`;
+                const roleHint = s.is_owner
+                  ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
+                  : (s.can_approve
+                      ? "You can review and approve suggestions here."
+                      : "Open your own copy to grade and save." );
+                const actionLabel = isLoading
+                  ? "Loading…"
+                  : s.is_owner
+                    ? "▶ Resume"
+                    : s.is_copy
+                      ? "📄 Open Copy"
+                      : "📄 Open My Copy";
                 return (
                   <div
                     key={s.session_id}
                     className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:border-blue-300 hover:bg-blue-50/30 transition-all"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-700 truncate">
-                        {s.source_filename}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-slate-700 truncate max-w-[310px]">
+                          {s.source_filename}
+                        </p>
+                        <span className={`text-[10px] font-semibold border px-2 py-0.5 rounded-full ${sessionTypeClass}`}>
+                          {sessionType}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {s.total_sentences} sentences
-                        {s.owner_name && <> &bull; Owner: {s.owner_name}</>}
-                        {s.is_owner ? (
-                          <>
-                            {" "}
-                            &bull; <span className="text-green-700 font-semibold">Your file</span>
-                          </>
-                        ) : (
-                          <>
-                            {" "}
-                            &bull; <span className="text-amber-700">{`${s.owner_name || "Another user"}'s file`}</span>
-                          </>
-                        )}
+                        {s.total_sentences} sentences &bull; {sourceInfo}
                         {dateStr && <> &bull; {dateStr}</>}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {roleHint}
                       </p>
                     </div>
                     <button
-                      onClick={() => handleResume(s.session_id)}
+                      onClick={() => handleResume(s)}
                       disabled={!!resuming}
                       className="ml-3 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
                     >
-                      {isLoading ? "Loading…" : "▶ Resume"}
+                      {actionLabel}
                     </button>
                   </div>
                 );
@@ -246,25 +331,6 @@ export default function FileUpload({ onUploadSuccess, onLoadSession }) {
           </div>
         )}
 
-        {/* Format hint */}
-        <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-4 text-xs text-slate-500 space-y-1.5 shadow-sm">
-          <p className="font-semibold text-slate-600 text-sm mb-2">
-            Expected file format
-          </p>
-          <p>
-            •{" "}
-            <span className="font-medium text-slate-700">Col 1–3:</span>{" "}
-            Subject · Predicate · Object (one triple per row)
-          </p>
-          <p>
-            •{" "}
-            <span className="font-medium text-slate-700">Col 8:</span>{" "}
-            Natural-language sentence (may span multiple rows per group)
-          </p>
-          <p>
-            • Groups are separated by blank rows or ======= divider lines
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -278,10 +278,29 @@ _RELATION_ALIASES = {
     "shall maintain": "maintain",
 }
 
+# Ontology predicates where the object often carries the semantic action/relation.
+_PREDICATE_OBJECT_RELATIONS = {
+    "has action",
+    "has impact",
+    "impact",
+    "has trend",
+    "trend",
+    "has importance",
+    "importance",
+}
+
 
 def _apply_word_aliases(text: str) -> str:
     parts = text.split()
     return " ".join(_WORD_ALIASES.get(p, p) for p in parts)
+
+
+def _singularize_token(token: str) -> str:
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
+    if token.endswith("s") and len(token) > 3 and not token.endswith("ss"):
+        return token[:-1]
+    return token
 
 
 def _normalise_entity(v: str) -> str:
@@ -315,6 +334,56 @@ def _normalise_triple(t: dict) -> Dict[str, str]:
     }
 
 
+def _tokenise_projection(text: str) -> Set[str]:
+    cleaned = _apply_word_aliases(re.sub(r"[^a-z0-9\s]", " ", text.lower()))
+    tokens = set()
+    for raw in re.split(r"\s+", cleaned):
+        if not raw:
+            continue
+        tok = _singularize_token(raw)
+        if tok and tok not in _STOP:
+            tokens.add(tok)
+    return tokens
+
+
+def _project_triple_tokens(t: dict) -> Dict[str, Set[str]]:
+    nt = _normalise_triple(t)
+    subj = _tokenise_projection(nt["subject"])
+    pred = _tokenise_projection(nt["predicate"])
+    obj = _tokenise_projection(nt["object"])
+
+    edge = set(pred)
+    tail = set(obj)
+
+    if nt["predicate"] in _PREDICATE_OBJECT_RELATIONS and obj:
+        edge = set(obj)
+        tail = set()
+
+    return {"subj": subj, "edge": edge, "tail": tail}
+
+
+def _set_jaccard(a: Set[str], b: Set[str]) -> float:
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _projected_triple_score(t1: dict, t2: dict) -> float:
+    p1 = _project_triple_tokens(t1)
+    p2 = _project_triple_tokens(t2)
+
+    parts = [
+        _set_jaccard(p1["subj"], p2["subj"]),
+        _set_jaccard(p1["edge"], p2["edge"]),
+    ]
+    if p1["tail"] and p2["tail"]:
+        parts.append(_set_jaccard(p1["tail"], p2["tail"]))
+
+    return sum(parts) / len(parts)
+
+
 def _tokenise(text: str) -> Set[str]:
     """Lower-case, split on non-alphanumerics, remove stop words."""
     tokens = set(re.split(r"\W+", text.lower()))
@@ -335,11 +404,13 @@ def _triple_jaccard(t1: dict, t2: dict) -> float:
     """Average Jaccard over subject, predicate, object."""
     nt1 = _normalise_triple(t1)
     nt2 = _normalise_triple(t2)
-    return (
+    base = (
         _jaccard(nt1["subject"], nt2["subject"])
         + _jaccard(nt1["predicate"], nt2["predicate"])
         + _jaccard(nt1["object"], nt2["object"])
     ) / 3.0
+    projected = _projected_triple_score(nt1, nt2)
+    return max(base, projected)
 
 
 def _normalise(v: str) -> str:
@@ -353,6 +424,19 @@ def _triple_key(t: dict) -> Tuple[str, str, str]:
         _normalise(nt["predicate"]),
         _normalise(nt["object"]),
     )
+
+
+def _triple_key_variants(t: dict) -> Set[Tuple[str, str, str]]:
+    base = _triple_key(t)
+    proj = _project_triple_tokens(t)
+    projected = (
+        " ".join(sorted(proj["subj"])),
+        " ".join(sorted(proj["edge"])),
+        " ".join(sorted(proj["tail"])),
+    )
+    if projected == base:
+        return {base}
+    return {base, projected}
 
 
 # ---------------------------------------------------------------------------
@@ -400,12 +484,31 @@ _SOFT_THRESHOLD = 0.5  # Jaccard ≥ 0.5 counts as a match
 
 def _exact_match(gold: List[dict], pred: List[dict]) -> Tuple[int, int, int]:
     """Returns (true_positives, len_gold, len_pred)."""
-    gold_keys = [_triple_key(t) for t in gold]
-    pred_keys = [_triple_key(t) for t in pred]
-    gold_set = set(gold_keys)
-    pred_set = set(pred_keys)
-    tp = len(gold_set & pred_set)
-    return tp, len(gold_keys), len(pred_keys)
+    gold_variants = [_triple_key_variants(t) for t in gold]
+    matched_gold = [False] * len(gold)
+    tp = 0
+
+    # Skip duplicate predicted triples to avoid inflating matching attempts.
+    seen_pred = set()
+    unique_pred_variants: List[Set[Tuple[str, str, str]]] = []
+    for p in pred:
+        variants = _triple_key_variants(p)
+        key = tuple(sorted(variants))
+        if key in seen_pred:
+            continue
+        seen_pred.add(key)
+        unique_pred_variants.append(variants)
+
+    for p_vars in unique_pred_variants:
+        for idx, g_vars in enumerate(gold_variants):
+            if matched_gold[idx]:
+                continue
+            if p_vars & g_vars:
+                matched_gold[idx] = True
+                tp += 1
+                break
+
+    return tp, len(gold), len(pred)
 
 
 def _soft_match(gold: List[dict], pred: List[dict]) -> Tuple[int, int, int]:

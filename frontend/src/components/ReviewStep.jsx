@@ -5,6 +5,25 @@
 
 import { useState, useCallback } from "react";
 
+function createEmptyManualGroup(nextGroupId) {
+  const manualVersionId = `manual_${nextGroupId}_v1`;
+  return {
+    groupId: nextGroupId,
+    included: true,
+    editedText: "",
+    selectedVersionId: manualVersionId,
+    includedTripleIds: new Set(),
+    rawVersions: [
+      {
+        version_id: manualVersionId,
+        version_label: "Manual",
+        sentence_candidate: "",
+        triples: [],
+      },
+    ],
+  };
+}
+
 // ── small helpers ──────────────────────────────────────────────────────────
 
 function Badge({ color, children }) {
@@ -47,8 +66,19 @@ function TripleRow({ triple, included, onToggle }) {
 
 // ── single sentence-group card ─────────────────────────────────────────────
 
-function GroupCard({ group, onChange }) {
+function GroupCard({
+  group,
+  onChange,
+  orderIndex,
+  onInsertAbove,
+  onInsertBelow,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [newTriple, setNewTriple] = useState({ subject: "", predicate: "", object: "" });
 
   const selectedVersion = group.rawVersions.find(
     (v) => v.version_id === group.selectedVersionId
@@ -87,6 +117,46 @@ function GroupCard({ group, onChange }) {
   const handleDeselectAll = () =>
     onChange({ ...group, includedTripleIds: new Set() });
 
+  const handleAddManualTriple = () => {
+    const subject = (newTriple.subject || "").trim();
+    const predicate = (newTriple.predicate || "").trim();
+    const object = (newTriple.object || "").trim();
+
+    if (!subject || !predicate || !object) {
+      alert("Please fill subject, predicate, and object before adding a triple.");
+      return;
+    }
+
+    const tripleId = `manual_${group.groupId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const updatedVersions = group.rawVersions.map((v) =>
+      v.version_id === group.selectedVersionId
+        ? {
+            ...v,
+            triples: [
+              ...v.triples,
+              {
+                id: tripleId,
+                subject,
+                predicate,
+                object,
+              },
+            ],
+          }
+        : v
+    );
+
+    const nextIncludedIds = new Set(group.includedTripleIds);
+    nextIncludedIds.add(tripleId);
+
+    onChange({
+      ...group,
+      rawVersions: updatedVersions,
+      includedTripleIds: nextIncludedIds,
+    });
+
+    setNewTriple({ subject: "", predicate: "", object: "" });
+  };
+
   // ── status dot color ──
   const dot = group.included
     ? includedCount === totalTriples
@@ -122,7 +192,7 @@ function GroupCard({ group, onChange }) {
           onClick={() => setExpanded((x) => !x)}
           title={group.editedText || "(no sentence text detected)"}
         >
-          <span className="text-gray-400 mr-2 font-mono text-xs">#{group.groupId}</span>
+          <span className="text-gray-400 mr-2 font-mono text-xs">#{orderIndex + 1}</span>
           {group.editedText
             ? group.editedText.length > 100
               ? group.editedText.slice(0, 100) + "…"
@@ -168,6 +238,34 @@ function GroupCard({ group, onChange }) {
               placeholder="Type or edit the natural-language sentence for this group…"
               className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={onInsertAbove}
+                className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2.5 py-1 hover:bg-slate-50"
+              >
+                + Insert sentence above
+              </button>
+              <button
+                onClick={onInsertBelow}
+                className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2.5 py-1 hover:bg-slate-50"
+              >
+                + Insert sentence below
+              </button>
+              <button
+                onClick={onMoveUp}
+                disabled={!canMoveUp}
+                className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2.5 py-1 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ↑ Move up
+              </button>
+              <button
+                onClick={onMoveDown}
+                disabled={!canMoveDown}
+                className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2.5 py-1 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ↓ Move down
+              </button>
+            </div>
           </div>
 
           {/* version picker (only shown when > 1 version) */}
@@ -239,6 +337,43 @@ function GroupCard({ group, onChange }) {
                   ))}
                 </div>
               )}
+
+              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                <label className="block text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                  Add manual triple
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={newTriple.subject}
+                    onChange={(e) => setNewTriple((prev) => ({ ...prev, subject: e.target.value }))}
+                    placeholder="Subject"
+                    className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                  <input
+                    type="text"
+                    value={newTriple.predicate}
+                    onChange={(e) => setNewTriple((prev) => ({ ...prev, predicate: e.target.value }))}
+                    placeholder="Predicate"
+                    className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                  <input
+                    type="text"
+                    value={newTriple.object}
+                    onChange={(e) => setNewTriple((prev) => ({ ...prev, object: e.target.value }))}
+                    placeholder="Object"
+                    className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleAddManualTriple}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
+                    + Add Triple
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -250,7 +385,8 @@ function GroupCard({ group, onChange }) {
 // ── main export ────────────────────────────────────────────────────────────
 
 export default function ReviewStep({ uploadData, onConfirm, onReset }) {
-  const { session_id, source_filename, uploaded_at, sentence_groups } = uploadData;
+  const { session_id, source_filename, uploaded_at, sentence_groups, manual_mode } = uploadData;
+  const isManualMode = !!manual_mode;
 
   // Initialise mutable group state from the upload payload
   const [groups, setGroups] = useState(() =>
@@ -280,6 +416,38 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       prev.map((g) => (g.groupId === updated.groupId ? updated : g))
     );
   }, []);
+
+  const insertSentenceGroupAt = useCallback((targetIndex) => {
+    setGroups((prev) => {
+      const nextGroupId = prev.reduce((max, g) => Math.max(max, Number(g.groupId) || 0), 0) + 1;
+      const index = Math.max(0, Math.min(targetIndex, prev.length));
+      const next = [...prev];
+      next.splice(index, 0, createEmptyManualGroup(nextGroupId));
+      return next;
+    });
+  }, []);
+
+  const moveSentenceGroup = useCallback((fromIndex, toIndex) => {
+    setGroups((prev) => {
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= prev.length ||
+        toIndex >= prev.length ||
+        fromIndex === toIndex
+      ) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const handleAddSentenceGroup = () => {
+    insertSentenceGroupAt(groups.length);
+  };
 
   // ── build final sentences array and proceed ──
   const handleProceed = () => {
@@ -346,9 +514,11 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       {/* ── top bar ── */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">Review & Clean</h1>
+          <h1 className="text-lg font-bold text-gray-900">{isManualMode ? "Manual Entry" : "Review & Clean"}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {source_filename} — {groups.length} groups found
+            {isManualMode
+              ? `${groups.length} sentence groups in your manual workspace`
+              : `${source_filename} — ${groups.length} groups found`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -356,7 +526,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
             onClick={onReset}
             className="text-sm text-gray-500 hover:text-gray-800 border border-gray-300 rounded-lg px-3 py-1.5"
           >
-            ← Upload different file
+            {isManualMode ? "← Back" : "← Upload different file"}
           </button>
           <button
             onClick={handleProceed}
@@ -383,6 +553,12 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
           </span>
           <div className="ml-auto flex gap-2">
             <button
+              onClick={handleAddSentenceGroup}
+              className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2.5 py-1 hover:bg-blue-100"
+            >
+              + Add sentence
+            </button>
+            <button
               onClick={handleIncludeAll}
               className="text-xs bg-green-50 text-green-700 border border-green-200 rounded px-2.5 py-1 hover:bg-green-100"
             >
@@ -401,12 +577,33 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-800">
           <strong>How to use:</strong> Check each sentence group below. Use the checkbox to include/exclude it.
           Click <strong>▼</strong> to expand and edit the sentence text, choose a version (if multiple were detected),
-          and toggle individual triples on/off. When ready, click <strong>Start Grading</strong>.
+          toggle individual triples on/off, and add manual sentences/triples when needed. Use <strong>Insert sentence above/below</strong> to place new sentences anywhere in order.
+          When ready, click <strong>Start Grading</strong>.
         </div>
 
+        {groups.length === 0 && (
+          <div className="bg-white border border-dashed border-slate-300 rounded-xl p-5 mb-5 text-center">
+            <p className="text-sm font-semibold text-slate-700">No sentences yet</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Click <strong>+ Add sentence</strong> to create your first sentence group, then add triples.
+            </p>
+          </div>
+        )}
+
         {/* group cards */}
-        {groups.map((g) => (
-          <GroupCard key={g.groupId} group={g} onChange={handleGroupChange} />
+        {groups.map((g, index) => (
+          <GroupCard
+            key={g.groupId}
+            group={g}
+            orderIndex={index}
+            onChange={handleGroupChange}
+            onInsertAbove={() => insertSentenceGroupAt(index)}
+            onInsertBelow={() => insertSentenceGroupAt(index + 1)}
+            onMoveUp={() => moveSentenceGroup(index, index - 1)}
+            onMoveDown={() => moveSentenceGroup(index, index + 1)}
+            canMoveUp={index > 0}
+            canMoveDown={index < groups.length - 1}
+          />
         ))}
 
         {/* bottom proceed button */}

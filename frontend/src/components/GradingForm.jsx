@@ -17,15 +17,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     owner_user_id,
     owner_email,
     can_edit,
+    can_approve,
   } = uploadData;
 
   const sessionOwnerUserId = owner_user_id || currentUser?.id || null;
-  const canApproveSuggestions =
+  const canEditSession =
     can_edit ??
     (!sessionOwnerUserId ||
       sessionOwnerUserId === currentUser?.id ||
       (owner_email && currentUser?.email && owner_email === currentUser.email));
-  const viewerMode = resumed && !canApproveSuggestions;
+  const canApproveSuggestions = can_approve ?? canEditSession;
+  const viewerMode = resumed && !canEditSession;
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -456,7 +458,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, []);
 
   const handleSave = async () => {
-    if (!canApproveSuggestions) {
+    if (!canEditSession) {
       setSaveError("Only the owner can save direct triple edits. Use suggestions and voting.");
       return;
     }
@@ -565,7 +567,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <div className="flex flex-col items-end">
               <button
                 onClick={handleSave}
-                disabled={saving || !canApproveSuggestions}
+                disabled={saving || !canEditSession}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
               >
                 {saving ? "Saving…" : "💾 Save"}
@@ -686,7 +688,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       {viewerMode && (
         <div className="bg-amber-50 border-b border-amber-200 fixed top-[57px] left-0 right-0 z-20">
           <div className="max-w-4xl mx-auto px-4 py-2 text-xs sm:text-sm text-amber-800">
-            Viewer mode: You are viewing another user's session. You can add suggestions and vote, but direct grading and edits are restricted.
+            {canApproveSuggestions
+              ? "Review mode: You are viewing another user's copy. Direct grading edits are locked, but you can review and approve suggestions."
+              : "Viewer mode: You are viewing another user's session. You can add suggestions and vote, but direct grading and edits are restricted."}
           </div>
         </div>
       )}
@@ -740,14 +744,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   <button
                     key={`comp-${n}`}
                     onClick={() => handleSentenceMetricChange("completeness", n)}
-                    disabled={!canApproveSuggestions}
+                    disabled={!canEditSession}
                     className={[
                       "w-6 h-6 rounded text-xs font-semibold border transition-all",
                       "focus:outline-none focus:ring-2 focus:ring-green-400",
                       current.completeness === n
                         ? "bg-green-600 text-white border-green-600 scale-110 shadow"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
-                      !canApproveSuggestions ? "opacity-70 cursor-not-allowed" : "",
+                      !canEditSession ? "opacity-70 cursor-not-allowed" : "",
                     ].join(" ")}
                   >
                     {n}
@@ -770,14 +774,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   <button
                     key={`rel-${n}`}
                     onClick={() => handleSentenceMetricChange("external_relation", n)}
-                    disabled={!canApproveSuggestions}
+                    disabled={!canEditSession}
                     className={[
                       "w-6 h-6 rounded text-xs font-semibold border transition-all",
                       "focus:outline-none focus:ring-2 focus:ring-indigo-400",
                       current.external_relation === n
                         ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-indigo-50 hover:border-indigo-400",
-                      !canApproveSuggestions ? "opacity-70 cursor-not-allowed" : "",
+                      !canEditSession ? "opacity-70 cursor-not-allowed" : "",
                     ].join(" ")}
                   >
                     {n}
@@ -864,7 +868,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   triple={triple}
                   grade={triple.grade}
                   author={triple.author}
-                  readOnly={!canApproveSuggestions}
+                  readOnly={!canEditSession}
                   onChange={(grade) => handleGradeChange(triple.id, grade)}
                 />
                 <TripleSuggestions
@@ -891,13 +895,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             value={current.suggestion}
             onChange={(e) => handleSuggestionChange(e.target.value)}
             rows={3}
-            disabled={!canApproveSuggestions}
+            disabled={!canEditSession}
             placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
             className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
           />
-          {!canApproveSuggestions && (
+          {!canEditSession && (
             <p className="mt-2 text-xs text-slate-500">
-              Collaboration mode: only the owner can directly edit triples or approve changes. You can still add suggestions and vote.
+              {canApproveSuggestions
+                ? "Review mode: direct grading edits are disabled for this copy, but you can approve or unapprove suggestions."
+                : "Collaboration mode: direct grading edits are disabled for this session. You can still add suggestions and vote."}
             </p>
           )}
         </div>

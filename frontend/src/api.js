@@ -143,6 +143,17 @@ export async function loadSession(sessionId) {
 }
 
 /**
+ * Create or return the current user's personal grading copy of a shared session.
+ * If the user owns the source session, the same session may be returned.
+ * @param {string} sessionId
+ * @returns {Promise<object>}
+ */
+export async function createOrLoadSessionCopy(sessionId) {
+  const { data } = await API.post(`/api/session/${sessionId}/copy`);
+  return data;
+}
+
+/**
  * Add a suggestion to a triple.
  * @param {string} sessionId
  * @param {number} sentenceId
