@@ -307,8 +307,22 @@ def save_single_session_db(session_data: Dict[str, Any]) -> None:
         db.commit()
 
 
+def delete_sessions_db(session_ids: list[str]) -> int:
+    """Delete multiple saved sessions by session_id and return deleted row count."""
+    normalized_ids = [str(session_id).strip() for session_id in session_ids if str(session_id).strip()]
+    if not normalized_ids:
+        return 0
+
+    with SessionLocal() as db:
+        deleted = (
+            db.query(SessionRecord)
+            .filter(SessionRecord.session_id.in_(normalized_ids))
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+    return int(deleted)
+
+
 def delete_session_db(session_id: str) -> None:
     """Delete a single saved session by session_id."""
-    with SessionLocal() as db:
-        db.query(SessionRecord).filter(SessionRecord.session_id == session_id).delete(synchronize_session=False)
-        db.commit()
+    delete_sessions_db([session_id])

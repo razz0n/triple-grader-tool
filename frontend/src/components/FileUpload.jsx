@@ -79,15 +79,22 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     const sessionId = sessionMeta?.session_id;
     if (!sessionId || !sessionMeta?.is_owner) return;
 
-    const label = sessionMeta?.is_copy ? "copy" : "file";
+    const label = sessionMeta?.is_copy
+      ? "copy"
+      : "file and all related copies";
     const ok = window.confirm(`Delete this ${label}? This cannot be undone.`);
     if (!ok) return;
 
     setDeleteError("");
     setDeleting(sessionId);
     try {
-      await deleteSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+      const result = await deleteSession(sessionId);
+      const deletedIds = new Set(
+        Array.isArray(result?.deleted_session_ids) && result.deleted_session_ids.length > 0
+          ? result.deleted_session_ids
+          : [sessionId]
+      );
+      setSessions((prev) => prev.filter((s) => !deletedIds.has(s.session_id)));
     } catch (e) {
       setDeleteError(e?.response?.data?.detail || "Failed to delete file.");
     } finally {
@@ -434,9 +441,9 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                 ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                                 : "bg-amber-100 text-amber-700 border-amber-200")
                             : "bg-blue-100 text-blue-700 border-blue-200";
-                          const sourceInfo = s.is_copy
-                            ? `Source owner: ${s.source_owner_name || s.owner_name || "Unknown"}`
-                            : `Owner: ${s.owner_name || "Unknown"}`;
+                          const ownerName = s.is_copy
+                            ? (s.source_owner_name || s.owner_name || "Unknown")
+                            : (s.owner_name || "Unknown");
                           const canEditDirect = s.can_edit ?? s.is_owner;
                           const roleHint = s.is_owner
                             ? (canEditDirect
@@ -474,9 +481,12 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   <span className={`text-[10px] font-semibold border px-2 py-0.5 rounded-full ${sessionTypeClass}`}>
                                     {sessionType}
                                   </span>
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-indigo-700 font-semibold text-[10px]">
+                                    <span className="text-[11px]">{ownerName}</span>
+                                  </span>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">
-                                  {s.total_sentences} sentences &bull; {sourceInfo}
+                                  {s.total_sentences} sentences
                                   {dateStr && <> &bull; {dateStr}</>}
                                 </p>
                                 <p className="text-[11px] text-slate-500 mt-1">

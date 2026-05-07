@@ -29,7 +29,7 @@ from pydantic import BaseModel, EmailStr, Field
 from database import (
     add_token_db,
     delete_token_db,
-    delete_session_db,
+    delete_sessions_db,
     init_database,
     list_sessions_db,
     load_session_db,
@@ -499,6 +499,57 @@ def _find_user_copy_session(user: Dict[str, Any], root_session_id: str) -> tuple
             return p, payload
 
     return None, None
+
+
+def _session_lineage_ids(root_session_id: str) -> list[str]:
+    """Collect all session IDs tied to the same root (original + copies)."""
+    if not root_session_id:
+        return []
+
+    session_ids: set[str] = set()
+
+    if use_database_storage():
+        for payload in list_sessions_db():
+            session_id = str(payload.get("session_id") or "").strip()
+            if not session_id:
+                continue
+            payload_root_id = _root_session_id(payload) or session_id
+            if session_id == root_session_id or payload_root_id == root_session_id:
+                session_ids.add(session_id)
+        return sorted(session_ids)
+
+    for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except Exception:
+            continue
+
+        session_id = str(payload.get("session_id") or p.stem).strip()
+        if not session_id:
+            continue
+        payload_root_id = str(payload.get("root_session_id") or session_id).strip()
+        if session_id == root_session_id or payload_root_id == root_session_id:
+            session_ids.add(session_id)
+
+    return sorted(session_ids)
+
+
+def _delete_sessions(session_ids: list[str]) -> int:
+    normalized_ids = sorted({str(session_id).strip() for session_id in session_ids if str(session_id).strip()})
+    if not normalized_ids:
+        return 0
+
+    if use_database_storage():
+        return delete_sessions_db(normalized_ids)
+
+    deleted = 0
+    for sid in normalized_ids:
+        json_path = _find_existing_session_path(sid)
+        if json_path and json_path.exists():
+            json_path.unlink()
+            deleted += 1
+    return deleted
 
 
 def _session_copy_payload_for_user(
@@ -993,21 +1044,32 @@ async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_u
 
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
-    """Delete a saved session (owner only)."""
+    """Delete a saved session (owner only). Deleting an original cascades to its copies."""
     session_path, session = _load_session_for_access(session_id)
 
     if not _is_session_owner(session, session_path, user):
         raise HTTPException(status_code=403, detail="Only the session owner can delete this file.")
 
-    if use_database_storage():
-        delete_session_db(session_id)
+    resolved_session_id = str(session.get("session_id") or session_id).strip()
+    root_session_id = _root_session_id(session) or resolved_session_id
+    is_copy_session = bool(session.get("is_copy")) or (root_session_id != resolved_session_id)
+
+    if is_copy_session:
+        deleted_session_ids = [resolved_session_id]
     else:
-        if session_path and session_path.exists():
-            session_path.unlink()
+        deleted_session_ids = _session_lineage_ids(root_session_id)
+        if resolved_session_id not in deleted_session_ids:
+            deleted_session_ids.append(resolved_session_id)
+
+    deleted_session_ids = sorted({sid for sid in deleted_session_ids if sid})
+    deleted_count = _delete_sessions(deleted_session_ids)
 
     return {
         "ok": True,
-        "deleted_session_id": session_id,
+        "deleted_session_id": resolved_session_id,
+        "deleted_session_ids": deleted_session_ids,
+        "deleted_count": deleted_count,
+        "cascade_deleted": (not is_copy_session and len(deleted_session_ids) > 1),
     }
 
 
