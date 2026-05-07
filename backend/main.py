@@ -552,6 +552,62 @@ def _delete_sessions(session_ids: list[str]) -> int:
     return deleted
 
 
+def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Convert parser sentence groups into a saved draft sentence list."""
+    sentences: list[Dict[str, Any]] = []
+    sentence_id = 1
+
+    for group in sentence_groups:
+        versions = group.get("versions") or []
+        selected_version_id = str(group.get("selected_version_id") or "").strip()
+
+        selected_version = next(
+            (v for v in versions if str(v.get("version_id") or "").strip() == selected_version_id),
+            None,
+        )
+        if not selected_version and versions:
+            selected_version = versions[0]
+
+        raw_triples = selected_version.get("triples", []) if isinstance(selected_version, dict) else []
+        triples: list[Dict[str, Any]] = []
+
+        for idx, triple in enumerate(raw_triples, start=1):
+            subject = str(triple.get("subject") or "").strip()
+            predicate = str(triple.get("predicate") or "").strip()
+            obj = str(triple.get("object") or "").strip()
+            if not (subject and predicate and obj):
+                continue
+
+            triple_id = str(triple.get("id") or f"{sentence_id}_{idx}")
+            triples.append({
+                "id": triple_id,
+                "subject": subject,
+                "predicate": predicate,
+                "object": obj,
+                "grade": None,
+            })
+
+        if not triples:
+            continue
+
+        sentence_text = str(group.get("sentence_text") or "").strip()
+        if not sentence_text and isinstance(selected_version, dict):
+            sentence_text = str(selected_version.get("sentence_candidate") or "").strip()
+
+        sentences.append({
+            "id": sentence_id,
+            "text": sentence_text or "(no sentence text)",
+            "suggestion": "",
+            "sentence_grade": None,
+            "completeness": None,
+            "external_relation": None,
+            "triples": triples,
+        })
+        sentence_id += 1
+
+    return sentences
+
+
 def _session_copy_payload_for_user(
     source_session: Dict[str, Any],
     user: Dict[str, Any],
@@ -871,8 +927,8 @@ async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_S
     return {"ok": True}
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), _: Dict[str, Any] = Depends(_current_user)):
-    """Parse an uploaded CSV or Excel file and return structured sentence-group data for review."""
+async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(_current_user)):
+    """Parse an uploaded file, save an owner draft, and return sentence-group data for review."""
     allowed_extensions = {".csv", ".xlsx", ".xls"}
     suffix = Path(file.filename).suffix.lower()
     if suffix not in allowed_extensions:
@@ -897,12 +953,34 @@ async def upload_file(file: UploadFile = File(...), _: Dict[str, Any] = Depends(
         )
 
     session_id = str(uuid.uuid4())
+    uploaded_at = datetime.utcnow().isoformat()
+
+    draft_session = {
+        "session_id": session_id,
+        "source_filename": file.filename,
+        "uploaded_at": uploaded_at,
+        "sentences": _sentence_groups_to_draft_sentences(sentence_groups),
+        "manual_mode": False,
+        "root_session_id": session_id,
+        "is_copy": False,
+        "source_owner_user_id": user.get("id", ""),
+        "source_owner_name": _display_name(user),
+        "source_owner_email": _norm_email(user.get("email", "")),
+        "source_owner_username": _norm_username(user.get("username", "")),
+        "owner_user_id": user.get("id", ""),
+        "owner_name": _display_name(user),
+        "owner_email": _norm_email(user.get("email", "")),
+        "owner_username": _norm_username(user.get("username", "")),
+    }
+    _save_loaded_session(None, draft_session, owner_user_id=user.get("id", ""))
+
     return {
         "session_id":       session_id,
         "source_filename":  file.filename,
-        "uploaded_at":      datetime.utcnow().isoformat(),
+        "uploaded_at":      uploaded_at,
         "total_groups":     len(sentence_groups),
         "sentence_groups":  sentence_groups,
+        "draft_saved":      True,
     }
 
 

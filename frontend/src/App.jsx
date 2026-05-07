@@ -33,6 +33,7 @@ export default function App() {
   const [uploadData, setUploadData]     = useState(null);
   const [gradingData, setGradingData]   = useState(null);
   const [evalSession, setEvalSession]   = useState(null); // { sessionId, sourceFilename }
+  const [recentUploadSessionId, setRecentUploadSessionId] = useState(null);
 
   useEffect(() => {
     const token = getAuthToken();
@@ -49,11 +50,13 @@ export default function App() {
   const handleUploadSuccess = (data) => {
     setUploadData(data);
     setGradingData(null);
+    setRecentUploadSessionId(data?.session_id || null);
   };
 
   const handleStartManual = (manualConfig = {}) => {
     setUploadData(createManualSessionSeed(manualConfig));
     setGradingData(null);
+    setRecentUploadSessionId(null);
   };
 
   const handleReviewConfirm = (cleanedData) => {
@@ -88,6 +91,7 @@ export default function App() {
   const handleLogout = async () => {
     await logoutUser();
     setUser(null);
+    setRecentUploadSessionId(null);
     handleReset();
   };
 
@@ -110,6 +114,7 @@ export default function App() {
           onUploadSuccess={handleUploadSuccess}
           onLoadSession={handleLoadSession}
           onStartManual={handleStartManual}
+          recentUploadSessionId={recentUploadSessionId}
         />
       );
     }

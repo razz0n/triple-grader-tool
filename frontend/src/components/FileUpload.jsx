@@ -23,7 +23,7 @@ function buildManualSourceFilename(baseName, format) {
   return `${safeBase}.${cleanFormat}`;
 }
 
-export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual }) {
+export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual, recentUploadSessionId }) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
@@ -38,6 +38,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   const [deleteError, setDeleteError] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
   const [collapsedSourceGroups, setCollapsedSourceGroups] = useState({});
+  const [recentFocusAppliedFor, setRecentFocusAppliedFor] = useState(null);
 
   // Fetch saved sessions on mount
   useEffect(() => {
@@ -51,6 +52,25 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
       })
       .catch(() => {}); // silently ignore if backend not ready
   }, []);
+
+  useEffect(() => {
+    if (!recentUploadSessionId) {
+      setRecentFocusAppliedFor(null);
+      return;
+    }
+    if (recentFocusAppliedFor === recentUploadSessionId) return;
+
+    const recentSession = sessions.find((s) => s.session_id === recentUploadSessionId);
+    if (!recentSession) return;
+
+    setSessionFilter("mine");
+    const sourceKey = recentSession.source_filename || "Unknown file";
+    setCollapsedSourceGroups((prev) => ({
+      ...prev,
+      [sourceKey]: false,
+    }));
+    setRecentFocusAppliedFor(recentUploadSessionId);
+  }, [recentUploadSessionId, recentFocusAppliedFor, sessions]);
 
   const handleResume = async (sessionMeta) => {
     const sessionId = sessionMeta?.session_id;
@@ -465,6 +485,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                             ? `Avg ${Number(s.root_average_grade).toFixed(2)}/10 from ${s.completed_copy_count || 0} completed cop${(s.completed_copy_count || 0) === 1 ? "y" : "ies"}`
                             : null;
                           const isDeleting = deleting === s.session_id;
+                          const isRecentUpload = recentUploadSessionId === s.session_id;
                           const deleteLabel = isDeleting
                             ? "Deleting…"
                             : s.is_copy
@@ -474,7 +495,12 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           return (
                             <div
                               key={s.session_id}
-                              className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2.5 hover:border-blue-300 hover:bg-blue-50/30 transition-all"
+                              className={[
+                                "flex items-center justify-between bg-white border rounded-lg px-3 py-2.5 transition-all",
+                                isRecentUpload
+                                  ? "border-emerald-300 ring-2 ring-emerald-200 bg-emerald-50/40"
+                                  : "border-slate-200 hover:border-blue-300 hover:bg-blue-50/30",
+                              ].join(" ")}
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -484,6 +510,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-indigo-700 font-semibold text-[10px]">
                                     <span className="text-[11px]">{ownerName}</span>
                                   </span>
+                                  {isRecentUpload && s.is_owner && (
+                                    <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100 px-1.5 py-0.5 text-emerald-800 font-semibold text-[10px]">
+                                      Just uploaded
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">
                                   {s.total_sentences} sentences
