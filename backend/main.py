@@ -699,6 +699,28 @@ def _attach_root_average_grades(session_items: list[Dict[str, Any]]) -> list[Dic
     return session_items
 
 
+def _filter_orphan_copies(session_items: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Hide copies whose root/original session is missing from storage."""
+    existing_ids = {
+        str(item.get("session_id") or "").strip()
+        for item in session_items
+        if str(item.get("session_id") or "").strip()
+    }
+
+    filtered: list[Dict[str, Any]] = []
+    for item in session_items:
+        session_id = str(item.get("session_id") or "").strip()
+        root_id = str(item.get("root_session_id") or session_id).strip()
+        is_copy = bool(item.get("is_copy")) or (root_id and root_id != session_id)
+
+        if is_copy and root_id and root_id not in existing_ids:
+            continue
+
+        filtered.append(item)
+
+    return filtered
+
+
 def _ensure_default_users():
     users_data = _load_users()
     users = users_data.get("users", [])
@@ -1287,7 +1309,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "session_average_grade": grading_stats["session_average_grade"],
                 "is_completed_grading": grading_stats["is_completed_grading"],
             })
-        return _attach_root_average_grades(sessions)
+        return _filter_orphan_copies(_attach_root_average_grades(sessions))
 
     for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
         try:
@@ -1328,7 +1350,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
             })
         except Exception:
             pass
-    return _attach_root_average_grades(sessions)
+    return _filter_orphan_copies(_attach_root_average_grades(sessions))
 
 
 @app.get("/api/health")
