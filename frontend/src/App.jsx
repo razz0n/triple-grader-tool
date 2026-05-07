@@ -57,7 +57,12 @@ export default function App() {
   };
 
   const handleReviewConfirm = (cleanedData) => {
-    setGradingData(cleanedData);
+    setGradingData({
+      ...cleanedData,
+      can_edit: false,
+      can_approve: true,
+      is_owner: true,
+    });
   };
 
   // Resume a previously saved session — skip upload + review entirely

@@ -3,7 +3,7 @@
 // of triples to use, edit the sentence text, and toggle individual triples
 // on/off before proceeding to grading.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 function createEmptyManualGroup(nextGroupId) {
   const manualVersionId = `manual_${nextGroupId}_v1`;
@@ -40,10 +40,48 @@ function Badge({ color, children }) {
   );
 }
 
-function TripleRow({ triple, included, onToggle }) {
+function TripleRow({ triple, included, onToggle, onSaveEdit, onDelete }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState({
+    subject: triple.subject || "",
+    predicate: triple.predicate || "",
+    object: triple.object || "",
+  });
+
+  useEffect(() => {
+    setDraft({
+      subject: triple.subject || "",
+      predicate: triple.predicate || "",
+      object: triple.object || "",
+    });
+  }, [triple.id, triple.subject, triple.predicate, triple.object]);
+
+  const handleSave = () => {
+    const subject = draft.subject.trim();
+    const predicate = draft.predicate.trim();
+    const object = draft.object.trim();
+
+    if (!subject || !predicate || !object) {
+      alert("Subject, predicate, and object are required.");
+      return;
+    }
+
+    onSaveEdit(triple.id, { subject, predicate, object });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraft({
+      subject: triple.subject || "",
+      predicate: triple.predicate || "",
+      object: triple.object || "",
+    });
+    setIsEditing(false);
+  };
+
   return (
     <div
-      className={`flex items-start gap-2 px-3 py-1.5 rounded mb-1 text-sm transition-opacity ${
+      className={`flex items-start gap-2 px-3 py-2 rounded mb-1 text-sm transition-opacity ${
         included ? "bg-gray-50" : "bg-gray-50 opacity-40"
       }`}
     >
@@ -53,13 +91,74 @@ function TripleRow({ triple, included, onToggle }) {
         onChange={() => onToggle(triple.id)}
         className="mt-1 shrink-0 accent-blue-600 cursor-pointer"
       />
-      <span className="flex flex-wrap gap-1.5 leading-relaxed">
-        <Badge color="blue">{triple.subject}</Badge>
-        <span className="text-gray-400">→</span>
-        <Badge color="green">{triple.predicate}</Badge>
-        <span className="text-gray-400">→</span>
-        <Badge color="purple">{triple.object}</Badge>
-      </span>
+      <div className="flex-1 min-w-0">
+        {isEditing ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <input
+              type="text"
+              value={draft.subject}
+              onChange={(e) => setDraft((prev) => ({ ...prev, subject: e.target.value }))}
+              placeholder="Subject"
+              className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+            <input
+              type="text"
+              value={draft.predicate}
+              onChange={(e) => setDraft((prev) => ({ ...prev, predicate: e.target.value }))}
+              placeholder="Predicate"
+              className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+            <input
+              type="text"
+              value={draft.object}
+              onChange={(e) => setDraft((prev) => ({ ...prev, object: e.target.value }))}
+              placeholder="Object"
+              className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+          </div>
+        ) : (
+          <span className="flex flex-wrap gap-1.5 leading-relaxed">
+            <Badge color="blue">{triple.subject}</Badge>
+            <span className="text-gray-400">→</span>
+            <Badge color="green">{triple.predicate}</Badge>
+            <span className="text-gray-400">→</span>
+            <Badge color="purple">{triple.object}</Badge>
+          </span>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2 ml-2">
+        {isEditing ? (
+          <>
+            <button
+              onClick={handleSave}
+              className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+            >
+              Save
+            </button>
+            <button
+              onClick={handleCancel}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDelete(triple.id)}
+              className="text-xs font-semibold text-red-600 hover:text-red-800"
+            >
+              Delete
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -161,6 +260,44 @@ function GroupCard({
     });
 
     setNewTriple({ subject: "", predicate: "", object: "" });
+  };
+
+  const handleUpdateTriple = (tripleId, payload) => {
+    const updatedVersions = group.rawVersions.map((v) =>
+      v.version_id === group.selectedVersionId
+        ? {
+            ...v,
+            triples: v.triples.map((t) =>
+              t.id === tripleId ? { ...t, ...payload } : t
+            ),
+          }
+        : v
+    );
+
+    onChange({
+      ...group,
+      rawVersions: updatedVersions,
+    });
+  };
+
+  const handleDeleteTriple = (tripleId) => {
+    const updatedVersions = group.rawVersions.map((v) =>
+      v.version_id === group.selectedVersionId
+        ? {
+            ...v,
+            triples: v.triples.filter((t) => t.id !== tripleId),
+          }
+        : v
+    );
+
+    const nextIncludedIds = new Set(group.includedTripleIds);
+    nextIncludedIds.delete(tripleId);
+
+    onChange({
+      ...group,
+      rawVersions: updatedVersions,
+      includedTripleIds: nextIncludedIds,
+    });
   };
 
   const handleCardDragStart = (e) => {
@@ -362,6 +499,8 @@ function GroupCard({
                       triple={t}
                       included={group.includedTripleIds.has(t.id)}
                       onToggle={handleTripleToggle}
+                      onSaveEdit={handleUpdateTriple}
+                      onDelete={handleDeleteTriple}
                     />
                   ))}
                 </div>
@@ -570,6 +709,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       session_id,
       source_filename,
       uploaded_at,
+      manual_mode: isManualMode,
       total_sentences: sentences.length,
       sentences,
     });

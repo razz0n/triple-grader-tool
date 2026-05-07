@@ -13,11 +13,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     source_filename,
     sentences: initialSentences,
     uploaded_at,
+    manual_mode,
     resumed,
     owner_user_id,
     owner_email,
     can_edit,
     can_approve,
+    is_owner,
   } = uploadData;
 
   const sessionOwnerUserId = owner_user_id || currentUser?.id || null;
@@ -28,6 +30,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       (owner_email && currentUser?.email && owner_email === currentUser.email));
   const canApproveSuggestions = can_approve ?? canEditSession;
   const viewerMode = resumed && !canEditSession;
+  const canPublishSourceSession = !resumed && !canEditSession && !!is_owner;
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -388,6 +391,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     session_id:      savedSessionId || initialSessionId,
     source_filename: source_filename,
     uploaded_at:     uploaded_at,
+    manual_mode:     !!manual_mode,
     sentences: sentences.map((s) => {
       const grades = s.triples
         .map((t) => t.grade)
@@ -458,8 +462,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, []);
 
   const handleSave = async () => {
-    if (!canEditSession) {
-      setSaveError("Only the owner can save direct triple edits. Use suggestions and voting.");
+    if (!canEditSession && !canPublishSourceSession) {
+      setSaveError("Direct grading saves are disabled for this session. Use suggestions and voting.");
       return;
     }
     savingRef.current = true;
@@ -567,7 +571,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <div className="flex flex-col items-end">
               <button
                 onClick={handleSave}
-                disabled={saving || !canEditSession}
+                disabled={saving || (!canEditSession && !canPublishSourceSession)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
               >
                 {saving ? "Saving…" : "💾 Save"}
@@ -688,7 +692,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       {viewerMode && (
         <div className="bg-amber-50 border-b border-amber-200 fixed top-[57px] left-0 right-0 z-20">
           <div className="max-w-4xl mx-auto px-4 py-2 text-xs sm:text-sm text-amber-800">
-            {canApproveSuggestions
+            {is_owner && !canEditSession
+              ? "Source owner review mode: this file is graded by collaborators. You can review and approve suggestions, but direct grading edits are locked."
+              : canApproveSuggestions
               ? "Review mode: You are viewing another user's copy. Direct grading edits are locked, but you can review and approve suggestions."
               : "Viewer mode: You are viewing another user's session. You can add suggestions and vote, but direct grading and edits are restricted."}
           </div>
@@ -901,7 +907,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           />
           {!canEditSession && (
             <p className="mt-2 text-xs text-slate-500">
-              {canApproveSuggestions
+              {canPublishSourceSession
+                ? "Source setup mode: direct grading is locked for the creator. Save this file so collaborators can grade their own copies."
+                : is_owner
+                ? "Source owner review mode: direct grading is locked for the creator. Collaborators grade this file in their copies."
+                : canApproveSuggestions
                 ? "Review mode: direct grading edits are disabled for this copy, but you can approve or unapprove suggestions."
                 : "Collaboration mode: direct grading edits are disabled for this session. You can still add suggestions and vote."}
             </p>

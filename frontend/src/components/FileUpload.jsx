@@ -55,6 +55,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   const handleResume = async (sessionMeta) => {
     const sessionId = sessionMeta?.session_id;
     const isOwner = !!sessionMeta?.is_owner;
+    const isCopy = !!sessionMeta?.is_copy;
 
     if (!sessionId) return;
 
@@ -63,7 +64,9 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     try {
       const session = isOwner
         ? await loadSession(sessionId)
-        : await createOrLoadSessionCopy(sessionId);
+        : isCopy
+          ? await loadSession(sessionId)
+          : await createOrLoadSessionCopy(sessionId);
       onLoadSession(session);
     } catch (e) {
       setResumeError(e?.response?.data?.detail || "Failed to load session.");
@@ -434,18 +437,26 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           const sourceInfo = s.is_copy
                             ? `Source owner: ${s.source_owner_name || s.owner_name || "Unknown"}`
                             : `Owner: ${s.owner_name || "Unknown"}`;
+                          const canEditDirect = s.can_edit ?? s.is_owner;
                           const roleHint = s.is_owner
-                            ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
-                            : (s.can_approve
-                                ? "You can review and approve suggestions here."
-                                : "Open your own copy to grade and save.");
+                            ? (canEditDirect
+                                ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
+                                : "Source owner mode: collaborators grade this file; you can review and approve.")
+                            : s.is_copy
+                              ? (s.can_approve
+                                  ? "You can review and approve suggestions here."
+                                  : "You can review this copy, suggest edits, and vote.")
+                              : "Open your own copy to grade and save.";
                           const actionLabel = isLoading
                             ? "Loading…"
                             : s.is_owner
-                              ? "▶ Resume"
+                              ? (canEditDirect ? "▶ Resume" : "👀 Review")
                               : s.is_copy
-                                ? "📄 Open Copy"
+                                ? "📄 Review Copy"
                                 : "📄 Open My Copy";
+                          const avgBadge = !s.is_copy && s.root_average_grade != null
+                            ? `Avg ${Number(s.root_average_grade).toFixed(2)}/10 from ${s.completed_copy_count || 0} completed cop${(s.completed_copy_count || 0) === 1 ? "y" : "ies"}`
+                            : null;
                           const isDeleting = deleting === s.session_id;
                           const deleteLabel = isDeleting
                             ? "Deleting…"
@@ -471,6 +482,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                 <p className="text-[11px] text-slate-500 mt-1">
                                   {roleHint}
                                 </p>
+                                {avgBadge && (
+                                  <p className="text-[11px] text-emerald-700 mt-1 font-semibold">
+                                    {avgBadge}
+                                  </p>
+                                )}
                               </div>
                               <div className="ml-3 shrink-0 flex items-center gap-2">
                                 {s.is_owner && (
