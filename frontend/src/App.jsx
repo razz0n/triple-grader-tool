@@ -5,7 +5,7 @@ import ReviewStep from "./components/ReviewStep";
 import GradingForm from "./components/GradingForm";
 import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
-import { getAuthToken, logoutUser, meUser } from "./api";
+import { getAuthToken, logoutUser, meUser, saveSession } from "./api";
 
 function createManualSessionSeed(options = {}) {
   const randomId =
@@ -29,7 +29,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   // uploadData  : raw parse result from /api/upload (sentence_groups)
-  // gradingData : cleaned/confirmed sentences built by ReviewStep
+  // gradingData : loaded/resumed grading session payload
   const [uploadData, setUploadData]     = useState(null);
   const [gradingData, setGradingData]   = useState(null);
   const [evalSession, setEvalSession]   = useState(null); // { sessionId, sourceFilename }
@@ -59,13 +59,12 @@ export default function App() {
     setRecentUploadSessionId(null);
   };
 
-  const handleReviewConfirm = (cleanedData) => {
-    setGradingData({
-      ...cleanedData,
-      can_edit: false,
-      can_approve: true,
-      is_owner: true,
-    });
+  const handleReviewConfirm = async (cleanedData) => {
+    await saveSession(cleanedData);
+    setRecentUploadSessionId(cleanedData?.session_id || null);
+    setUploadData(null);
+    setGradingData(null);
+    setEvalSession(null);
   };
 
   // Resume a previously saved session — skip upload + review entirely

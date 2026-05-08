@@ -15,22 +15,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     uploaded_at,
     manual_mode,
     resumed,
-    owner_user_id,
-    owner_email,
     can_edit,
     can_approve,
     is_owner,
   } = uploadData;
 
-  const sessionOwnerUserId = owner_user_id || currentUser?.id || null;
-  const canEditSession =
-    can_edit ??
-    (!sessionOwnerUserId ||
-      sessionOwnerUserId === currentUser?.id ||
-      (owner_email && currentUser?.email && owner_email === currentUser.email));
-  const canApproveSuggestions = can_approve ?? canEditSession;
-  const viewerMode = resumed && !canEditSession;
-  const canPublishSourceSession = !resumed && !canEditSession && !!is_owner;
+  const canEditSession = can_edit ?? true;
+  const canApproveSuggestions = can_approve ?? !!is_owner;
+  const currentUserId = currentUser?.id || "";
+  const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -50,6 +43,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         ...t, 
         grade: t.grade ?? null,
         author: t.author || null,
+        grades_by_user: t.grades_by_user || {},
+        grade_count: Number.isFinite(t.grade_count) ? t.grade_count : undefined,
+        grade_average: t.grade_average ?? null,
         suggestions: t.suggestions || [],
       })),
     }))
@@ -112,6 +108,60 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     };
   }, [sentences]);
 
+  const graderSummary = useMemo(() => {
+    const rowsByUser = new Map();
+    let totalGradeEntries = 0;
+    let overallGradeSum = 0;
+
+    sentences.forEach((sentence) => {
+      sentence.triples.forEach((triple) => {
+        const gradesByUser = triple?.grades_by_user && typeof triple.grades_by_user === "object"
+          ? triple.grades_by_user
+          : {};
+
+        Object.entries(gradesByUser).forEach(([key, payload]) => {
+          const grade = Number(payload?.grade);
+          if (!Number.isFinite(grade)) return;
+
+          const userId = String(payload?.user_id || key || "");
+          const userName = String(payload?.user_name || userId || "Unknown");
+          const current = rowsByUser.get(userId) || {
+            user_id: userId,
+            user_name: userName,
+            graded_triples: 0,
+            grade_sum: 0,
+            grade_count: 0,
+          };
+
+          current.graded_triples += 1;
+          current.grade_count += 1;
+          current.grade_sum += grade;
+          rowsByUser.set(userId, current);
+
+          totalGradeEntries += 1;
+          overallGradeSum += grade;
+        });
+      });
+    });
+
+    const rows = Array.from(rowsByUser.values())
+      .map((row) => ({
+        ...row,
+        average_grade: row.grade_count > 0 ? Number((row.grade_sum / row.grade_count).toFixed(2)) : null,
+      }))
+      .sort((a, b) => {
+        if (b.graded_triples !== a.graded_triples) return b.graded_triples - a.graded_triples;
+        return String(a.user_name).localeCompare(String(b.user_name));
+      });
+
+    return {
+      rows,
+      totalUniqueGraders: rows.length,
+      totalGradeEntries,
+      overallAverage: totalGradeEntries > 0 ? Number((overallGradeSum / totalGradeEntries).toFixed(2)) : null,
+    };
+  }, [sentences]);
+
   const handleGradeChange = (tripleId, grade) => {
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
@@ -120,9 +170,45 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           ? s
           : {
               ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId ? { ...t, grade } : t
-              ),
+              triples: s.triples.map((t) => {
+                if (t.id !== tripleId) return t;
+
+                if (!currentUserId) {
+                  return {
+                    ...t,
+                    grade: grade ?? null,
+                    author: grade === null || grade === undefined ? null : currentUserName,
+                  };
+                }
+
+                const nextGradesByUser = {
+                  ...(t.grades_by_user || {}),
+                };
+
+                if (grade === null || grade === undefined || grade === "") {
+                  delete nextGradesByUser[currentUserId];
+                } else {
+                  nextGradesByUser[currentUserId] = {
+                    user_id: currentUserId,
+                    user_name: currentUserName,
+                    grade,
+                    graded_at: new Date().toISOString(),
+                  };
+                }
+
+                const values = Object.values(nextGradesByUser)
+                  .map((item) => Number(item?.grade))
+                  .filter((value) => Number.isFinite(value));
+
+                return {
+                  ...t,
+                  grade: grade ?? null,
+                  author: grade === null || grade === undefined ? null : currentUserName,
+                  grades_by_user: nextGradesByUser,
+                  grade_count: values.length,
+                  grade_average: values.length > 0 ? Number((values.reduce((acc, value) => acc + value, 0) / values.length).toFixed(2)) : null,
+                };
+              }),
             }
       )
     );
@@ -181,7 +267,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                           ...(t.suggestions || []),
                           {
                             id: result?.suggestion_id || Math.random().toString(36).substr(2, 9),
-                            author: currentUser?.name || "user",
+                            author: currentUserName,
                             subject: suggestionData.subject,
                             predicate: suggestionData.predicate,
                             object: suggestionData.object,
@@ -261,7 +347,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       const sessionId = savedSessionId || initialSessionId;
       const targetTriple = current.triples.find((t) => t.id === tripleId);
       const targetSuggestion = targetTriple?.suggestions?.find((sug) => sug.id === suggestionId);
-      const currentUserName = currentUser?.name || "user";
       const existingVote = targetSuggestion?.votes?.[currentUserName] || null;
       const nextVote = existingVote === vote ? null : vote;
       await voteOnSuggestion(
@@ -407,7 +492,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         sentence_grade: avg,
         completeness: s.completeness ?? null,
         external_relation: s.external_relation ?? null,
-        triples: s.triples.map(({ completeness, relation, ...t }) => t),
+        triples: s.triples.map((t) => {
+          const cleaned = { ...t };
+          delete cleaned.completeness;
+          delete cleaned.relation;
+          delete cleaned.grade_count;
+          delete cleaned.grade_average;
+          return cleaned;
+        }),
       };
     }),
   });
@@ -462,10 +554,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, []);
 
   const handleSave = async () => {
-    if (!canEditSession && !canPublishSourceSession) {
-      setSaveError("Direct grading saves are disabled for this session. Use suggestions and voting.");
-      return;
-    }
     savingRef.current = true;
     setSaving(true);
     setSaveMsg("");
@@ -571,11 +659,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <div className="flex flex-col items-end">
               <button
                 onClick={handleSave}
-                disabled={saving || (!canEditSession && !canPublishSourceSession)}
+                disabled={saving}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
               >
                 {saving ? "Saving…" : "💾 Save"}
               </button>
+              {saveMsg && <span className="text-xs text-emerald-600 mt-0.5 max-w-32 text-right leading-tight">{saveMsg}</span>}
               {saveError && <span className="text-xs text-red-500 mt-0.5 max-w-28 text-right leading-tight">{saveError}</span>}
             </div>
           </div>
@@ -689,20 +778,50 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         )}
       </div>
 
-      {viewerMode && (
-        <div className="bg-amber-50 border-b border-amber-200 fixed top-[57px] left-0 right-0 z-20">
-          <div className="max-w-4xl mx-auto px-4 py-2 text-xs sm:text-sm text-amber-800">
-            {is_owner && !canEditSession
-              ? "Source owner review mode: this file is graded by collaborators. You can review and approve suggestions, but direct grading edits are locked."
-              : canApproveSuggestions
-              ? "Review mode: You are viewing another user's copy. Direct grading edits are locked, but you can review and approve suggestions."
-              : "Viewer mode: You are viewing another user's session. You can add suggestions and vote, but direct grading and edits are restricted."}
-          </div>
-        </div>
-      )}
-
       {/* ── Main content ───────────────────────────────────────────────── */}
-      <div className={`max-w-4xl mx-auto px-4 pb-8 space-y-6 ${viewerMode ? "pt-36" : "pt-24"}`}>
+      <div className="max-w-4xl mx-auto px-4 pb-8 space-y-6 pt-24">
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">Shared Grading Activity</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Everyone can grade, suggest, and vote. Only the owner can approve suggestions.
+              </p>
+            </div>
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-700">{graderSummary.totalUniqueGraders}</span> grader{graderSummary.totalUniqueGraders === 1 ? "" : "s"}
+              <span className="mx-1 text-slate-300">|</span>
+              Avg. Grade <span className="font-semibold text-blue-700">{graderSummary.overallAverage != null ? graderSummary.overallAverage.toFixed(2) : "—"}</span>
+            </div>
+          </div>
+          {graderSummary.rows.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {graderSummary.rows.map((row) => {
+                const isMe = row.user_id === currentUserId;
+                return (
+                  <span
+                    key={row.user_id}
+                    className={[
+                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                      isMe
+                        ? "bg-blue-50 border-blue-300 text-blue-700"
+                        : "bg-slate-50 border-slate-200 text-slate-700",
+                    ].join(" ")}
+                  >
+                    <span className="font-semibold">{row.user_name}{isMe ? " (you)" : ""}</span>
+                    <span className="text-slate-400">•</span>
+                    <span>{row.graded_triples} triple{row.graded_triples === 1 ? "" : "s"}</span>
+                    <span className="text-slate-400">•</span>
+                    <span>{row.average_grade != null ? row.average_grade.toFixed(2) : "—"}/10</span>
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">No grades yet.</p>
+          )}
+        </div>
 
         {/* Sentence card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
@@ -864,9 +983,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   <span className="text-white text-[11px] font-bold uppercase tracking-wider">
                     Triple {idx + 1}
                   </span>
-                  {triple.grade !== null && triple.grade !== undefined && (
+                  {triple.grade_average !== null && triple.grade_average !== undefined && (
                     <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      Quality: {triple.grade}/10
+                      Avg. Grade: {Number(triple.grade_average).toFixed(2)}/10
                     </span>
                   )}
                 </div>
@@ -874,6 +993,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   triple={triple}
                   grade={triple.grade}
                   author={triple.author}
+                  gradesByUser={triple.grades_by_user}
+                  currentUserId={currentUserId}
                   readOnly={!canEditSession}
                   onChange={(grade) => handleGradeChange(triple.id, grade)}
                 />
@@ -905,17 +1026,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
             className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
           />
-          {!canEditSession && (
-            <p className="mt-2 text-xs text-slate-500">
-              {canPublishSourceSession
-                ? "Source setup mode: direct grading is locked for the creator. Save this file so collaborators can grade their own copies."
-                : is_owner
-                ? "Source owner review mode: direct grading is locked for the creator. Collaborators grade this file in their copies."
-                : canApproveSuggestions
-                ? "Review mode: direct grading edits are disabled for this copy, but you can approve or unapprove suggestions."
-                : "Collaboration mode: direct grading edits are disabled for this session. You can still add suggestions and vote."}
-            </p>
-          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Shared mode: everyone can grade, suggest, and vote; only the owner can approve suggestions.
+          </p>
         </div>
 
         <div className="h-8" />

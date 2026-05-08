@@ -1,7 +1,7 @@
 // FileUpload.jsx — Drag-and-drop / click file uploader
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { uploadFile, listSessions, loadSession, createOrLoadSessionCopy, deleteSession } from "../api";
+import { uploadFile, listSessions, loadSession, deleteSession } from "../api";
 
 const MANUAL_FORMAT_OPTIONS = [
   { value: "csv", label: "CSV (.csv)" },
@@ -74,19 +74,13 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
 
   const handleResume = async (sessionMeta) => {
     const sessionId = sessionMeta?.session_id;
-    const isOwner = !!sessionMeta?.is_owner;
-    const isCopy = !!sessionMeta?.is_copy;
 
     if (!sessionId) return;
 
     setResumeError("");
     setResuming(sessionId);
     try {
-      const session = isOwner
-        ? await loadSession(sessionId)
-        : isCopy
-          ? await loadSession(sessionId)
-          : await createOrLoadSessionCopy(sessionId);
+      const session = await loadSession(sessionId);
       onLoadSession(session);
     } catch (e) {
       setResumeError(e?.response?.data?.detail || "Failed to load session.");
@@ -99,10 +93,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     const sessionId = sessionMeta?.session_id;
     if (!sessionId || !sessionMeta?.is_owner) return;
 
-    const label = sessionMeta?.is_copy
-      ? "copy"
-      : "file and all related copies";
-    const ok = window.confirm(`Delete this ${label}? This cannot be undone.`);
+    const ok = window.confirm("Delete this shared file? This cannot be undone.");
     if (!ok) return;
 
     setDeleteError("");
@@ -176,8 +167,6 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
           (b.uploaded_at || "").localeCompare(a.uploaded_at || "")
         );
         const latestUploadedAt = sortedSessions[0]?.uploaded_at || "";
-        const copyCount = sortedSessions.filter((s) => !!s.is_copy).length;
-        const originalCount = sortedSessions.length - copyCount;
 
         return {
           sourceKey,
@@ -185,8 +174,6 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
           sessions: sortedSessions,
           latestUploadedAt,
           totalSessions: sortedSessions.length,
-          copyCount,
-          originalCount,
         };
       })
       .sort((a, b) => (b.latestUploadedAt || "").localeCompare(a.latestUploadedAt || ""))
@@ -257,7 +244,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             <p className="font-semibold text-emerald-800 mb-1">Manual mode tips</p>
             <p>• Add sentences in any order, including inserting above or below existing ones.</p>
             <p>• Add one or many triples per sentence before starting grading.</p>
-            <p>• Choose a filename and format below; after saving, other users can see this file and create their own copy.</p>
+            <p>• Choose a filename and format below; after saving, everyone collaborates on this same shared file.</p>
             <p>• You can still return and upload a file at any time.</p>
           </div>
         )}
@@ -433,7 +420,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                             {group.sourceFilename}
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5">
-                            {group.totalSessions} sessions &bull; {group.originalCount} original &bull; {group.copyCount} copies
+                            {group.totalSessions} shared session{group.totalSessions === 1 ? "" : "s"}
                             {headerDate && <> &bull; Latest {headerDate}</>}
                           </p>
                         </div>
@@ -453,44 +440,23 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                               })
                             : "";
                           const isLoading = resuming === s.session_id;
-                          const sessionType = s.is_copy
-                            ? (s.is_owner ? "Your Copy" : "Shared Copy")
-                            : "Original";
-                          const sessionTypeClass = s.is_copy
-                            ? (s.is_owner
-                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                : "bg-amber-100 text-amber-700 border-amber-200")
+                          const sessionType = s.is_owner ? "My file" : "Shared file";
+                          const sessionTypeClass = s.is_owner
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : "bg-blue-100 text-blue-700 border-blue-200";
-                          const ownerName = s.is_copy
-                            ? (s.source_owner_name || s.owner_name || "Unknown")
-                            : (s.owner_name || "Unknown");
-                          const canEditDirect = s.can_edit ?? s.is_owner;
+                          const ownerName = s.owner_name || "Unknown";
                           const roleHint = s.is_owner
-                            ? (canEditDirect
-                                ? (s.is_copy ? "You can grade and edit this copy." : "You own this source file.")
-                                : "Source owner mode: collaborators grade this file; you can review and approve.")
-                            : s.is_copy
-                              ? (s.can_approve
-                                  ? "You can review and approve suggestions here."
-                                  : "You can review this copy, suggest edits, and vote.")
-                              : "Open your own copy to grade and save.";
+                            ? "You own this file. You can grade directly and approve suggestions."
+                            : "You can grade, suggest edits, and vote. The owner handles approvals.";
                           const actionLabel = isLoading
                             ? "Loading…"
-                            : s.is_owner
-                              ? (canEditDirect ? "▶ Resume" : "👀 Review")
-                              : s.is_copy
-                                ? "📄 Review Copy"
-                                : "📄 Open My Copy";
-                          const avgBadge = !s.is_copy && s.root_average_grade != null
-                            ? `Avg ${Number(s.root_average_grade).toFixed(2)}/10 from ${s.completed_copy_count || 0} completed cop${(s.completed_copy_count || 0) === 1 ? "y" : "ies"}`
+                            : "▶ Open";
+                          const avgBadge = s.total_unique_graders > 0
+                            ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"} • Avg ${s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"}/10`
                             : null;
                           const isDeleting = deleting === s.session_id;
                           const isRecentUpload = recentUploadSessionId === s.session_id;
-                          const deleteLabel = isDeleting
-                            ? "Deleting…"
-                            : s.is_copy
-                              ? "Delete Copy"
-                              : "Delete File";
+                          const deleteLabel = isDeleting ? "Deleting…" : "Delete File";
 
                           return (
                             <div

@@ -402,52 +402,274 @@ def _root_session_id(session: Dict[str, Any]) -> str:
     return str(session.get("root_session_id") or session.get("session_id") or "").strip()
 
 
-def _is_root_session_owner(session: Dict[str, Any], user: Dict[str, Any]) -> bool:
-    user_id = user.get("id", "")
-    user_username = _norm_username(user.get("username", ""))
-    user_email = _norm_email(user.get("email", ""))
-
-    source_owner_user_id = str(session.get("source_owner_user_id") or session.get("owner_user_id") or "").strip()
-    if source_owner_user_id and (
-        source_owner_user_id == user_id
-        or _norm_username(source_owner_user_id) == user_username
-        or _norm_email(source_owner_user_id) == user_email
-    ):
-        return True
-
-    source_owner_email = session.get("source_owner_email") or session.get("owner_email")
-    if source_owner_email and _norm_email(source_owner_email) == user_email:
-        return True
-
-    source_owner_username = session.get("source_owner_username") or session.get("owner_username")
-    if source_owner_username and _norm_username(source_owner_username) == user_username:
-        return True
-
-    source_owner_name = (session.get("source_owner_name") or session.get("owner_name") or "").strip()
-    if source_owner_name and source_owner_name in {
-        (user.get("name") or "").strip(),
-        user_username,
-    }:
-        return True
-
-    return False
-
-
 def _can_approve_session(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
-    return _is_session_owner(session, session_path, user) or _is_root_session_owner(session, user)
+    # In v2 collaboration mode, only the owner can approve/unapprove suggestions.
+    return _is_session_owner(session, session_path, user)
 
 
 def _can_edit_session_directly(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
-    """Return whether direct grading edits are allowed for this user/session."""
-    if not _is_session_owner(session, session_path, user):
-        return False
+    # Any authenticated collaborator can grade a shared file.
+    return True
 
-    session_id = str(session.get("session_id") or "").strip()
-    root_id = _root_session_id(session)
-    is_copy = bool(session.get("is_copy")) or (bool(root_id) and root_id != session_id)
 
-    # Source/original sessions are review-only; grading happens in user copies.
-    return bool(is_copy)
+def _normalize_grade_value(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric < 0 or numeric > 10:
+        return None
+    if numeric.is_integer():
+        return float(int(numeric))
+    return round(numeric, 2)
+
+
+def _normalize_grades_by_user(
+    raw_grades: Any,
+    *,
+    fallback_grade: Any = None,
+    fallback_author: str = "",
+    fallback_user_id: str = "",
+    fallback_graded_at: Optional[str] = None,
+) -> Dict[str, Dict[str, Any]]:
+    normalized: Dict[str, Dict[str, Any]] = {}
+
+    if isinstance(raw_grades, dict):
+        for key, payload in raw_grades.items():
+            if not isinstance(payload, dict):
+                continue
+            grade = _normalize_grade_value(payload.get("grade"))
+            if grade is None:
+                continue
+            user_id = str(payload.get("user_id") or key or "").strip()
+            if not user_id:
+                continue
+            user_name = str(payload.get("user_name") or user_id).strip() or user_id
+            normalized[user_id] = {
+                "user_id": user_id,
+                "user_name": user_name,
+                "grade": grade,
+                "graded_at": payload.get("graded_at"),
+            }
+
+    if normalized:
+        return normalized
+
+    legacy_grade = _normalize_grade_value(fallback_grade)
+    if legacy_grade is None:
+        return normalized
+
+    legacy_name = str(fallback_author or "Legacy grader").strip() or "Legacy grader"
+    legacy_id = str(fallback_user_id or "").strip()
+    if not legacy_id:
+        slug = re.sub(r"[^a-z0-9_]+", "_", legacy_name.lower()).strip("_") or "grader"
+        legacy_id = f"legacy_{slug}"
+
+    normalized[legacy_id] = {
+        "user_id": legacy_id,
+        "user_name": legacy_name,
+        "grade": legacy_grade,
+        "graded_at": fallback_graded_at,
+    }
+    return normalized
+
+
+def _apply_collaborative_grades(
+    incoming_session: Dict[str, Any],
+    existing_session: Optional[Dict[str, Any]],
+    user: Dict[str, Any],
+) -> None:
+    user_id = str(user.get("id") or "").strip()
+    user_name = _display_name(user)
+    now_iso = datetime.utcnow().isoformat()
+
+    existing_sentences = {
+        s.get("id"): s
+        for s in (existing_session or {}).get("sentences", [])
+        if s.get("id") is not None
+    }
+    owner_fallback_user_id = str((existing_session or {}).get("owner_user_id") or "").strip()
+
+    for sentence in incoming_session.get("sentences", []):
+        existing_sentence = existing_sentences.get(sentence.get("id"))
+        existing_triples = {
+            t.get("id"): t
+            for t in (existing_sentence or {}).get("triples", [])
+            if t.get("id") is not None
+        }
+
+        for triple in sentence.get("triples", []):
+            triple_id = triple.get("id")
+            existing_triple = existing_triples.get(triple_id, {})
+
+            if existing_triple:
+                # Triple text and suggestion threads are collaborative shared state;
+                # preserve the latest server copy to avoid stale client overwrites.
+                triple["subject"] = existing_triple.get("subject", triple.get("subject"))
+                triple["predicate"] = existing_triple.get("predicate", triple.get("predicate"))
+                triple["object"] = existing_triple.get("object", triple.get("object"))
+                if isinstance(existing_triple.get("suggestions"), list):
+                    triple["suggestions"] = existing_triple.get("suggestions", [])
+
+            existing_grades = _normalize_grades_by_user(
+                existing_triple.get("grades_by_user"),
+                fallback_grade=existing_triple.get("grade"),
+                fallback_author=str(existing_triple.get("author") or ""),
+                fallback_user_id=owner_fallback_user_id,
+                fallback_graded_at=existing_triple.get("graded_at"),
+            )
+            incoming_grades = _normalize_grades_by_user(triple.get("grades_by_user"))
+
+            merged_grades = dict(existing_grades)
+            for grader_id, grade_payload in incoming_grades.items():
+                if grader_id not in merged_grades:
+                    merged_grades[grader_id] = grade_payload
+
+            my_grade = _normalize_grade_value(triple.get("grade"))
+            if my_grade is None:
+                merged_grades.pop(user_id, None)
+                triple["grade"] = None
+                triple["author"] = None
+                triple.pop("graded_at", None)
+            else:
+                merged_grades[user_id] = {
+                    "user_id": user_id,
+                    "user_name": user_name,
+                    "grade": my_grade,
+                    "graded_at": now_iso,
+                }
+                triple["grade"] = my_grade
+                triple["author"] = user_name
+                triple["graded_at"] = now_iso
+
+            triple["grades_by_user"] = merged_grades
+
+
+def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
+    total_triples = 0
+    graded_triples = 0
+    total_grade_entries = 0
+    grade_sum = 0.0
+
+    per_grader: Dict[str, Dict[str, Any]] = {}
+    owner_fallback_user_id = str(session_data.get("owner_user_id") or "").strip()
+
+    for sentence in session_data.get("sentences", []):
+        for triple in sentence.get("triples", []):
+            total_triples += 1
+            grades_by_user = _normalize_grades_by_user(
+                triple.get("grades_by_user"),
+                fallback_grade=triple.get("grade"),
+                fallback_author=str(triple.get("author") or ""),
+                fallback_user_id=owner_fallback_user_id,
+                fallback_graded_at=triple.get("graded_at"),
+            )
+            triple["grades_by_user"] = grades_by_user
+
+            if grades_by_user:
+                graded_triples += 1
+
+            for grader_id, grade_payload in grades_by_user.items():
+                grade = _normalize_grade_value(grade_payload.get("grade"))
+                if grade is None:
+                    continue
+
+                total_grade_entries += 1
+                grade_sum += float(grade)
+
+                grader_summary = per_grader.setdefault(
+                    grader_id,
+                    {
+                        "user_id": grader_id,
+                        "user_name": str(grade_payload.get("user_name") or grader_id),
+                        "graded_triples": 0,
+                        "grade_count": 0,
+                        "grade_sum": 0.0,
+                        "average_grade": None,
+                        "latest_graded_at": None,
+                    },
+                )
+                grader_summary["graded_triples"] += 1
+                grader_summary["grade_count"] += 1
+                grader_summary["grade_sum"] += float(grade)
+
+                graded_at = grade_payload.get("graded_at")
+                latest = grader_summary.get("latest_graded_at")
+                if graded_at and (not latest or str(graded_at) > str(latest)):
+                    grader_summary["latest_graded_at"] = graded_at
+
+    grader_summary_rows: list[Dict[str, Any]] = []
+    for item in per_grader.values():
+        grade_count = int(item.get("grade_count") or 0)
+        grade_sum_local = float(item.get("grade_sum") or 0.0)
+        item["average_grade"] = round(grade_sum_local / grade_count, 2) if grade_count > 0 else None
+        item.pop("grade_sum", None)
+        grader_summary_rows.append(item)
+
+    grader_summary_rows.sort(
+        key=lambda row: (
+            -(int(row.get("graded_triples") or 0)),
+            str(row.get("user_name") or "").lower(),
+        )
+    )
+
+    overall_avg = round(grade_sum / total_grade_entries, 2) if total_grade_entries > 0 else None
+    is_completed = total_triples > 0 and graded_triples == total_triples
+    completed_grader_count = sum(
+        1
+        for row in grader_summary_rows
+        if total_triples > 0 and int(row.get("graded_triples") or 0) >= total_triples
+    )
+
+    return {
+        "total_triples": total_triples,
+        "graded_triples": graded_triples,
+        "session_average_grade": overall_avg,
+        "is_completed_grading": is_completed,
+        "total_grade_entries": total_grade_entries,
+        "total_unique_graders": len(grader_summary_rows),
+        "completed_grader_count": completed_grader_count,
+        "grader_summary": grader_summary_rows,
+    }
+
+
+def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
+    # Deep copy so caller gets a user-scoped projection without mutating storage payload.
+    data = json.loads(json.dumps(session, ensure_ascii=False))
+    stats = _session_grading_stats(data)
+
+    user_id = str(user.get("id") or "").strip()
+    for sentence in data.get("sentences", []):
+        for triple in sentence.get("triples", []):
+            grades_by_user = triple.get("grades_by_user") if isinstance(triple.get("grades_by_user"), dict) else {}
+            grade_values = [
+                float(payload.get("grade"))
+                for payload in grades_by_user.values()
+                if _normalize_grade_value(payload.get("grade")) is not None
+            ]
+            current_user_grade = grades_by_user.get(user_id) if user_id else None
+
+            triple["grade"] = current_user_grade.get("grade") if isinstance(current_user_grade, dict) else None
+            triple["author"] = current_user_grade.get("user_name") if isinstance(current_user_grade, dict) else None
+            triple["grade_count"] = len(grade_values)
+            triple["grade_average"] = (
+                round(sum(grade_values) / len(grade_values), 2)
+                if grade_values
+                else None
+            )
+
+    data["session_average_grade"] = stats["session_average_grade"]
+    data["is_completed_grading"] = stats["is_completed_grading"]
+    data["total_grade_entries"] = stats["total_grade_entries"]
+    data["total_unique_graders"] = stats["total_unique_graders"]
+    data["completed_grader_count"] = stats["completed_grader_count"]
+    data["grader_summary"] = stats["grader_summary"]
+
+    my_summary = next((row for row in stats["grader_summary"] if row.get("user_id") == user_id), None)
+    data["my_graded_triples"] = int(my_summary.get("graded_triples") or 0) if my_summary else 0
+    return data
 
 
 def _with_session_access_flags(
@@ -455,84 +677,14 @@ def _with_session_access_flags(
     session_path: Optional[Path],
     user: Dict[str, Any],
 ) -> Dict[str, Any]:
-    data = dict(session)
-    root_id = _root_session_id(data)
+    data = _session_for_user_view(session, user)
     session_id = str(data.get("session_id") or "").strip()
-    data["root_session_id"] = root_id or session_id
-    data["is_copy"] = bool(data.get("is_copy")) or (
-        bool(data["root_session_id"]) and data["root_session_id"] != session_id
-    )
+    data["root_session_id"] = session_id
+    data["is_copy"] = False
     data["can_edit"] = _can_edit_session_directly(session, session_path, user)
     data["can_approve"] = _can_approve_session(session, session_path, user)
     data["is_owner"] = _is_session_owner(session, session_path, user)
     return data
-
-
-def _find_user_copy_session(user: Dict[str, Any], root_session_id: str) -> tuple[Optional[Path], Optional[Dict[str, Any]]]:
-    if not root_session_id:
-        return None, None
-
-    if use_database_storage():
-        for payload in list_sessions_db():
-            payload_root = _root_session_id(payload)
-            if payload_root != root_session_id:
-                continue
-            if not bool(payload.get("is_copy")):
-                continue
-            if _is_session_owner(payload, None, user):
-                return None, payload
-        return None, None
-
-    for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
-        try:
-            with open(p, "r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except Exception:
-            continue
-
-        payload_root = _root_session_id(payload)
-        if payload_root != root_session_id:
-            continue
-        if not bool(payload.get("is_copy")):
-            continue
-        if _is_session_owner(payload, p, user):
-            return p, payload
-
-    return None, None
-
-
-def _session_lineage_ids(root_session_id: str) -> list[str]:
-    """Collect all session IDs tied to the same root (original + copies)."""
-    if not root_session_id:
-        return []
-
-    session_ids: set[str] = set()
-
-    if use_database_storage():
-        for payload in list_sessions_db():
-            session_id = str(payload.get("session_id") or "").strip()
-            if not session_id:
-                continue
-            payload_root_id = _root_session_id(payload) or session_id
-            if session_id == root_session_id or payload_root_id == root_session_id:
-                session_ids.add(session_id)
-        return sorted(session_ids)
-
-    for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
-        try:
-            with open(p, "r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except Exception:
-            continue
-
-        session_id = str(payload.get("session_id") or p.stem).strip()
-        if not session_id:
-            continue
-        payload_root_id = str(payload.get("root_session_id") or session_id).strip()
-        if session_id == root_session_id or payload_root_id == root_session_id:
-            session_ids.add(session_id)
-
-    return sorted(session_ids)
 
 
 def _delete_sessions(session_ids: list[str]) -> int:
@@ -608,50 +760,6 @@ def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -
     return sentences
 
 
-def _session_copy_payload_for_user(
-    source_session: Dict[str, Any],
-    user: Dict[str, Any],
-    copied_from_session_id: str,
-) -> Dict[str, Any]:
-    # JSON roundtrip gives a deep copy while keeping payload schema-compatible.
-    copied = json.loads(json.dumps(source_session, ensure_ascii=False))
-
-    copied["session_id"] = str(uuid.uuid4())
-    copied["uploaded_at"] = datetime.utcnow().isoformat()
-    copied["evaluation"] = None
-
-    copied["owner_user_id"] = user.get("id", "")
-    copied["owner_name"] = _display_name(user)
-    copied["owner_email"] = _norm_email(user.get("email", ""))
-    copied["owner_username"] = _norm_username(user.get("username", ""))
-
-    copied["root_session_id"] = _root_session_id(source_session)
-    copied["is_copy"] = True
-    copied["copied_from_session_id"] = copied_from_session_id
-    copied["copied_at"] = datetime.utcnow().isoformat()
-
-    copied["source_owner_user_id"] = str(
-        source_session.get("source_owner_user_id") or source_session.get("owner_user_id") or ""
-    ).strip()
-    copied["source_owner_name"] = (
-        source_session.get("source_owner_name")
-        or source_session.get("owner_name")
-        or ""
-    )
-    copied["source_owner_email"] = (
-        source_session.get("source_owner_email")
-        or source_session.get("owner_email")
-        or ""
-    )
-    copied["source_owner_username"] = (
-        source_session.get("source_owner_username")
-        or source_session.get("owner_username")
-        or ""
-    )
-
-    return copied
-
-
 def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
     """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
     existing_sentences = {
@@ -685,96 +793,6 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
                 triple["suggestions"] = existing_suggestions
 
 
-def _session_has_any_direct_grades(session_data: Dict[str, Any]) -> bool:
-    for sentence in session_data.get("sentences", []):
-        for triple in sentence.get("triples", []):
-            if triple.get("grade") is not None:
-                return True
-    return False
-
-
-def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
-    total_triples = 0
-    graded_triples = 0
-    grade_sum = 0.0
-
-    for sentence in session_data.get("sentences", []):
-        for triple in sentence.get("triples", []):
-            total_triples += 1
-            grade = triple.get("grade")
-            if grade is None:
-                continue
-            try:
-                grade_sum += float(grade)
-                graded_triples += 1
-            except (TypeError, ValueError):
-                continue
-
-    avg_grade = round(grade_sum / graded_triples, 2) if graded_triples > 0 else None
-    is_completed = total_triples > 0 and graded_triples == total_triples
-
-    return {
-        "total_triples": total_triples,
-        "graded_triples": graded_triples,
-        "session_average_grade": avg_grade,
-        "is_completed_grading": is_completed,
-    }
-
-
-def _attach_root_average_grades(session_items: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
-    completed_copy_avgs: Dict[str, list[float]] = {}
-
-    for item in session_items:
-        if not item.get("is_copy"):
-            continue
-        if not item.get("is_completed_grading"):
-            continue
-        avg = item.get("session_average_grade")
-        if avg is None:
-            continue
-        root_id = str(item.get("root_session_id") or "").strip()
-        if not root_id:
-            continue
-        completed_copy_avgs.setdefault(root_id, []).append(float(avg))
-
-    for item in session_items:
-        if item.get("is_copy"):
-            item["root_average_grade"] = None
-            item["completed_copy_count"] = 0
-            continue
-
-        root_id = str(item.get("root_session_id") or item.get("session_id") or "").strip()
-        avgs = completed_copy_avgs.get(root_id, [])
-        if avgs:
-            item["root_average_grade"] = round(sum(avgs) / len(avgs), 2)
-            item["completed_copy_count"] = len(avgs)
-        else:
-            item["root_average_grade"] = None
-            item["completed_copy_count"] = 0
-
-    return session_items
-
-
-def _filter_orphan_copies(session_items: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
-    """Hide copies whose root/original session is missing from storage."""
-    existing_ids = {
-        str(item.get("session_id") or "").strip()
-        for item in session_items
-        if str(item.get("session_id") or "").strip()
-    }
-
-    filtered: list[Dict[str, Any]] = []
-    for item in session_items:
-        session_id = str(item.get("session_id") or "").strip()
-        root_id = str(item.get("root_session_id") or session_id).strip()
-        is_copy = bool(item.get("is_copy")) or (root_id and root_id != session_id)
-
-        if is_copy and root_id and root_id not in existing_ids:
-            continue
-
-        filtered.append(item)
-
-    return filtered
 
 
 def _ensure_default_users():
@@ -961,16 +979,12 @@ async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depen
         "uploaded_at": uploaded_at,
         "sentences": _sentence_groups_to_draft_sentences(sentence_groups),
         "manual_mode": False,
-        "root_session_id": session_id,
-        "is_copy": False,
-        "source_owner_user_id": user.get("id", ""),
-        "source_owner_name": _display_name(user),
-        "source_owner_email": _norm_email(user.get("email", "")),
-        "source_owner_username": _norm_username(user.get("username", "")),
         "owner_user_id": user.get("id", ""),
         "owner_name": _display_name(user),
         "owner_email": _norm_email(user.get("email", "")),
         "owner_username": _norm_username(user.get("username", "")),
+        "root_session_id": session_id,
+        "is_copy": False,
     }
     _save_loaded_session(None, draft_session, owner_user_id=user.get("id", ""))
 
@@ -991,30 +1005,6 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
 
     existing_path, existing_session = _load_existing_session(body.session_id)
 
-    if existing_session and not _is_session_owner(existing_session, existing_path, user):
-        raise HTTPException(
-            status_code=403,
-            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
-        )
-
-    if existing_path and not existing_session and existing_path.parent.name != user["id"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only the session owner can directly save triple grades. Use suggestions and voting for collaboration.",
-        )
-
-    if existing_session:
-        if (not _can_edit_session_directly(existing_session, existing_path, user)) and _session_has_any_direct_grades(session_data):
-            raise HTTPException(
-                status_code=403,
-                detail="Source files are graded through user copies. Save without grades and let collaborators grade their copies.",
-            )
-    elif _session_has_any_direct_grades(session_data):
-        raise HTTPException(
-            status_code=403,
-            detail="Source files are graded through user copies. Save without grades and let collaborators grade their copies.",
-        )
-
     if existing_session:
         try:
             _merge_existing_suggestions(session_data, existing_session)
@@ -1022,8 +1012,9 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             # Fall back to incoming payload if previous session cannot be read.
             pass
 
+    _apply_collaborative_grades(session_data, existing_session, user)
+
     # Capture user info and recompute sentence grades server-side for integrity
-    user_name = _display_name(user)
     for s in session_data["sentences"]:
         # Normalize sentence-level metrics and preserve backward compatibility.
         if s.get("completeness") is None:
@@ -1041,66 +1032,69 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             )
         s["external_relation"] = external_relation
 
-        grades = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
-        s["sentence_grade"] = round(sum(grades) / len(grades), 2) if grades else None
-        
-        # Set author for triples that have been graded
+        sentence_grades: list[float] = []
         for t in s.get("triples", []):
             t.pop("completeness", None)
             t.pop("relation", None)
-            if t.get("grade") is not None and not t.get("author"):
-                t["author"] = user_name
+            grade = _normalize_grade_value(t.get("grade"))
+            if grade is not None:
+                sentence_grades.append(grade)
+
+        s["sentence_grade"] = round(sum(sentence_grades) / len(sentence_grades), 2) if sentence_grades else None
 
     if existing_session:
-        session_data["root_session_id"] = _root_session_id(existing_session) or body.session_id
-        session_data["is_copy"] = bool(existing_session.get("is_copy"))
+        owner_user_id = str(existing_session.get("owner_user_id") or "").strip() or user.get("id", "")
+        owner_user = _get_user_by_id(owner_user_id)
+
+        owner_email = existing_session.get("owner_email")
+        if not owner_email and owner_user:
+            owner_email = owner_user.get("email")
+
+        owner_username = existing_session.get("owner_username")
+        if not owner_username and owner_user:
+            owner_username = owner_user.get("username")
+
         session_data["manual_mode"] = bool(existing_session.get("manual_mode")) or bool(session_data.get("manual_mode"))
-        session_data["source_owner_user_id"] = str(
-            existing_session.get("source_owner_user_id")
-            or existing_session.get("owner_user_id")
-            or user.get("id", "")
-        ).strip()
-        session_data["source_owner_name"] = (
-            existing_session.get("source_owner_name")
-            or existing_session.get("owner_name")
+        session_data["owner_user_id"] = owner_user_id
+        session_data["owner_name"] = (
+            existing_session.get("owner_name")
+            or (_display_name(owner_user) if owner_user else None)
             or _display_name(user)
         )
-        session_data["source_owner_email"] = (
-            existing_session.get("source_owner_email")
-            or existing_session.get("owner_email")
-            or _norm_email(user.get("email", ""))
-        )
-        session_data["source_owner_username"] = (
-            existing_session.get("source_owner_username")
-            or existing_session.get("owner_username")
-            or _norm_username(user.get("username", ""))
-        )
-        if existing_session.get("copied_from_session_id"):
-            session_data["copied_from_session_id"] = existing_session.get("copied_from_session_id")
-        if existing_session.get("copied_at"):
-            session_data["copied_at"] = existing_session.get("copied_at")
-    else:
-        session_data["root_session_id"] = body.session_id
-        session_data["is_copy"] = False
-        session_data["manual_mode"] = bool(session_data.get("manual_mode"))
-        session_data["source_owner_user_id"] = user.get("id", "")
-        session_data["source_owner_name"] = _display_name(user)
-        session_data["source_owner_email"] = _norm_email(user.get("email", ""))
-        session_data["source_owner_username"] = _norm_username(user.get("username", ""))
+        session_data["owner_email"] = _norm_email(str(owner_email or user.get("email", "")))
+        session_data["owner_username"] = _norm_username(str(owner_username or user.get("username", "")))
 
-    session_data["owner_user_id"] = user["id"]
-    session_data["owner_name"] = _display_name(user)
-    session_data["owner_email"] = _norm_email(user.get("email", ""))
-    session_data["owner_username"] = _norm_username(user.get("username", ""))
+        # Keep prior evaluation payload unless overwritten explicitly.
+        if existing_session.get("evaluation") and not session_data.get("evaluation"):
+            session_data["evaluation"] = existing_session.get("evaluation")
+    else:
+        session_data["manual_mode"] = bool(session_data.get("manual_mode"))
+        session_data["owner_user_id"] = user["id"]
+        session_data["owner_name"] = _display_name(user)
+        session_data["owner_email"] = _norm_email(user.get("email", ""))
+        session_data["owner_username"] = _norm_username(user.get("username", ""))
+
+    session_data["root_session_id"] = body.session_id
+    session_data["is_copy"] = False
+    session_data.pop("copied_from_session_id", None)
+    session_data.pop("copied_at", None)
+
     _save_loaded_session(existing_path, session_data, owner_user_id=user["id"])
 
-    return {"session_id": body.session_id, "saved_at": datetime.utcnow().isoformat()}
+    stats = _session_grading_stats(session_data)
+    return {
+        "session_id": body.session_id,
+        "saved_at": datetime.utcnow().isoformat(),
+        "total_unique_graders": stats["total_unique_graders"],
+        "grader_summary": stats["grader_summary"],
+    }
 
 
 @app.get("/api/download/{session_id}/{fmt}")
 async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Depends(_current_user)):
     """Download a saved session in the requested format."""
     _, session = _load_session_for_access(session_id)
+    session = _session_for_user_view(session, user)
 
     fmt = fmt.lower()
     filename_base = session.get("source_filename", "graded").rsplit(".", 1)[0]
@@ -1144,24 +1138,14 @@ async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_u
 
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
-    """Delete a saved session (owner only). Deleting an original cascades to its copies."""
+    """Delete a saved session (owner only)."""
     session_path, session = _load_session_for_access(session_id)
 
     if not _is_session_owner(session, session_path, user):
         raise HTTPException(status_code=403, detail="Only the session owner can delete this file.")
 
     resolved_session_id = str(session.get("session_id") or session_id).strip()
-    root_session_id = _root_session_id(session) or resolved_session_id
-    is_copy_session = bool(session.get("is_copy")) or (root_session_id != resolved_session_id)
-
-    if is_copy_session:
-        deleted_session_ids = [resolved_session_id]
-    else:
-        deleted_session_ids = _session_lineage_ids(root_session_id)
-        if resolved_session_id not in deleted_session_ids:
-            deleted_session_ids.append(resolved_session_id)
-
-    deleted_session_ids = sorted({sid for sid in deleted_session_ids if sid})
+    deleted_session_ids = [resolved_session_id]
     deleted_count = _delete_sessions(deleted_session_ids)
 
     return {
@@ -1169,7 +1153,7 @@ async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_curren
         "deleted_session_id": resolved_session_id,
         "deleted_session_ids": deleted_session_ids,
         "deleted_count": deleted_count,
-        "cascade_deleted": (not is_copy_session and len(deleted_session_ids) > 1),
+        "cascade_deleted": False,
     }
 
 
@@ -1178,41 +1162,11 @@ async def get_or_create_session_copy(
     session_id: str,
     user: Dict[str, Any] = Depends(_current_user),
 ):
-    """Create or return the current user's grading copy for a shared session."""
-    source_path, source_session = _load_session_for_access(session_id)
-
-    # Owners work in their own session directly.
-    if _is_session_owner(source_session, source_path, user):
-        result = _with_session_access_flags(source_session, source_path, user)
-        result["copy_created"] = False
-        return result
-
-    root_session_id = _root_session_id(source_session)
-    existing_copy_path, existing_copy = _find_user_copy_session(user, root_session_id)
-    if existing_copy:
-        result = _with_session_access_flags(existing_copy, existing_copy_path, user)
-        result["copy_created"] = False
-        return result
-
-    base_session = source_session
-    if root_session_id and root_session_id != str(source_session.get("session_id") or ""):
-        try:
-            _, root_session = _load_session_for_access(root_session_id)
-            base_session = root_session
-        except HTTPException:
-            # Fall back to the selected source session if canonical root cannot be loaded.
-            base_session = source_session
-
-    copied = _session_copy_payload_for_user(
-        base_session,
-        user,
-        copied_from_session_id=str(source_session.get("session_id") or session_id),
-    )
-    _save_loaded_session(None, copied, owner_user_id=user.get("id", ""))
-
-    copied_path, copied_session = _load_session_for_access(str(copied.get("session_id", "")))
-    result = _with_session_access_flags(copied_session, copied_path, user)
-    result["copy_created"] = True
+    """Backward-compatible endpoint: return the same shared session (no per-user copies in v2)."""
+    session_path, session = _load_session_for_access(session_id)
+    result = _with_session_access_flags(session, session_path, user)
+    result["copy_created"] = False
+    result["copy_mode"] = "disabled"
     return result
 
 
@@ -1225,6 +1179,7 @@ async def preview_session(
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
     user = _current_user_from_bearer_or_query(request, token)
     _, session = _load_session_for_access(session_id)
+    session = _session_for_user_view(session, user)
 
     sentences   = session.get("sentences", [])
     filename    = session.get("source_filename", "")
@@ -1355,80 +1310,94 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
     if use_database_storage():
         source_sessions = list_sessions_db()
         for data in source_sessions:
+            session_id = str(data.get("session_id") or "").strip()
+            if not session_id:
+                continue
+
+            # Hide legacy copy sessions in v2 shared-file mode.
+            root_session_id = _root_session_id(data) or session_id
+            if bool(data.get("is_copy")) or root_session_id != session_id:
+                continue
+
             owner_user_id = str(data.get("owner_user_id") or "").strip()
-            root_session_id = _root_session_id(data) or str(data.get("session_id") or "").strip()
-            source_owner_user_id = str(
-                data.get("source_owner_user_id") or data.get("owner_user_id") or ""
-            ).strip()
             grading_stats = _session_grading_stats(data)
 
             owner_user = _get_user_by_id(owner_user_id)
-            source_owner_user = _get_user_by_id(source_owner_user_id)
             is_owner = _is_session_owner(data, None, user)
-            can_edit = _can_edit_session_directly(data, None, user)
+            owner_name = data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id)
 
             sessions.append({
-                "session_id":      data.get("session_id", ""),
+                "session_id":      session_id,
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
                 "owner_user_id": owner_user_id,
-                "owner_name": data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id),
+                "owner_name": owner_name,
                 "is_owner": is_owner,
-                "can_edit": can_edit,
+                "can_edit": True,
                 "can_approve": _can_approve_session(data, None, user),
-                "root_session_id": root_session_id,
-                "is_copy": bool(data.get("is_copy")) or (root_session_id != str(data.get("session_id") or "")),
-                "source_owner_user_id": source_owner_user_id,
-                "source_owner_name": data.get("source_owner_name") or (
-                    _display_name(source_owner_user) if source_owner_user else source_owner_user_id
-                ),
-                "copied_from_session_id": data.get("copied_from_session_id"),
+                "root_session_id": session_id,
+                "is_copy": False,
+                "source_owner_user_id": owner_user_id,
+                "source_owner_name": owner_name,
+                "copied_from_session_id": None,
                 "session_average_grade": grading_stats["session_average_grade"],
                 "is_completed_grading": grading_stats["is_completed_grading"],
+                "root_average_grade": None,
+                "completed_copy_count": 0,
+                "total_unique_graders": grading_stats["total_unique_graders"],
+                "completed_grader_count": grading_stats["completed_grader_count"],
+                "total_grade_entries": grading_stats["total_grade_entries"],
+                "grader_summary": grading_stats["grader_summary"],
             })
-        return _filter_orphan_copies(_attach_root_average_grades(sessions))
+        return sessions
 
     for p in sorted(SESSIONS_ROOT.glob("*/*.json")):
         try:
             with open(p, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
 
+            session_id = str(data.get("session_id") or p.stem).strip() or p.stem
+            root_session_id = _root_session_id(data) or session_id
+
+            # Hide legacy copy sessions in v2 shared-file mode.
+            if bool(data.get("is_copy")) or root_session_id != session_id:
+                continue
+
             owner_user_id = str(data.get("owner_user_id") or p.parent.name).strip()
-            root_session_id = _root_session_id(data) or p.stem
-            source_owner_user_id = str(
-                data.get("source_owner_user_id") or data.get("owner_user_id") or p.parent.name
-            ).strip()
             grading_stats = _session_grading_stats(data)
 
             owner_user = _get_user_by_id(owner_user_id)
-            source_owner_user = _get_user_by_id(source_owner_user_id)
             is_owner = _is_session_owner(data, p, user)
-            can_edit = _can_edit_session_directly(data, p, user)
+            owner_name = data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id)
 
             sessions.append({
-                "session_id":      p.stem,
+                "session_id":      session_id,
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
                 "owner_user_id": owner_user_id,
-                "owner_name": data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id),
+                "owner_name": owner_name,
                 "is_owner": is_owner,
-                "can_edit": can_edit,
+                "can_edit": True,
                 "can_approve": _can_approve_session(data, p, user),
-                "root_session_id": root_session_id,
-                "is_copy": bool(data.get("is_copy")) or (root_session_id != p.stem),
-                "source_owner_user_id": source_owner_user_id,
-                "source_owner_name": data.get("source_owner_name") or (
-                    _display_name(source_owner_user) if source_owner_user else source_owner_user_id
-                ),
-                "copied_from_session_id": data.get("copied_from_session_id"),
+                "root_session_id": session_id,
+                "is_copy": False,
+                "source_owner_user_id": owner_user_id,
+                "source_owner_name": owner_name,
+                "copied_from_session_id": None,
                 "session_average_grade": grading_stats["session_average_grade"],
                 "is_completed_grading": grading_stats["is_completed_grading"],
+                "root_average_grade": None,
+                "completed_copy_count": 0,
+                "total_unique_graders": grading_stats["total_unique_graders"],
+                "completed_grader_count": grading_stats["completed_grader_count"],
+                "total_grade_entries": grading_stats["total_grade_entries"],
+                "grader_summary": grading_stats["grader_summary"],
             })
         except Exception:
             pass
-    return _filter_orphan_copies(_attach_root_average_grades(sessions))
+    return sessions
 
 
 @app.get("/api/health")
@@ -1623,11 +1592,11 @@ async def delete_suggestion(
 
 @app.post("/api/suggestions/approve")
 async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
-    """Approve a suggestion and apply it to a triple (session owner or source owner)."""
+    """Approve a suggestion and apply it to a triple (owner only)."""
     json_path, session = _load_session_for_access(body.session_id)
 
     if not _can_approve_session(session, json_path, user):
-        raise HTTPException(status_code=403, detail="Only the session owner or source-file owner can approve suggestions.")
+        raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
 
     owner_name = _display_name(user)
 
@@ -1663,11 +1632,11 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
 
 @app.post("/api/suggestions/unapprove")
 async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
-    """Undo approval status for a suggestion (session owner or source owner)."""
+    """Undo approval status for a suggestion (owner only)."""
     json_path, session = _load_session_for_access(body.session_id)
 
     if not _can_approve_session(session, json_path, user):
-        raise HTTPException(status_code=403, detail="Only the session owner or source-file owner can unapprove suggestions.")
+        raise HTTPException(status_code=403, detail="Only the session owner can unapprove suggestions.")
 
     for s in session.get("sentences", []):
         if s.get("id") == body.sentence_id:
@@ -1701,6 +1670,7 @@ async def evaluate_session_endpoint(
 ):
     """Run OpenIE evaluation against a graded session and return P/R/F1 results."""
     _, session = _load_session_for_access(session_id)
+    user_scoped_session = _session_for_user_view(session, user)
 
     if body.match_mode not in ("exact", "soft"):
         raise HTTPException(status_code=400, detail="match_mode must be 'exact' or 'soft'.")
@@ -1718,7 +1688,7 @@ async def evaluate_session_endpoint(
 
     try:
         result = _eval_session(
-            session,
+            user_scoped_session,
             match_mode=body.match_mode,
             gold_source=body.gold_source,
         )

@@ -557,6 +557,8 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
   const isManualMode = !!manual_mode;
   const [draggingGroupId, setDraggingGroupId] = useState(null);
   const [dragOverGroupId, setDragOverGroupId] = useState(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
 
   // Initialise mutable group state from the upload payload
   const [groups, setGroups] = useState(() =>
@@ -664,7 +666,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
   };
 
   // ── build final sentences array and proceed ──
-  const handleProceed = () => {
+  const handleProceed = async () => {
     const sentences = [];
     let sentId = 1;
 
@@ -705,14 +707,23 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       return;
     }
 
-    onConfirm({
-      session_id,
-      source_filename,
-      uploaded_at,
-      manual_mode: isManualMode,
-      total_sentences: sentences.length,
-      sentences,
-    });
+    setPublishError("");
+    setPublishing(true);
+    try {
+      await onConfirm({
+        session_id,
+        source_filename,
+        uploaded_at,
+        manual_mode: isManualMode,
+        total_sentences: sentences.length,
+        sentences,
+      });
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e?.message || "Failed to publish file.";
+      setPublishError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setPublishing(false);
+    }
   };
 
   // ── stats ──
@@ -729,7 +740,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       {/* ── top bar ── */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">{isManualMode ? "Manual Entry" : "Review & Clean"}</h1>
+          <h1 className="text-lg font-bold text-gray-900">{isManualMode ? "Manual Entry" : "Review & Publish"}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {isManualMode
               ? `${source_filename || "Manual Entry"} — ${groups.length} sentence groups in your manual workspace`
@@ -745,9 +756,12 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
           </button>
           <button
             onClick={handleProceed}
+            disabled={publishing}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
           >
-            Start Grading ({included} sentences, {totalTriples} triples) →
+            {publishing
+              ? "Publishing..."
+              : `Publish (${included} sentences, ${totalTriples} triples)`}
           </button>
         </div>
       </div>
@@ -789,12 +803,43 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         </div>
 
         {/* instructions */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-800">
-          <strong>How to use:</strong> Check each sentence group below. Use the checkbox to include/exclude it.
-          Click <strong>▼</strong> to expand and edit the sentence text, choose a version (if multiple were detected),
-          toggle individual triples on/off, and add manual sentences/triples when needed. Use <strong>Insert sentence above/below</strong> to place new sentences anywhere in order,
-          or drag cards by the <strong>::</strong> handle for quick reordering.
-          When ready, click <strong>Start Grading</strong>.
+        <div className="bg-white border border-blue-200 rounded-2xl px-4 sm:px-5 py-4 sm:py-5 mb-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+              i
+            </span>
+            <p className="text-sm font-semibold text-slate-800">How to use this step</p>
+          </div>
+          <p className="mt-1 text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Follow this quick workflow to prepare your file before publishing.
+          </p>
+
+          <ol className="mt-3 space-y-2.5">
+            <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">1</span>
+              <p className="text-sm text-slate-700 leading-relaxed">Review each sentence group and include or exclude it with the checkbox.</p>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">2</span>
+              <p className="text-sm text-slate-700 leading-relaxed">Click <strong>▼</strong> to expand, edit sentence text, and choose the best version.</p>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">3</span>
+              <p className="text-sm text-slate-700 leading-relaxed">Toggle triples on or off, then add manual sentences or triples where needed.</p>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">4</span>
+              <p className="text-sm text-slate-700 leading-relaxed">Use <strong>Insert sentence above/below</strong> or drag with <strong>::</strong> to reorder quickly.</p>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">5</span>
+              <p className="text-sm text-slate-700 leading-relaxed">Click <strong>Publish</strong> when ready.</p>
+            </li>
+          </ol>
+
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:text-sm text-emerald-800 leading-relaxed">
+            Publishing returns you to the dashboard, and collaborators can grade this same shared file.
+          </div>
         </div>
 
         {groups.length === 0 && (
@@ -836,11 +881,19 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         <div className="mt-6 flex justify-end">
           <button
             onClick={handleProceed}
+            disabled={publishing}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl text-sm transition-colors"
           >
-            Start Grading ({included} sentences) →
+            {publishing
+              ? "Publishing..."
+              : "Publish"}
           </button>
         </div>
+        {publishError && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            ⚠ {publishError}
+          </div>
+        )}
       </div>
     </div>
   );

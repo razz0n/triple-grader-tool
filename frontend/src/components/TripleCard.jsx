@@ -1,7 +1,28 @@
 // TripleCard.jsx — Displays one triple with quality rating and author info
 
-export default function TripleCard({ triple, grade, author, readOnly = false, onChange }) {
+export default function TripleCard({
+  triple,
+  grade,
+  author,
+  gradesByUser = {},
+  currentUserId,
+  readOnly = false,
+  onChange,
+}) {
   const { subject, predicate, object } = triple;
+  const allGrades = Object.values(gradesByUser || {})
+    .map((entry) => {
+      const value = Number(entry?.grade);
+      if (!Number.isFinite(value)) return null;
+      return {
+        userId: String(entry?.user_id || ""),
+        userName: String(entry?.user_name || "Unknown"),
+        grade: value,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.userName.localeCompare(b.userName));
+
   const emitTripleCopy = (field) => {
     window.dispatchEvent(
       new CustomEvent("triple-copy", {
@@ -12,15 +33,6 @@ export default function TripleCard({ triple, grade, author, readOnly = false, on
 
   return (
     <div className="bg-white border-t border-r border-b border-slate-200 border-l-4 border-l-blue-500 rounded-none p-4 shadow-none transition-shadow">
-      {/* Author badge */}
-      {author && (
-        <div className="flex justify-end mb-2">
-          <span className="text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300 px-2 py-1 rounded-full">
-            By {author}
-          </span>
-        </div>
-      )}
-
       {/* Subject → Predicate → Object badges */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <button
@@ -99,6 +111,37 @@ export default function TripleCard({ triple, grade, author, readOnly = false, on
             <span className="ml-1 text-xs text-slate-400 italic">not graded</span>
           )}
         </div>
+
+        {allGrades.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pl-[6.5rem]">
+            {allGrades.map((entry) => {
+              const isMine = currentUserId && entry.userId === currentUserId;
+              return (
+                <span
+                  key={`${entry.userId}-${entry.grade}`}
+                  className={[
+                    "text-xs font-medium border px-2 py-1 rounded-full",
+                    isMine
+                      ? "bg-blue-100 text-blue-800 border-blue-300"
+                      : "bg-amber-100 text-amber-800 border-amber-300",
+                  ].join(" ")}
+                >
+                  {entry.userName}
+                  {isMine ? " (you)" : ""}
+                  : {entry.grade}/10
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {!allGrades.length && author && (
+          <div className="pl-[6.5rem]">
+            <span className="text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300 px-2 py-1 rounded-full">
+              By {author}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

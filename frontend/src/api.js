@@ -102,7 +102,9 @@ export async function downloadSession(sessionId, fmt) {
     if (e?.response?.data instanceof Blob) {
       const text = await e.response.data.text();
       let msg = `Download failed (HTTP ${e.response.status})`;
-      try { msg = JSON.parse(text).detail || msg; } catch {}
+      try { msg = JSON.parse(text).detail || msg; } catch {
+        // Keep fallback message when blob is not valid JSON.
+      }
       throw new Error(msg);
     }
     throw e;
@@ -149,17 +151,6 @@ export async function loadSession(sessionId) {
  */
 export async function deleteSession(sessionId) {
   const { data } = await API.delete(`/api/session/${sessionId}`);
-  return data;
-}
-
-/**
- * Create or return the current user's personal grading copy of a shared session.
- * If the user owns the source session, the same session may be returned.
- * @param {string} sessionId
- * @returns {Promise<object>}
- */
-export async function createOrLoadSessionCopy(sessionId) {
-  const { data } = await API.post(`/api/session/${sessionId}/copy`);
   return data;
 }
 
@@ -312,7 +303,9 @@ export async function downloadEvaluation(sessionId, fmt) {
     if (e?.response?.data instanceof Blob) {
       const text = await e.response.data.text();
       let msg = `Download failed (HTTP ${e.response.status})`;
-      try { msg = JSON.parse(text).detail || msg; } catch {}
+      try { msg = JSON.parse(text).detail || msg; } catch {
+        // Keep fallback message when blob is not valid JSON.
+      }
       throw new Error(msg);
     }
     throw e;
