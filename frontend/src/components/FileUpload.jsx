@@ -445,12 +445,23 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : "bg-blue-100 text-blue-700 border-blue-200";
                           const ownerName = s.owner_name || "Unknown";
+                          const hasWorkedOnSession = !s.is_owner && (
+                            Boolean(s.my_has_activity) ||
+                            Number(s.my_total_actions || 0) > 0 ||
+                            Number(s.my_graded_triples || 0) > 0
+                          );
                           const roleHint = s.is_owner
-                            ? "You own this file. You can grade directly and approve suggestions."
-                            : "You can grade, suggest edits, and vote. The owner handles approvals.";
+                            ? "You own this file. You can suggest, vote, and approve suggestions, but you do not grade."
+                            : hasWorkedOnSession
+                              ? "You can continue grading, commenting, and suggesting edits. The owner handles approvals."
+                              : "You can grade, suggest edits, and vote. The owner handles approvals.";
                           const actionLabel = isLoading
                             ? "Loading…"
-                            : "▶ Open";
+                            : s.is_owner
+                              ? "▶ Open"
+                              : hasWorkedOnSession
+                                ? "▶ Continue"
+                                : "▶ Open";
                           const avgBadge = s.total_unique_graders > 0
                             ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"} • Avg ${s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"}/10`
                             : null;

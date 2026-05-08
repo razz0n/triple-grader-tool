@@ -50,6 +50,77 @@ function metricEntries(metricByUser) {
     .sort((a, b) => a.userName.localeCompare(b.userName));
 }
 
+function stableTextHash(input) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function normalizeSentenceComments(rawComments, fallbackText = "") {
+  const normalized = [];
+  const seenIds = new Set();
+
+  if (Array.isArray(rawComments)) {
+    rawComments.forEach((comment, idx) => {
+      if (!comment || typeof comment !== "object") return;
+
+      const text = String(comment.text || comment.comment || "").trim();
+      if (!text) return;
+
+      const commentId = String(comment.id || `comment_${idx}_${stableTextHash(text)}`).trim();
+      if (!commentId || seenIds.has(commentId)) return;
+      seenIds.add(commentId);
+
+      const userId = String(comment.user_id || comment.author_user_id || "").trim();
+      const author = String(comment.author || comment.user_name || userId || "User").trim() || "User";
+
+      normalized.push({
+        id: commentId,
+        user_id: userId,
+        author,
+        text,
+        created_at: comment.created_at || comment.posted_at || null,
+      });
+    });
+  }
+
+  if (normalized.length === 0) {
+    const legacyText = String(fallbackText || "").trim();
+    if (legacyText) {
+      normalized.push({
+        id: `legacy_comment_${stableTextHash(legacyText)}`,
+        user_id: "",
+        author: "Legacy comment",
+        text: legacyText,
+        created_at: null,
+      });
+    }
+  }
+
+  return normalized.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+}
+
+function createCommentId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `comment_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatCommentTimestamp(isoTime) {
+  if (!isoTime) return "just now";
+  const parsed = new Date(isoTime);
+  if (Number.isNaN(parsed.getTime())) return "just now";
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate }) {
   const {
     session_id: initialSessionId,
@@ -73,6 +144,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     initialSentences.map((s) => {
       const completenessByUser = normalizeMetricByUser(s.completeness_by_user);
       const externalRelationByUser = normalizeMetricByUser(s.external_relation_by_user);
+      const sentenceComments = normalizeSentenceComments(s.sentence_comments, s.suggestion || "");
 
       const completenessValues = Object.values(completenessByUser)
         .map((entry) => normalizeMetricValue(entry?.value))
@@ -83,7 +155,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
       return {
         ...s,
-        suggestion: s.suggestion || "",
+        suggestion: "",
+        sentence_comments: sentenceComments,
+        comment_count: Number.isFinite(s.comment_count) ? s.comment_count : sentenceComments.length,
         completeness:
           normalizeMetricValue(s.completeness) ??
           normalizeMetricValue(
@@ -159,6 +233,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const current = sentences[currentIdx];
   const completenessMetricEntries = metricEntries(current?.completeness_by_user);
   const externalRelationMetricEntries = metricEntries(current?.external_relation_by_user);
+  const currentSentenceComments = useMemo(
+    () => normalizeSentenceComments(current?.sentence_comments),
+    [current?.sentence_comments]
+  );
 
   // Compute live sentence grade for the current sentence
   const sentenceGrade = useMemo(() => {
@@ -242,6 +320,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, [sentences]);
 
   const handleGradeChange = (tripleId, grade) => {
+    if (!canEditSession) return;
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) =>
@@ -294,6 +373,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const handleSentenceMetricChange = (field, value) => {
+    if (!canEditSession) return;
     const normalizedValue = normalizeMetricValue(value);
     const byUserField = field === "completeness" ? "completeness_by_user" : "external_relation_by_user";
     const countField = field === "completeness" ? "completeness_count" : "external_relation_count";
@@ -374,6 +454,58 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     setSentences((prev) =>
       prev.map((s, i) => (i === currentIdx ? { ...s, suggestion: value } : s))
     );
+  };
+
+  const handlePostSentenceComment = async () => {
+    const draft = String(current?.suggestion || "").trim();
+    if (!draft || !canEditSession || saving) return;
+
+    const postedAt = new Date().toISOString();
+    const newComment = {
+      id: createCommentId(),
+      user_id: String(currentUserId || "").trim(),
+      author: String(currentUserName || "User").trim() || "User",
+      text: draft,
+      created_at: postedAt,
+    };
+
+    const updatedSentences = sentences.map((sentence, index) => {
+      if (index !== currentIdx) return sentence;
+      const nextComments = normalizeSentenceComments([
+        ...(Array.isArray(sentence.sentence_comments) ? sentence.sentence_comments : []),
+        newComment,
+      ]);
+      return {
+        ...sentence,
+        suggestion: "",
+        sentence_comments: nextComments,
+        comment_count: nextComments.length,
+      };
+    });
+
+    hasUnsavedChangesRef.current = true;
+    setSentences(updatedSentences);
+
+    savingRef.current = true;
+    setSaving(true);
+    setSaveMsg("");
+    setSaveError("");
+    try {
+      const result = await saveSession(buildPayload(updatedSentences));
+      setSavedSessionId(result.session_id);
+      setSavedAt(new Date());
+      setSaveMsg("Comment posted.");
+      setTimeout(() => setSaveMsg(""), 3500);
+      hasUnsavedChangesRef.current = false;
+    } catch (e) {
+      setSaveError(
+        e?.response?.data?.detail || "Comment post failed. Try Save to persist your changes."
+      );
+      hasUnsavedChangesRef.current = true;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const handleAddSuggestion = async (tripleId, suggestionData) => {
@@ -613,12 +745,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
-  const buildPayload = () => ({
+  const buildPayload = (sentencesSource = sentences) => ({
     session_id:      savedSessionId || initialSessionId,
     source_filename: source_filename,
     uploaded_at:     uploaded_at,
     manual_mode:     !!manual_mode,
-    sentences: sentences.map((s) => {
+    sentences: sentencesSource.map((s) => {
       const grades = s.triples
         .map((t) => t.grade)
         .filter((g) => g != null);
@@ -628,8 +760,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(2)
             )
           : null;
+      const sentenceComments = normalizeSentenceComments(s.sentence_comments);
       return {
         ...s,
+        suggestion:
+          sentenceComments.length > 0
+            ? sentenceComments[sentenceComments.length - 1].text
+            : "",
+        sentence_comments: sentenceComments,
+        comment_count: sentenceComments.length,
         sentence_grade: avg,
         completeness: s.completeness ?? null,
         external_relation: s.external_relation ?? null,
@@ -929,7 +1068,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <div>
               <h2 className="text-sm font-semibold text-slate-700">Shared Grading Activity</h2>
               <p className="text-xs text-slate-500 mt-1">
-                Everyone can grade, suggest, and vote. Only the owner can approve suggestions.
+                Collaborators can grade, suggest, and vote. Owner can suggest, vote, and approve suggestions.
               </p>
             </div>
             <div className="text-xs text-slate-600">
@@ -1227,8 +1366,41 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
             className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
           />
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handlePostSentenceComment}
+              disabled={!canEditSession || saving || !(current.suggestion || "").trim()}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Posting..." : "Post Comment"}
+            </button>
+            <span className="text-xs text-slate-500">
+              Posts immediately with your name and is visible to collaborators.
+            </span>
+          </div>
+          {currentSentenceComments.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {currentSentenceComments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="font-semibold text-slate-700">{comment.author || "User"}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>{formatCommentTimestamp(comment.created_at)}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                    {comment.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-slate-400 italic">No comments yet for this sentence.</p>
+          )}
           <p className="mt-2 text-xs text-slate-500">
-            Shared mode: everyone can grade, suggest, and vote; only the owner can approve suggestions.
+            Shared mode: collaborators grade, suggest, and vote; owner suggests, votes, and approves.
           </p>
         </div>
 

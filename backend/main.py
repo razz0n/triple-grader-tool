@@ -408,8 +408,8 @@ def _can_approve_session(session: Dict[str, Any], session_path: Optional[Path], 
 
 
 def _can_edit_session_directly(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
-    # Any authenticated collaborator can grade a shared file.
-    return True
+    # Shared v2 rule: owner can suggest/vote/approve, but does not grade.
+    return not _is_session_owner(session, session_path, user)
 
 
 def _normalize_grade_value(value: Any) -> Optional[float]:
@@ -533,6 +533,70 @@ def _normalize_sentence_metric_by_user(
     return normalized
 
 
+def _normalize_sentence_comments(
+    raw_comments: Any,
+    *,
+    fallback_text: str = "",
+    fallback_author: str = "",
+    fallback_user_id: str = "",
+    fallback_created_at: Optional[str] = None,
+) -> list[Dict[str, Any]]:
+    normalized: list[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    if isinstance(raw_comments, list):
+        for idx, payload in enumerate(raw_comments):
+            if not isinstance(payload, dict):
+                continue
+
+            text = str(payload.get("text") or payload.get("comment") or "").strip()
+            if not text:
+                continue
+
+            comment_id = str(payload.get("id") or "").strip()
+            if not comment_id:
+                comment_id = f"comment_{idx}_{uuid.uuid4().hex[:8]}"
+            if comment_id in seen_ids:
+                continue
+            seen_ids.add(comment_id)
+
+            user_id = str(payload.get("user_id") or payload.get("author_user_id") or "").strip()
+            author = str(payload.get("author") or payload.get("user_name") or "").strip()
+            if not author:
+                author = user_id or "User"
+
+            created_at = payload.get("created_at")
+            if created_at is None:
+                created_at = payload.get("posted_at")
+            if created_at is None:
+                created_at = fallback_created_at or datetime.utcnow().isoformat()
+
+            normalized.append({
+                "id": comment_id,
+                "user_id": user_id,
+                "author": author,
+                "text": text,
+                "created_at": created_at,
+            })
+
+    if not normalized:
+        legacy_text = str(fallback_text or "").strip()
+        if legacy_text:
+            legacy_author = str(fallback_author or "Legacy comment").strip() or "Legacy comment"
+            legacy_user_id = str(fallback_user_id or "").strip()
+            legacy_hash = hashlib.sha1(legacy_text.encode("utf-8")).hexdigest()[:10]
+            normalized.append({
+                "id": f"legacy_comment_{legacy_hash}",
+                "user_id": legacy_user_id,
+                "author": legacy_author,
+                "text": legacy_text,
+                "created_at": fallback_created_at or datetime.utcnow().isoformat(),
+            })
+
+    normalized.sort(key=lambda row: str(row.get("created_at") or ""))
+    return normalized
+
+
 def _apply_collaborative_grades(
     incoming_session: Dict[str, Any],
     existing_session: Optional[Dict[str, Any]],
@@ -541,6 +605,7 @@ def _apply_collaborative_grades(
     user_id = str(user.get("id") or "").strip()
     user_name = _display_name(user)
     now_iso = datetime.utcnow().isoformat()
+    user_can_grade = not _is_session_owner(existing_session or incoming_session, None, user)
 
     existing_sentences = {
         s.get("id"): s
@@ -573,7 +638,11 @@ def _apply_collaborative_grades(
                 merged_completeness[metric_user_id] = payload
 
         my_completeness = _normalize_sentence_metric_value(sentence.get("completeness"))
-        if my_completeness is None:
+        if not user_can_grade:
+            merged_completeness.pop(user_id, None)
+            sentence["completeness"] = None
+            sentence.pop("completeness_updated_at", None)
+        elif my_completeness is None:
             merged_completeness.pop(user_id, None)
             sentence["completeness"] = None
             sentence.pop("completeness_updated_at", None)
@@ -610,7 +679,11 @@ def _apply_collaborative_grades(
         my_external = _normalize_sentence_metric_value(
             sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation")
         )
-        if my_external is None:
+        if not user_can_grade:
+            merged_external.pop(user_id, None)
+            sentence["external_relation"] = None
+            sentence.pop("external_relation_updated_at", None)
+        elif my_external is None:
             merged_external.pop(user_id, None)
             sentence["external_relation"] = None
             sentence.pop("external_relation_updated_at", None)
@@ -659,7 +732,12 @@ def _apply_collaborative_grades(
                     merged_grades[grader_id] = grade_payload
 
             my_grade = _normalize_grade_value(triple.get("grade"))
-            if my_grade is None:
+            if not user_can_grade:
+                merged_grades.pop(user_id, None)
+                triple["grade"] = None
+                triple["author"] = None
+                triple.pop("graded_at", None)
+            elif my_grade is None:
                 merged_grades.pop(user_id, None)
                 triple["grade"] = None
                 triple["author"] = None
@@ -766,6 +844,76 @@ def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _session_activity_for_user(session_data: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = str(user.get("id") or "").strip()
+    if not user_id:
+        return {
+            "my_has_activity": False,
+            "my_graded_triples": 0,
+            "my_sentence_metric_updates": 0,
+            "my_sentence_comment_posts": 0,
+            "my_total_actions": 0,
+        }
+
+    owner_fallback_user_id = str(session_data.get("owner_user_id") or "").strip()
+    owner_fallback_user_name = str(session_data.get("owner_name") or "").strip()
+
+    my_graded_triples = 0
+    my_sentence_metric_updates = 0
+    my_sentence_comment_posts = 0
+
+    for sentence in session_data.get("sentences", []):
+        completeness_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("completeness_by_user"),
+            fallback_value=sentence.get("completeness"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("completeness_updated_at"),
+        )
+        my_completeness = completeness_by_user.get(user_id)
+        if isinstance(my_completeness, dict) and _normalize_sentence_metric_value(my_completeness.get("value")) is not None:
+            my_sentence_metric_updates += 1
+
+        external_relation_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("external_relation_by_user"),
+            fallback_value=sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("external_relation_updated_at"),
+        )
+        my_external_relation = external_relation_by_user.get(user_id)
+        if isinstance(my_external_relation, dict) and _normalize_sentence_metric_value(my_external_relation.get("value")) is not None:
+            my_sentence_metric_updates += 1
+
+        sentence_comments = _normalize_sentence_comments(sentence.get("sentence_comments"))
+        my_sentence_comment_posts += sum(
+            1
+            for comment in sentence_comments
+            if str(comment.get("user_id") or "").strip() == user_id
+        )
+
+        for triple in sentence.get("triples", []):
+            grades_by_user = _normalize_grades_by_user(
+                triple.get("grades_by_user"),
+                fallback_grade=triple.get("grade"),
+                fallback_author=str(triple.get("author") or ""),
+                fallback_user_id=owner_fallback_user_id,
+                fallback_graded_at=triple.get("graded_at"),
+            )
+            my_grade = grades_by_user.get(user_id)
+            if isinstance(my_grade, dict) and _normalize_grade_value(my_grade.get("grade")) is not None:
+                my_graded_triples += 1
+
+    my_total_actions = my_graded_triples + my_sentence_metric_updates + my_sentence_comment_posts
+    return {
+        "my_has_activity": my_total_actions > 0,
+        "my_graded_triples": my_graded_triples,
+        "my_sentence_metric_updates": my_sentence_metric_updates,
+        "my_sentence_comment_posts": my_sentence_comment_posts,
+        "my_total_actions": my_total_actions,
+    }
+
+
 def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
     # Deep copy so caller gets a user-scoped projection without mutating storage payload.
     data = json.loads(json.dumps(session, ensure_ascii=False))
@@ -775,6 +923,17 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
     owner_fallback_user_id = str(data.get("owner_user_id") or "").strip()
     owner_fallback_user_name = str(data.get("owner_name") or "").strip()
     for sentence in data.get("sentences", []):
+        sentence_comments = _normalize_sentence_comments(
+            sentence.get("sentence_comments"),
+            fallback_text=str(sentence.get("suggestion") or ""),
+            fallback_author=owner_fallback_user_name,
+            fallback_user_id=owner_fallback_user_id,
+            fallback_created_at=sentence.get("comment_created_at"),
+        )
+        sentence["sentence_comments"] = sentence_comments
+        sentence["comment_count"] = len(sentence_comments)
+        sentence["suggestion"] = sentence_comments[-1].get("text", "") if sentence_comments else ""
+
         completeness_by_user = _normalize_sentence_metric_by_user(
             sentence.get("completeness_by_user"),
             fallback_value=sentence.get("completeness"),
@@ -935,6 +1094,8 @@ def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -
             "id": sentence_id,
             "text": sentence_text or "(no sentence text)",
             "suggestion": "",
+            "sentence_comments": [],
+            "comment_count": 0,
             "sentence_grade": None,
             "completeness": None,
             "external_relation": None,
@@ -976,6 +1137,67 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
                 # Suggestion writes are already persisted server-side by dedicated endpoints.
                 # Preserve them to avoid stale client payloads wiping comments/posts.
                 triple["suggestions"] = existing_suggestions
+
+
+def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
+    """Preserve and merge sentence comment threads across full-session saves."""
+    existing_sentences = {
+        s.get("id"): s
+        for s in existing_session.get("sentences", [])
+        if s.get("id") is not None
+    }
+
+    owner_fallback_user_id = str(existing_session.get("owner_user_id") or "").strip()
+    owner_fallback_user_name = str(existing_session.get("owner_name") or "").strip()
+
+    for sentence in incoming_session.get("sentences", []):
+        sentence_id = sentence.get("id")
+        existing_sentence = existing_sentences.get(sentence_id)
+
+        incoming_comments = _normalize_sentence_comments(
+            sentence.get("sentence_comments"),
+            fallback_text=str(sentence.get("suggestion") or ""),
+            fallback_author=owner_fallback_user_name,
+            fallback_user_id=owner_fallback_user_id,
+            fallback_created_at=sentence.get("comment_created_at"),
+        )
+
+        if not existing_sentence:
+            sentence["sentence_comments"] = incoming_comments
+            sentence["comment_count"] = len(incoming_comments)
+            if incoming_comments:
+                sentence["suggestion"] = incoming_comments[-1].get("text", "")
+            continue
+
+        existing_comments = _normalize_sentence_comments(
+            existing_sentence.get("sentence_comments"),
+            fallback_text=str(existing_sentence.get("suggestion") or ""),
+            fallback_author=owner_fallback_user_name,
+            fallback_user_id=owner_fallback_user_id,
+            fallback_created_at=existing_sentence.get("comment_created_at"),
+        )
+
+        merged_by_id: Dict[str, Dict[str, Any]] = {
+            str(comment.get("id") or ""): comment
+            for comment in existing_comments
+            if str(comment.get("id") or "").strip()
+        }
+
+        for comment in incoming_comments:
+            comment_id = str(comment.get("id") or "").strip()
+            if not comment_id:
+                continue
+            merged_by_id[comment_id] = comment
+
+        merged_comments = sorted(
+            merged_by_id.values(),
+            key=lambda row: str(row.get("created_at") or ""),
+        )
+
+        sentence["sentence_comments"] = merged_comments
+        sentence["comment_count"] = len(merged_comments)
+        if merged_comments:
+            sentence["suggestion"] = merged_comments[-1].get("text", "")
 
 
 
@@ -1197,10 +1419,27 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             # Fall back to incoming payload if previous session cannot be read.
             pass
 
+        try:
+            _merge_existing_sentence_comments(session_data, existing_session)
+        except Exception:
+            # Fall back to incoming payload if previous session cannot be read.
+            pass
+
     _apply_collaborative_grades(session_data, existing_session, user)
 
     # Capture user info and recompute sentence grades server-side for integrity
     for s in session_data["sentences"]:
+        sentence_comments = _normalize_sentence_comments(
+            s.get("sentence_comments"),
+            fallback_text=str(s.get("suggestion") or ""),
+            fallback_author=_display_name(user),
+            fallback_user_id=str(user.get("id") or "").strip(),
+            fallback_created_at=s.get("comment_created_at"),
+        )
+        s["sentence_comments"] = sentence_comments
+        s["comment_count"] = len(sentence_comments)
+        s["suggestion"] = sentence_comments[-1].get("text", "") if sentence_comments else ""
+
         # Normalize sentence-level metrics from collaborator-specific maps.
         s["completeness"] = _normalize_sentence_metric_value(s.get("completeness"))
 
@@ -1514,6 +1753,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
 
             owner_user_id = str(data.get("owner_user_id") or "").strip()
             grading_stats = _session_grading_stats(data)
+            user_activity = _session_activity_for_user(data, user)
 
             owner_user = _get_user_by_id(owner_user_id)
             is_owner = _is_session_owner(data, None, user)
@@ -1527,7 +1767,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "owner_user_id": owner_user_id,
                 "owner_name": owner_name,
                 "is_owner": is_owner,
-                "can_edit": True,
+                "can_edit": _can_edit_session_directly(data, None, user),
                 "can_approve": _can_approve_session(data, None, user),
                 "root_session_id": session_id,
                 "is_copy": False,
@@ -1542,6 +1782,11 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "completed_grader_count": grading_stats["completed_grader_count"],
                 "total_grade_entries": grading_stats["total_grade_entries"],
                 "grader_summary": grading_stats["grader_summary"],
+                "my_has_activity": user_activity["my_has_activity"],
+                "my_graded_triples": user_activity["my_graded_triples"],
+                "my_sentence_metric_updates": user_activity["my_sentence_metric_updates"],
+                "my_sentence_comment_posts": user_activity["my_sentence_comment_posts"],
+                "my_total_actions": user_activity["my_total_actions"],
             })
         return sessions
 
@@ -1559,6 +1804,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
 
             owner_user_id = str(data.get("owner_user_id") or p.parent.name).strip()
             grading_stats = _session_grading_stats(data)
+            user_activity = _session_activity_for_user(data, user)
 
             owner_user = _get_user_by_id(owner_user_id)
             is_owner = _is_session_owner(data, p, user)
@@ -1572,7 +1818,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "owner_user_id": owner_user_id,
                 "owner_name": owner_name,
                 "is_owner": is_owner,
-                "can_edit": True,
+                "can_edit": _can_edit_session_directly(data, p, user),
                 "can_approve": _can_approve_session(data, p, user),
                 "root_session_id": session_id,
                 "is_copy": False,
@@ -1587,6 +1833,11 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "completed_grader_count": grading_stats["completed_grader_count"],
                 "total_grade_entries": grading_stats["total_grade_entries"],
                 "grader_summary": grading_stats["grader_summary"],
+                "my_has_activity": user_activity["my_has_activity"],
+                "my_graded_triples": user_activity["my_graded_triples"],
+                "my_sentence_metric_updates": user_activity["my_sentence_metric_updates"],
+                "my_sentence_comment_posts": user_activity["my_sentence_comment_posts"],
+                "my_total_actions": user_activity["my_total_actions"],
             })
         except Exception:
             pass
