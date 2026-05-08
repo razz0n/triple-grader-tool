@@ -476,6 +476,63 @@ def _normalize_grades_by_user(
     return normalized
 
 
+def _normalize_sentence_metric_value(value: Any) -> Optional[float]:
+    return _normalize_grade_value(value)
+
+
+def _normalize_sentence_metric_by_user(
+    raw_metrics: Any,
+    *,
+    fallback_value: Any = None,
+    fallback_user_id: str = "",
+    fallback_user_name: str = "",
+    fallback_updated_at: Optional[str] = None,
+) -> Dict[str, Dict[str, Any]]:
+    normalized: Dict[str, Dict[str, Any]] = {}
+
+    if isinstance(raw_metrics, dict):
+        for key, payload in raw_metrics.items():
+            if not isinstance(payload, dict):
+                continue
+
+            value = _normalize_sentence_metric_value(payload.get("value"))
+            if value is None:
+                continue
+
+            user_id = str(payload.get("user_id") or key or "").strip()
+            if not user_id:
+                continue
+
+            user_name = str(payload.get("user_name") or user_id).strip() or user_id
+            normalized[user_id] = {
+                "user_id": user_id,
+                "user_name": user_name,
+                "value": value,
+                "updated_at": payload.get("updated_at"),
+            }
+
+    if normalized:
+        return normalized
+
+    fallback_metric = _normalize_sentence_metric_value(fallback_value)
+    if fallback_metric is None:
+        return normalized
+
+    metric_user_name = str(fallback_user_name or "Legacy grader").strip() or "Legacy grader"
+    metric_user_id = str(fallback_user_id or "").strip()
+    if not metric_user_id:
+        slug = re.sub(r"[^a-z0-9_]+", "_", metric_user_name.lower()).strip("_") or "grader"
+        metric_user_id = f"legacy_{slug}"
+
+    normalized[metric_user_id] = {
+        "user_id": metric_user_id,
+        "user_name": metric_user_name,
+        "value": fallback_metric,
+        "updated_at": fallback_updated_at,
+    }
+    return normalized
+
+
 def _apply_collaborative_grades(
     incoming_session: Dict[str, Any],
     existing_session: Optional[Dict[str, Any]],
@@ -491,9 +548,83 @@ def _apply_collaborative_grades(
         if s.get("id") is not None
     }
     owner_fallback_user_id = str((existing_session or {}).get("owner_user_id") or "").strip()
+    owner_fallback_user_name = str((existing_session or {}).get("owner_name") or "").strip()
 
     for sentence in incoming_session.get("sentences", []):
         existing_sentence = existing_sentences.get(sentence.get("id"))
+
+        existing_completeness = _normalize_sentence_metric_by_user(
+            (existing_sentence or {}).get("completeness_by_user"),
+            fallback_value=(existing_sentence or {}).get("completeness"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=(existing_sentence or {}).get("completeness_updated_at"),
+        )
+        incoming_completeness = _normalize_sentence_metric_by_user(
+            sentence.get("completeness_by_user"),
+            fallback_value=sentence.get("completeness"),
+            fallback_user_id=user_id,
+            fallback_user_name=user_name,
+            fallback_updated_at=sentence.get("completeness_updated_at"),
+        )
+        merged_completeness = dict(existing_completeness)
+        for metric_user_id, payload in incoming_completeness.items():
+            if metric_user_id not in merged_completeness:
+                merged_completeness[metric_user_id] = payload
+
+        my_completeness = _normalize_sentence_metric_value(sentence.get("completeness"))
+        if my_completeness is None:
+            merged_completeness.pop(user_id, None)
+            sentence["completeness"] = None
+            sentence.pop("completeness_updated_at", None)
+        else:
+            merged_completeness[user_id] = {
+                "user_id": user_id,
+                "user_name": user_name,
+                "value": my_completeness,
+                "updated_at": now_iso,
+            }
+            sentence["completeness"] = my_completeness
+            sentence["completeness_updated_at"] = now_iso
+        sentence["completeness_by_user"] = merged_completeness
+
+        existing_external = _normalize_sentence_metric_by_user(
+            (existing_sentence or {}).get("external_relation_by_user"),
+            fallback_value=(existing_sentence or {}).get("external_relation"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=(existing_sentence or {}).get("external_relation_updated_at"),
+        )
+        incoming_external = _normalize_sentence_metric_by_user(
+            sentence.get("external_relation_by_user"),
+            fallback_value=sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation"),
+            fallback_user_id=user_id,
+            fallback_user_name=user_name,
+            fallback_updated_at=sentence.get("external_relation_updated_at"),
+        )
+        merged_external = dict(existing_external)
+        for metric_user_id, payload in incoming_external.items():
+            if metric_user_id not in merged_external:
+                merged_external[metric_user_id] = payload
+
+        my_external = _normalize_sentence_metric_value(
+            sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation")
+        )
+        if my_external is None:
+            merged_external.pop(user_id, None)
+            sentence["external_relation"] = None
+            sentence.pop("external_relation_updated_at", None)
+        else:
+            merged_external[user_id] = {
+                "user_id": user_id,
+                "user_name": user_name,
+                "value": my_external,
+                "updated_at": now_iso,
+            }
+            sentence["external_relation"] = my_external
+            sentence["external_relation_updated_at"] = now_iso
+        sentence["external_relation_by_user"] = merged_external
+
         existing_triples = {
             t.get("id"): t
             for t in (existing_sentence or {}).get("triples", [])
@@ -641,7 +772,61 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
     stats = _session_grading_stats(data)
 
     user_id = str(user.get("id") or "").strip()
+    owner_fallback_user_id = str(data.get("owner_user_id") or "").strip()
+    owner_fallback_user_name = str(data.get("owner_name") or "").strip()
     for sentence in data.get("sentences", []):
+        completeness_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("completeness_by_user"),
+            fallback_value=sentence.get("completeness"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("completeness_updated_at"),
+        )
+        completeness_values = [
+            float(payload.get("value"))
+            for payload in completeness_by_user.values()
+            if _normalize_sentence_metric_value(payload.get("value")) is not None
+        ]
+        current_user_completeness = completeness_by_user.get(user_id) if user_id else None
+        sentence["completeness"] = (
+            current_user_completeness.get("value")
+            if isinstance(current_user_completeness, dict)
+            else None
+        )
+        sentence["completeness_by_user"] = completeness_by_user
+        sentence["completeness_count"] = len(completeness_values)
+        sentence["completeness_average"] = (
+            round(sum(completeness_values) / len(completeness_values), 2)
+            if completeness_values
+            else None
+        )
+
+        external_relation_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("external_relation_by_user"),
+            fallback_value=sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("external_relation_updated_at"),
+        )
+        external_relation_values = [
+            float(payload.get("value"))
+            for payload in external_relation_by_user.values()
+            if _normalize_sentence_metric_value(payload.get("value")) is not None
+        ]
+        current_user_external = external_relation_by_user.get(user_id) if user_id else None
+        sentence["external_relation"] = (
+            current_user_external.get("value")
+            if isinstance(current_user_external, dict)
+            else None
+        )
+        sentence["external_relation_by_user"] = external_relation_by_user
+        sentence["external_relation_count"] = len(external_relation_values)
+        sentence["external_relation_average"] = (
+            round(sum(external_relation_values) / len(external_relation_values), 2)
+            if external_relation_values
+            else None
+        )
+
         for triple in sentence.get("triples", []):
             grades_by_user = triple.get("grades_by_user") if isinstance(triple.get("grades_by_user"), dict) else {}
             grade_values = [
@@ -1016,21 +1201,29 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
 
     # Capture user info and recompute sentence grades server-side for integrity
     for s in session_data["sentences"]:
-        # Normalize sentence-level metrics and preserve backward compatibility.
-        if s.get("completeness") is None:
-            s["completeness"] = next(
-                (t.get("completeness") for t in s.get("triples", []) if t.get("completeness") is not None),
-                None,
-            )
+        # Normalize sentence-level metrics from collaborator-specific maps.
+        s["completeness"] = _normalize_sentence_metric_value(s.get("completeness"))
+
         external_relation = s.get("external_relation")
         if external_relation is None:
             external_relation = s.get("relation")
-        if external_relation is None:
-            external_relation = next(
-                (t.get("relation") for t in s.get("triples", []) if t.get("relation") is not None),
-                None,
-            )
-        s["external_relation"] = external_relation
+        s["external_relation"] = _normalize_sentence_metric_value(external_relation)
+        s.pop("relation", None)
+
+        s["completeness_by_user"] = _normalize_sentence_metric_by_user(
+            s.get("completeness_by_user"),
+            fallback_value=s.get("completeness"),
+            fallback_user_id=str(user.get("id") or "").strip(),
+            fallback_user_name=_display_name(user),
+            fallback_updated_at=s.get("completeness_updated_at"),
+        )
+        s["external_relation_by_user"] = _normalize_sentence_metric_by_user(
+            s.get("external_relation_by_user"),
+            fallback_value=s.get("external_relation"),
+            fallback_user_id=str(user.get("id") or "").strip(),
+            fallback_user_name=_display_name(user),
+            fallback_updated_at=s.get("external_relation_updated_at"),
+        )
 
         sentence_grades: list[float] = []
         for t in s.get("triples", []):

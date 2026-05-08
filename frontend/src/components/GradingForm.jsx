@@ -7,6 +7,49 @@ import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSugges
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
+function normalizeMetricValue(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < 0 || numeric > 10) return null;
+  return Number.isInteger(numeric) ? numeric : Number(numeric.toFixed(2));
+}
+
+function normalizeMetricByUser(rawMetrics) {
+  if (!rawMetrics || typeof rawMetrics !== "object") return {};
+  const normalized = {};
+  Object.entries(rawMetrics).forEach(([key, payload]) => {
+    if (!payload || typeof payload !== "object") return;
+    const value = normalizeMetricValue(payload.value);
+    if (value === null) return;
+    const userId = String(payload.user_id || key || "").trim();
+    if (!userId) return;
+    const userName = String(payload.user_name || userId).trim() || userId;
+    normalized[userId] = {
+      user_id: userId,
+      user_name: userName,
+      value,
+      updated_at: payload.updated_at,
+    };
+  });
+  return normalized;
+}
+
+function metricEntries(metricByUser) {
+  return Object.values(metricByUser || {})
+    .map((entry) => {
+      const value = normalizeMetricValue(entry?.value);
+      if (value === null) return null;
+      return {
+        userId: String(entry?.user_id || ""),
+        userName: String(entry?.user_name || "Unknown"),
+        value,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.userName.localeCompare(b.userName));
+}
+
 export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate }) {
   const {
     session_id: initialSessionId,
@@ -27,28 +70,62 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
-    initialSentences.map((s) => ({
-      ...s,
-      suggestion: s.suggestion || "",
-      completeness:
-        s.completeness ??
-        s.triples.find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness ??
-        null,
-      external_relation:
-        s.external_relation ??
-        s.relation ??
-        s.triples.find((t) => t.relation !== null && t.relation !== undefined)?.relation ??
-        null,
-      triples: s.triples.map((t) => ({ 
-        ...t, 
-        grade: t.grade ?? null,
-        author: t.author || null,
-        grades_by_user: t.grades_by_user || {},
-        grade_count: Number.isFinite(t.grade_count) ? t.grade_count : undefined,
-        grade_average: t.grade_average ?? null,
-        suggestions: t.suggestions || [],
-      })),
-    }))
+    initialSentences.map((s) => {
+      const completenessByUser = normalizeMetricByUser(s.completeness_by_user);
+      const externalRelationByUser = normalizeMetricByUser(s.external_relation_by_user);
+
+      const completenessValues = Object.values(completenessByUser)
+        .map((entry) => normalizeMetricValue(entry?.value))
+        .filter((value) => value !== null);
+      const externalRelationValues = Object.values(externalRelationByUser)
+        .map((entry) => normalizeMetricValue(entry?.value))
+        .filter((value) => value !== null);
+
+      return {
+        ...s,
+        suggestion: s.suggestion || "",
+        completeness:
+          normalizeMetricValue(s.completeness) ??
+          normalizeMetricValue(
+            s.triples.find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness
+          ) ??
+          null,
+        external_relation:
+          normalizeMetricValue(s.external_relation) ??
+          normalizeMetricValue(s.relation) ??
+          normalizeMetricValue(
+            s.triples.find((t) => t.relation !== null && t.relation !== undefined)?.relation
+          ) ??
+          null,
+        completeness_by_user: completenessByUser,
+        external_relation_by_user: externalRelationByUser,
+        completeness_count: Number.isFinite(s.completeness_count)
+          ? s.completeness_count
+          : completenessValues.length,
+        completeness_average:
+          s.completeness_average ??
+          (completenessValues.length > 0
+            ? Number((completenessValues.reduce((acc, value) => acc + value, 0) / completenessValues.length).toFixed(2))
+            : null),
+        external_relation_count: Number.isFinite(s.external_relation_count)
+          ? s.external_relation_count
+          : externalRelationValues.length,
+        external_relation_average:
+          s.external_relation_average ??
+          (externalRelationValues.length > 0
+            ? Number((externalRelationValues.reduce((acc, value) => acc + value, 0) / externalRelationValues.length).toFixed(2))
+            : null),
+        triples: s.triples.map((t) => ({
+          ...t,
+          grade: t.grade ?? null,
+          author: t.author || null,
+          grades_by_user: t.grades_by_user || {},
+          grade_count: Number.isFinite(t.grade_count) ? t.grade_count : undefined,
+          grade_average: t.grade_average ?? null,
+          suggestions: t.suggestions || [],
+        })),
+      };
+    })
   );
 
   const [currentIdx, setCurrentIdx]       = useState(0);
@@ -80,6 +157,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const total   = sentences.length;
   const current = sentences[currentIdx];
+  const completenessMetricEntries = metricEntries(current?.completeness_by_user);
+  const externalRelationMetricEntries = metricEntries(current?.external_relation_by_user);
 
   // Compute live sentence grade for the current sentence
   const sentenceGrade = useMemo(() => {
@@ -215,6 +294,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const handleSentenceMetricChange = (field, value) => {
+    const normalizedValue = normalizeMetricValue(value);
+    const byUserField = field === "completeness" ? "completeness_by_user" : "external_relation_by_user";
+    const countField = field === "completeness" ? "completeness_count" : "external_relation_count";
+    const averageField = field === "completeness" ? "completeness_average" : "external_relation_average";
+
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
       prev.map((s, i) =>
@@ -222,7 +306,64 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           ? s
           : {
               ...s,
-              [field]: value,
+              [field]: normalizedValue,
+              [byUserField]: (() => {
+                const currentMap = { ...(s[byUserField] || {}) };
+                if (!currentUserId) return currentMap;
+
+                if (normalizedValue === null) {
+                  delete currentMap[currentUserId];
+                } else {
+                  currentMap[currentUserId] = {
+                    user_id: currentUserId,
+                    user_name: currentUserName,
+                    value: normalizedValue,
+                    updated_at: new Date().toISOString(),
+                  };
+                }
+                return currentMap;
+              })(),
+              [countField]: (() => {
+                const currentMap = { ...(s[byUserField] || {}) };
+                if (currentUserId) {
+                  if (normalizedValue === null) {
+                    delete currentMap[currentUserId];
+                  } else {
+                    currentMap[currentUserId] = {
+                      user_id: currentUserId,
+                      user_name: currentUserName,
+                      value: normalizedValue,
+                      updated_at: new Date().toISOString(),
+                    };
+                  }
+                }
+
+                return Object.values(currentMap)
+                  .map((entry) => normalizeMetricValue(entry?.value))
+                  .filter((metricValue) => metricValue !== null).length;
+              })(),
+              [averageField]: (() => {
+                const currentMap = { ...(s[byUserField] || {}) };
+                if (currentUserId) {
+                  if (normalizedValue === null) {
+                    delete currentMap[currentUserId];
+                  } else {
+                    currentMap[currentUserId] = {
+                      user_id: currentUserId,
+                      user_name: currentUserName,
+                      value: normalizedValue,
+                      updated_at: new Date().toISOString(),
+                    };
+                  }
+                }
+
+                const values = Object.values(currentMap)
+                  .map((entry) => normalizeMetricValue(entry?.value))
+                  .filter((metricValue) => metricValue !== null);
+                return values.length > 0
+                  ? Number((values.reduce((acc, metricValue) => acc + metricValue, 0) / values.length).toFixed(2))
+                  : null;
+              })(),
             }
       )
     );
@@ -492,6 +633,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         sentence_grade: avg,
         completeness: s.completeness ?? null,
         external_relation: s.external_relation ?? null,
+        completeness_by_user: normalizeMetricByUser(s.completeness_by_user),
+        external_relation_by_user: normalizeMetricByUser(s.external_relation_by_user),
         triples: s.triples.map((t) => {
           const cleaned = { ...t };
           delete cleaned.completeness;
@@ -890,6 +1033,35 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               ) : (
                 <span className="ml-1 text-xs text-slate-400 italic">not set</span>
               )}
+
+              {current.completeness_average !== null && current.completeness_average !== undefined && (
+                <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  Avg. {Number(current.completeness_average).toFixed(2)} ({current.completeness_count || 0})
+                </span>
+              )}
+
+              {completenessMetricEntries.length > 0 && (
+                <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
+                  {completenessMetricEntries.map((entry) => {
+                    const isMe = currentUserId && entry.userId === currentUserId;
+                    return (
+                      <span
+                        key={`comp-${entry.userId}`}
+                        className={[
+                          "text-xs font-medium border px-2 py-1 rounded-full",
+                          isMe
+                            ? "bg-green-100 text-green-800 border-green-300"
+                            : "bg-slate-100 text-slate-700 border-slate-300",
+                        ].join(" ")}
+                      >
+                        {entry.userName}
+                        {isMe ? " (you)" : ""}
+                        : {entry.value}/10
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
@@ -919,6 +1091,35 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 </span>
               ) : (
                 <span className="ml-1 text-xs text-slate-400 italic">not set</span>
+              )}
+
+              {current.external_relation_average !== null && current.external_relation_average !== undefined && (
+                <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  Avg. {Number(current.external_relation_average).toFixed(2)} ({current.external_relation_count || 0})
+                </span>
+              )}
+
+              {externalRelationMetricEntries.length > 0 && (
+                <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
+                  {externalRelationMetricEntries.map((entry) => {
+                    const isMe = currentUserId && entry.userId === currentUserId;
+                    return (
+                      <span
+                        key={`rel-${entry.userId}`}
+                        className={[
+                          "text-xs font-medium border px-2 py-1 rounded-full",
+                          isMe
+                            ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                            : "bg-slate-100 text-slate-700 border-slate-300",
+                        ].join(" ")}
+                      >
+                        {entry.userName}
+                        {isMe ? " (you)" : ""}
+                        : {entry.value}/10
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
