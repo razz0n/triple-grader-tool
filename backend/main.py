@@ -2392,6 +2392,13 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
                 if t.get("id") == body.triple_id:
                     for sug in t.get("suggestions", []):
                         if sug.get("id") == body.suggestion_id:
+                            # Save the prior triple so undo approve can restore it exactly.
+                            sug["approved_from"] = {
+                                "subject": t.get("subject"),
+                                "predicate": t.get("predicate"),
+                                "object": t.get("object"),
+                                "author": t.get("author"),
+                            }
                             t["subject"] = sug.get("subject", t.get("subject"))
                             t["predicate"] = sug.get("predicate", t.get("predicate"))
                             t["object"] = sug.get("object", t.get("object"))
@@ -2430,11 +2437,28 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
                 if t.get("id") == body.triple_id:
                     for sug in t.get("suggestions", []):
                         if sug.get("id") == body.suggestion_id:
+                            previous_triple = sug.get("approved_from") if isinstance(sug.get("approved_from"), dict) else {}
+                            if previous_triple:
+                                t["subject"] = previous_triple.get("subject", t.get("subject"))
+                                t["predicate"] = previous_triple.get("predicate", t.get("predicate"))
+                                t["object"] = previous_triple.get("object", t.get("object"))
+                                t["author"] = previous_triple.get("author")
+
                             sug["status"] = "pending"
                             sug.pop("approved_by", None)
                             sug.pop("approved_at", None)
+                            sug.pop("approved_from", None)
                             _save_loaded_session(json_path, session)
-                            return {"ok": True}
+                            return {
+                                "ok": True,
+                                "triple": {
+                                    "id": t.get("id"),
+                                    "subject": t.get("subject"),
+                                    "predicate": t.get("predicate"),
+                                    "object": t.get("object"),
+                                    "author": t.get("author"),
+                                },
+                            }
 
     raise HTTPException(status_code=404, detail="Suggestion not found.")
 

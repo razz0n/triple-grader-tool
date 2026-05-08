@@ -733,10 +733,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   ? t
                   : {
                       ...t,
-                      subject: isApproved ? t.subject : (result?.triple?.subject ?? t.subject),
-                      predicate: isApproved ? t.predicate : (result?.triple?.predicate ?? t.predicate),
-                      object: isApproved ? t.object : (result?.triple?.object ?? t.object),
-                      author: isApproved ? t.author : (result?.triple?.author ?? t.author),
+                      subject: result?.triple?.subject ?? t.subject,
+                      predicate: result?.triple?.predicate ?? t.predicate,
+                      object: result?.triple?.object ?? t.object,
+                      author: result?.triple?.author ?? t.author,
                       suggestions: (t.suggestions || []).map((sug) =>
                         sug.id === suggestionId
                           ? isApproved
