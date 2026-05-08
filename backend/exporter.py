@@ -54,6 +54,13 @@ def _grade_str(grade) -> str:
 
 
 def _avg_str(sentence) -> str:
+    explicit_sentence_grade = sentence.get("sentence_grade")
+    if explicit_sentence_grade is not None:
+        try:
+            return f"{float(explicit_sentence_grade):.1f}"
+        except (TypeError, ValueError):
+            pass
+
     grades = [t["grade"] for t in sentence["triples"] if t.get("grade") is not None]
     if not grades:
         return "Not graded"

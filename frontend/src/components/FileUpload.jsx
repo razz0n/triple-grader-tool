@@ -451,7 +451,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                             Number(s.my_graded_triples || 0) > 0
                           );
                           const roleHint = s.is_owner
-                            ? "You own this file. You can suggest, vote, and approve suggestions, but you do not grade."
+                            ? "You own this file. You can vote and approve suggestions, but you do not grade or suggest triples."
                             : hasWorkedOnSession
                               ? "You can continue grading, commenting, and suggesting edits. The owner handles approvals."
                               : "You can grade, suggest edits, and vote. The owner handles approvals.";

@@ -10,6 +10,7 @@ export default function TripleSuggestions({
   onVoteSuggestion,
   onDeleteSuggestion,
   onApproveSuggestion,
+  canSuggest = true,
   canApprove = false,
   currentUserName,
   currentUser,
@@ -50,6 +51,11 @@ export default function TripleSuggestions({
   };
 
   const handleSubmitSuggestion = async () => {
+    if (!canSuggest) {
+      alert("You are not allowed to add suggestions in this session.");
+      return;
+    }
+
     if (!formData.subject || !formData.predicate || !formData.object) {
       alert("Please fill in all triple fields");
       return;
@@ -110,6 +116,8 @@ export default function TripleSuggestions({
 
   useEffect(() => {
     const onTripleCopy = (event) => {
+      if (!canSuggest) return;
+
       const { tripleId, field, action } = event.detail || {};
       if (tripleId !== triple.id) return;
       if (action === "new") {
@@ -123,7 +131,12 @@ export default function TripleSuggestions({
 
     window.addEventListener("triple-copy", onTripleCopy);
     return () => window.removeEventListener("triple-copy", onTripleCopy);
-  }, [triple.id, subject, predicate, object]);
+  }, [canSuggest, triple.id, subject, predicate, object]);
+
+  useEffect(() => {
+    if (canSuggest) return;
+    setShowForm(false);
+  }, [canSuggest]);
 
   useEffect(() => {
     if (!showForm || !focusField) return;
@@ -167,7 +180,7 @@ export default function TripleSuggestions({
       <div className="p-3 space-y-3">
 
       {/* Suggestion form */}
-      {showForm && (
+      {canSuggest && showForm && (
         <div className="bg-white border border-amber-200 rounded-lg p-3 space-y-2 shadow-sm">
           <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
             <span>✏️</span> New Triple Suggestion
@@ -226,7 +239,7 @@ export default function TripleSuggestions({
       {suggestions.length > 0 && (
         <div className="space-y-2">
           {suggestions.map((sug) => {
-            const canDelete = sug.author === displayUserName;
+            const canDelete = canSuggest && sug.author === displayUserName;
             const isEditing = editingSuggestionId === sug.id;
             const currentUserVote = (sug.votes || {})[displayUserName] ?? null;
             const gradeVotes = Object.values(sug.votes || {})

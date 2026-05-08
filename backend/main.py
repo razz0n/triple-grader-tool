@@ -14,6 +14,7 @@ import os
 import uuid
 import hashlib
 import secrets
+import html
 import re
 from datetime import datetime
 from pathlib import Path
@@ -407,8 +408,13 @@ def _can_approve_session(session: Dict[str, Any], session_path: Optional[Path], 
     return _is_session_owner(session, session_path, user)
 
 
+def _can_suggest_session(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
+    # In v2 collaboration mode, only collaborators (non-owners) can add triple suggestions.
+    return not _is_session_owner(session, session_path, user)
+
+
 def _can_edit_session_directly(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
-    # Shared v2 rule: owner can suggest/vote/approve, but does not grade.
+    # Shared v2 rule: owner can vote/approve, but does not grade.
     return not _is_session_owner(session, session_path, user)
 
 
@@ -1026,6 +1032,7 @@ def _with_session_access_flags(
     data["root_session_id"] = session_id
     data["is_copy"] = False
     data["can_edit"] = _can_edit_session_directly(session, session_path, user)
+    data["can_suggest"] = _can_suggest_session(session, session_path, user)
     data["can_approve"] = _can_approve_session(session, session_path, user)
     data["is_owner"] = _is_session_owner(session, session_path, user)
     return data
@@ -1522,35 +1529,263 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     }
 
 
+def _avg_or_none(values: list[float]) -> Optional[float]:
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def _preview_grader_options(session_data: Dict[str, Any]) -> list[Dict[str, Any]]:
+    stats = _session_grading_stats(session_data)
+    options: list[Dict[str, Any]] = []
+    for row in stats.get("grader_summary", []):
+        user_id = str(row.get("user_id") or "").strip()
+        if not user_id:
+            continue
+        options.append({
+            "user_id": user_id,
+            "user_name": str(row.get("user_name") or user_id),
+            "graded_triples": int(row.get("graded_triples") or 0),
+        })
+    return options
+
+
+def _resolve_preview_selection(
+    requested_mode: str,
+    requested_user_id: Optional[str],
+    current_user_id: str,
+    grader_options: list[Dict[str, Any]],
+) -> tuple[str, str, str]:
+    mode = str(requested_mode or "combined").strip().lower()
+    if mode == "mine":
+        mode = "user"
+        requested_user_id = current_user_id
+    if mode not in {"combined", "user"}:
+        mode = "combined"
+
+    valid_ids = [str(item.get("user_id") or "").strip() for item in grader_options if str(item.get("user_id") or "").strip()]
+    selected_user_id = str(requested_user_id or "").strip()
+
+    if mode == "user":
+        if selected_user_id not in valid_ids:
+            if current_user_id in valid_ids:
+                selected_user_id = current_user_id
+            elif valid_ids:
+                selected_user_id = valid_ids[0]
+            else:
+                mode = "combined"
+                selected_user_id = ""
+
+    if mode == "combined":
+        return "combined", "", "Combined grading"
+
+    selected_name = next(
+        (str(item.get("user_name") or selected_user_id) for item in grader_options if str(item.get("user_id") or "").strip() == selected_user_id),
+        selected_user_id,
+    )
+    return "user", selected_user_id, selected_name
+
+
+def _project_session_for_view(
+    session_data: Dict[str, Any],
+    view_mode: str,
+    view_user_id: str = "",
+) -> Dict[str, Any]:
+    data = json.loads(json.dumps(session_data, ensure_ascii=False))
+
+    owner_fallback_user_id = str(data.get("owner_user_id") or "").strip()
+    owner_fallback_user_name = str(data.get("owner_name") or "").strip()
+
+    overall_triple_grades: list[float] = []
+    total_triples = 0
+    graded_triples = 0
+
+    for sentence in data.get("sentences", []):
+        sentence_user_grades: Dict[str, list[float]] = {}
+
+        completeness_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("completeness_by_user"),
+            fallback_value=sentence.get("completeness"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("completeness_updated_at"),
+        )
+        external_relation_by_user = _normalize_sentence_metric_by_user(
+            sentence.get("external_relation_by_user"),
+            fallback_value=sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation"),
+            fallback_user_id=owner_fallback_user_id,
+            fallback_user_name=owner_fallback_user_name,
+            fallback_updated_at=sentence.get("external_relation_updated_at"),
+        )
+
+        sentence["completeness_by_user"] = completeness_by_user
+        sentence["external_relation_by_user"] = external_relation_by_user
+
+        for triple in sentence.get("triples", []):
+            total_triples += 1
+
+            grades_by_user = _normalize_grades_by_user(
+                triple.get("grades_by_user"),
+                fallback_grade=triple.get("grade"),
+                fallback_author=str(triple.get("author") or ""),
+                fallback_user_id=owner_fallback_user_id,
+                fallback_graded_at=triple.get("graded_at"),
+            )
+            triple["grades_by_user"] = grades_by_user
+
+            for grader_id, payload in grades_by_user.items():
+                grade_value = _normalize_grade_value(payload.get("grade"))
+                if grade_value is None:
+                    continue
+                sentence_user_grades.setdefault(grader_id, []).append(float(grade_value))
+
+            if view_mode == "user" and view_user_id:
+                selected_payload = grades_by_user.get(view_user_id)
+                selected_grade = (
+                    _normalize_grade_value(selected_payload.get("grade"))
+                    if isinstance(selected_payload, dict)
+                    else None
+                )
+                triple["grade"] = selected_grade
+                triple["author"] = (
+                    str(selected_payload.get("user_name") or view_user_id)
+                    if isinstance(selected_payload, dict) and selected_grade is not None
+                    else None
+                )
+                triple["grade_count"] = 1 if selected_grade is not None else 0
+                triple["grade_average"] = selected_grade
+            else:
+                grade_values = [
+                    float(grade_value)
+                    for payload in grades_by_user.values()
+                    for grade_value in [_normalize_grade_value(payload.get("grade"))]
+                    if grade_value is not None
+                ]
+                combined_grade = _avg_or_none(grade_values)
+                triple["grade"] = combined_grade
+                triple["author"] = "Combined" if combined_grade is not None else None
+                triple["grade_count"] = len(grade_values)
+                triple["grade_average"] = combined_grade
+
+            if triple.get("grade") is not None:
+                graded_triples += 1
+                overall_triple_grades.append(float(triple["grade"]))
+
+        if view_mode == "user" and view_user_id:
+            selected_comp = completeness_by_user.get(view_user_id)
+            selected_ext = external_relation_by_user.get(view_user_id)
+
+            comp_value = (
+                _normalize_sentence_metric_value(selected_comp.get("value"))
+                if isinstance(selected_comp, dict)
+                else None
+            )
+            ext_value = (
+                _normalize_sentence_metric_value(selected_ext.get("value"))
+                if isinstance(selected_ext, dict)
+                else None
+            )
+
+            sentence["completeness"] = comp_value
+            sentence["completeness_count"] = 1 if comp_value is not None else 0
+            sentence["completeness_average"] = comp_value
+
+            sentence["external_relation"] = ext_value
+            sentence["external_relation_count"] = 1 if ext_value is not None else 0
+            sentence["external_relation_average"] = ext_value
+
+            sentence_grade_values = [float(v) for v in sentence_user_grades.get(view_user_id, [])]
+            sentence["sentence_grade"] = _avg_or_none(sentence_grade_values)
+        else:
+            comp_values = [
+                float(metric_value)
+                for payload in completeness_by_user.values()
+                for metric_value in [_normalize_sentence_metric_value(payload.get("value"))]
+                if metric_value is not None
+            ]
+            ext_values = [
+                float(metric_value)
+                for payload in external_relation_by_user.values()
+                for metric_value in [_normalize_sentence_metric_value(payload.get("value"))]
+                if metric_value is not None
+            ]
+
+            sentence["completeness"] = _avg_or_none(comp_values)
+            sentence["completeness_count"] = len(comp_values)
+            sentence["completeness_average"] = _avg_or_none(comp_values)
+
+            sentence["external_relation"] = _avg_or_none(ext_values)
+            sentence["external_relation_count"] = len(ext_values)
+            sentence["external_relation_average"] = _avg_or_none(ext_values)
+
+            per_user_sentence_grades = [
+                _avg_or_none(values)
+                for values in sentence_user_grades.values()
+                if values
+            ]
+            sentence["sentence_grade"] = _avg_or_none([
+                float(v)
+                for v in per_user_sentence_grades
+                if v is not None
+            ])
+
+    data["session_average_grade"] = _avg_or_none(overall_triple_grades)
+    data["is_completed_grading"] = total_triples > 0 and graded_triples == total_triples
+    data["graded_triples"] = graded_triples
+    data["total_triples"] = total_triples
+    data["preview_view_mode"] = view_mode
+    data["preview_view_user_id"] = view_user_id if view_mode == "user" and view_user_id else None
+    return data
+
+
 @app.get("/api/download/{session_id}/{fmt}")
-async def download_session(session_id: str, fmt: str, user: Dict[str, Any] = Depends(_current_user)):
+async def download_session(
+    session_id: str,
+    fmt: str,
+    request: Request,
+    token: Optional[str] = Query(default=None),
+    view_mode: str = Query(default="mine"),
+    view_user_id: Optional[str] = Query(default=None),
+):
     """Download a saved session in the requested format."""
-    _, session = _load_session_for_access(session_id)
-    session = _session_for_user_view(session, user)
+    user = _current_user_from_bearer_or_query(request, token)
+    _, raw_session = _load_session_for_access(session_id)
+    base_session = _session_for_user_view(raw_session, user)
+
+    grader_options = _preview_grader_options(base_session)
+    selected_mode, selected_user_id, selected_label = _resolve_preview_selection(
+        requested_mode=view_mode,
+        requested_user_id=view_user_id,
+        current_user_id=str(user.get("id") or "").strip(),
+        grader_options=grader_options,
+    )
+    session = _project_session_for_view(base_session, selected_mode, selected_user_id)
 
     fmt = fmt.lower()
     filename_base = session.get("source_filename", "graded").rsplit(".", 1)[0]
+    filename_suffix = "combined"
+    if selected_mode == "user":
+        safe_label = re.sub(r"[^a-z0-9_]+", "_", str(selected_label).lower()).strip("_") or "user"
+        filename_suffix = safe_label
 
     if fmt == "json":
         data         = to_json(session)
         media_type   = "application/json"
-        disposition  = f'attachment; filename="{filename_base}_graded.json"'
+        disposition  = f'attachment; filename="{filename_base}_{filename_suffix}_graded.json"'
     elif fmt == "csv":
         data         = to_csv(session)
         media_type   = "text/csv"
-        disposition  = f'attachment; filename="{filename_base}_graded.csv"'
+        disposition  = f'attachment; filename="{filename_base}_{filename_suffix}_graded.csv"'
     elif fmt in ("excel", "xlsx"):
         data         = to_excel(session)
         media_type   = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        disposition  = f'attachment; filename="{filename_base}_graded.xlsx"'
+        disposition  = f'attachment; filename="{filename_base}_{filename_suffix}_graded.xlsx"'
     elif fmt in ("pdf",):
         data         = to_pdf(session)
         media_type   = "application/pdf"
-        disposition  = f'attachment; filename="{filename_base}_graded.pdf"'
+        disposition  = f'attachment; filename="{filename_base}_{filename_suffix}_graded.pdf"'
     elif fmt in ("word", "docx"):
         data         = to_word(session)
         media_type   = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        disposition  = f'attachment; filename="{filename_base}_graded.docx"'
+        disposition  = f'attachment; filename="{filename_base}_{filename_suffix}_graded.docx"'
     else:
         raise HTTPException(status_code=400, detail=f"Unknown format '{fmt}'. Use: json, csv, excel, pdf, word.")
 
@@ -1607,132 +1842,234 @@ async def preview_session(
     session_id: str,
     request: Request,
     token: Optional[str] = Query(default=None),
+    view_mode: str = Query(default="combined"),
+    view_user_id: Optional[str] = Query(default=None),
 ):
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
     user = _current_user_from_bearer_or_query(request, token)
-    _, session = _load_session_for_access(session_id)
-    session = _session_for_user_view(session, user)
+    if True:
+        _, raw_session = _load_session_for_access(session_id)
+        base_session = _session_for_user_view(raw_session, user)
 
-    sentences   = session.get("sentences", [])
-    filename    = session.get("source_filename", "")
-    uploaded_at = session.get("uploaded_at", "")[:16].replace("T", " ")
-
-    def grade_color(g):
-        if g is None: return "#94a3b8"
-        if g >= 7:    return "#16a34a"
-        if g >= 4:    return "#d97706"
-        return "#dc2626"
-
-    def avg_grade(s):
-        gs = [t["grade"] for t in s.get("triples", []) if t.get("grade") is not None]
-        if not gs: return None
-        return round(sum(gs) / len(gs), 1)
-
-    rows_html = []
-    for s in sentences:
-        avg  = avg_grade(s)
-        gc   = grade_color(avg)
-        avg_label = f"{avg}" if avg is not None else "—"
-        triple_rows = "".join(
-            f"""<tr style="background:{'#f8fafc' if i%2==0 else '#fff'}">
-              <td style="padding:5px 10px;color:#64748b;font-size:12px;">{i+1}</td>
-              <td style="padding:5px 10px;font-size:12px;">{t.get('subject','')}</td>
-              <td style="padding:5px 10px;font-size:12px;">{t.get('predicate','')}</td>
-              <td style="padding:5px 10px;font-size:12px;">{t.get('object','')}</td>
-              <td style="padding:5px 10px;text-align:center;font-weight:600;font-size:13px;color:{grade_color(t.get('grade'))}">{t.get('grade') if t.get('grade') is not None else '—'}</td>
-            </tr>"""
-            for i, t in enumerate(s.get("triples", []))
+        grader_options = _preview_grader_options(base_session)
+        selected_mode, selected_user_id, selected_label = _resolve_preview_selection(
+                requested_mode=view_mode,
+                requested_user_id=view_user_id,
+                current_user_id=str(user.get("id") or "").strip(),
+                grader_options=grader_options,
         )
-        suggestion = s.get("suggestion", "").strip()
-        sug_html = f'<p style="margin:8px 0 0;font-size:12px;color:#64748b;"><em>💬 {suggestion}</em></p>' if suggestion else ""
-        completeness = s.get("completeness")
-        external_relation = s.get("external_relation")
-        metrics_html = ""
-        if completeness is not None or external_relation is not None:
-            comp_label = "—" if completeness is None else str(completeness)
-            rel_label = "—" if external_relation is None else str(external_relation)
-            metrics_html = (
-            '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
-            f'<span style="font-size:11px;padding:3px 8px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:999px;color:#166534;">Completeness: {comp_label}/10</span>'
-            f'<span style="font-size:11px;padding:3px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;color:#3730a3;">External Relation: {rel_label}/10</span>'
-            '</div>'
-            )
-        rows_html.append(f"""
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);">
-            <div style="background:#1e3a5f;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:13px;font-weight:600;">Sentence {s['id']}</span>
-              <span style="font-size:18px;font-weight:700;color:{gc};background:rgba(255,255,255,.15);border-radius:8px;padding:2px 10px;">{avg_label}<span style="font-size:11px;font-weight:400;"> / 10</span></span>
-            </div>
-            <div style="padding:12px 16px 4px;">
-              <p style="margin:0 0 10px;font-size:14px;color:#1e293b;line-height:1.6;border-left:3px solid #93c5fd;padding-left:10px;">{s.get('text','')}</p>
+        session = _project_session_for_view(base_session, selected_mode, selected_user_id)
+
+        sentences = session.get("sentences", [])
+        filename = str(session.get("source_filename", ""))
+        uploaded_at = str(session.get("uploaded_at", ""))[:16].replace("T", " ")
+
+        def grade_color(grade: Optional[float]) -> str:
+                if grade is None:
+                        return "#94a3b8"
+                if grade >= 7:
+                        return "#16a34a"
+                if grade >= 4:
+                        return "#d97706"
+                return "#dc2626"
+
+        def grade_label(grade: Optional[float]) -> str:
+                if grade is None:
+                        return "—"
+                return f"{float(grade):.2f}"
+
+        rows_html: list[str] = []
+        for sentence in sentences:
+                sentence_grade = _normalize_grade_value(sentence.get("sentence_grade"))
+
+                triple_rows = "".join(
+                        f"""<tr style="background:{'#f8fafc' if idx % 2 == 0 else '#fff'}">
+                            <td style="padding:5px 10px;color:#64748b;font-size:12px;">{idx + 1}</td>
+                            <td style="padding:5px 10px;font-size:12px;">{html.escape(str(triple.get('subject', '')))}</td>
+                            <td style="padding:5px 10px;font-size:12px;">{html.escape(str(triple.get('predicate', '')))}</td>
+                            <td style="padding:5px 10px;font-size:12px;">{html.escape(str(triple.get('object', '')))}</td>
+                            <td style="padding:5px 10px;text-align:center;font-weight:600;font-size:13px;color:{grade_color(_normalize_grade_value(triple.get('grade')))}">{grade_label(_normalize_grade_value(triple.get('grade')))}</td>
+                        </tr>"""
+                        for idx, triple in enumerate(sentence.get("triples", []))
+                )
+
+                suggestion = str(sentence.get("suggestion", "")).strip()
+                suggestion_html = (
+                        f'<p style="margin:8px 0 0;font-size:12px;color:#64748b;"><em>💬 {html.escape(suggestion)}</em></p>' if suggestion else ""
+                )
+
+                completeness = _normalize_sentence_metric_value(sentence.get("completeness"))
+                external_relation = _normalize_sentence_metric_value(sentence.get("external_relation"))
+                metrics_html = ""
+                if completeness is not None or external_relation is not None:
+                        comp_label = "—" if completeness is None else f"{float(completeness):.2f}"
+                        rel_label = "—" if external_relation is None else f"{float(external_relation):.2f}"
+                        metrics_html = (
+                                '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
+                                f'<span style="font-size:11px;padding:3px 8px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:999px;color:#166534;">Completeness: {comp_label}/10</span>'
+                                f'<span style="font-size:11px;padding:3px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;color:#3730a3;">External Relation: {rel_label}/10</span>'
+                                '</div>'
+                        )
+
+                rows_html.append(
+                        f"""
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+                        <div style="background:#1e3a5f;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                            <span style="font-size:13px;font-weight:600;">Sentence {html.escape(str(sentence.get('id', '')))}</span>
+                            <span style="font-size:18px;font-weight:700;color:{grade_color(sentence_grade)};background:rgba(255,255,255,.15);border-radius:8px;padding:2px 10px;">{grade_label(sentence_grade)}<span style="font-size:11px;font-weight:400;"> / 10</span></span>
+                        </div>
+                        <div style="padding:12px 16px 4px;">
+                            <p style="margin:0 0 10px;font-size:14px;color:#1e293b;line-height:1.6;border-left:3px solid #93c5fd;padding-left:10px;">{html.escape(str(sentence.get('text', '')))}</p>
                             {metrics_html}
-              {sug_html}
-            </div>
-            <div style="overflow-x:auto;">
-              <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#dbeafe;">
-                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">#</th>
-                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Subject</th>
-                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Predicate</th>
-                  <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Object</th>
-                  <th style="padding:6px 10px;font-size:11px;text-align:center;color:#1e3a5f;">Grade</th>
-                </tr></thead>
-                <tbody>{triple_rows}</tbody>
-              </table>
-            </div>
-          </div>
-        """)
+                            {suggestion_html}
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;">
+                                <thead><tr style="background:#dbeafe;">
+                                    <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">#</th>
+                                    <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Subject</th>
+                                    <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Predicate</th>
+                                    <th style="padding:6px 10px;font-size:11px;text-align:left;color:#1e3a5f;">Object</th>
+                                    <th style="padding:6px 10px;font-size:11px;text-align:center;color:#1e3a5f;">Grade</th>
+                                </tr></thead>
+                                <tbody>{triple_rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                """
+                )
 
-    body = "\n".join(rows_html)
-    total_triples = sum(len(s.get("triples", [])) for s in sentences)
-    graded_triples = sum(
-        sum(1 for t in s.get("triples", []) if t.get("grade") is not None)
-        for s in sentences
-    )
-    overall_grades = [t["grade"] for s in sentences for t in s.get("triples", []) if t.get("grade") is not None]
-    overall_avg = round(sum(overall_grades) / len(overall_grades), 1) if overall_grades else None
-    overall_label = str(overall_avg) if overall_avg is not None else "—"
+        body = "\n".join(rows_html)
+        total_sentences = len(sentences)
+        total_triples = int(session.get("total_triples") or sum(len(s.get("triples", [])) for s in sentences))
+        graded_triples = int(
+                session.get("graded_triples")
+                if session.get("graded_triples") is not None
+                else sum(sum(1 for t in s.get("triples", []) if t.get("grade") is not None) for s in sentences)
+        )
+        overall_average = _normalize_grade_value(session.get("session_average_grade"))
+        overall_label = grade_label(overall_average)
 
-    html = f"""<!DOCTYPE html>
+        selected_option_value = "combined" if selected_mode == "combined" else f"user:{selected_user_id}"
+        mode_options = [
+                {
+                        "value": "combined",
+                        "label": f"Combined grading ({len(grader_options)} user{'s' if len(grader_options) != 1 else ''})",
+                }
+        ] + [
+                {
+                        "value": f"user:{str(option.get('user_id') or '')}",
+                        "label": f"{str(option.get('user_name') or 'User')} ({int(option.get('graded_triples') or 0)} triples)",
+                }
+                for option in grader_options
+        ]
+        mode_options_html = "".join(
+                f'<option value="{html.escape(option["value"])}"{" selected" if option["value"] == selected_option_value else ""}>{html.escape(option["label"])}</option>'
+                for option in mode_options
+        )
+
+        preview_token_js = json.dumps(token or "")
+        selected_mode_js = json.dumps(selected_mode)
+        selected_user_id_js = json.dumps(selected_user_id)
+
+        html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preview — {filename}</title>
+    <title>Preview — {html.escape(filename)}</title>
   <style>
-    *, *::before, *::after {{ box-sizing: border-box; }}
-    body {{ margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background:#f1f5f9; color:#1e293b; }}
-    .topbar {{ background:#1e3a5f; color:#fff; padding:14px 24px;
-               display:flex; justify-content:space-between; align-items:center;
-               position:sticky; top:0; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,.2); }}
-    .topbar h1 {{ margin:0; font-size:16px; font-weight:700; }}
-    .topbar p  {{ margin:0; font-size:11px; opacity:.7; }}
-    .stats {{ display:flex; gap:18px; text-align:right; }}
-    .stat-val {{ font-size:20px; font-weight:700; line-height:1; }}
-    .stat-lbl {{ font-size:10px; opacity:.7; }}
-    .container {{ max-width:900px; margin:24px auto; padding:0 16px 40px; }}
-    @media print {{ .topbar {{ position:static; }} }}
+        *, *::before, *::after {{ box-sizing: border-box; }}
+        body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }}
+        .topbar {{ background: #1e3a5f; color: #fff; padding: 14px 24px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.2); display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; gap: 16px; align-items: center; }}
+        .topbar h1 {{ margin: 0; font-size: 16px; font-weight: 700; }}
+        .topbar p {{ margin: 0; font-size: 11px; opacity: .8; }}
+        .controls {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+        .controls label {{ font-size: 11px; opacity: .9; font-weight: 600; }}
+        .controls select {{ border: 1px solid #93c5fd; background: #fff; color: #1e293b; border-radius: 8px; padding: 5px 8px; font-size: 12px; min-width: 170px; }}
+        .controls button {{ border: 1px solid #86efac; background: #22c55e; color: #052e16; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }}
+        .controls button:hover {{ background: #16a34a; color: #ecfdf5; }}
+        .stats {{ display: flex; gap: 18px; text-align: right; }}
+        .stat-val {{ font-size: 20px; font-weight: 700; line-height: 1; }}
+        .stat-lbl {{ font-size: 10px; opacity: .75; }}
+        .container {{ max-width: 900px; margin: 24px auto; padding: 0 16px 40px; }}
+        @media (max-width: 960px) {{ .topbar {{ grid-template-columns: 1fr; }} .stats {{ text-align: left; }} }}
+        @media print {{ .topbar {{ position: static; }} }}
   </style>
 </head>
 <body>
   <div class="topbar">
     <div>
       <h1>📊 Ontology Triple Grading — Preview</h1>
-      <p>{filename} &nbsp;&bull;&nbsp; Saved {uploaded_at}</p>
+            <p>{html.escape(filename)} &nbsp;&bull;&nbsp; Saved {html.escape(uploaded_at)} &nbsp;&bull;&nbsp; View: {html.escape(selected_label)}</p>
+        </div>
+        <div class="controls">
+            <label for="preview-view-mode">View</label>
+            <select id="preview-view-mode" onchange="onPreviewModeChange()">
+                {mode_options_html}
+            </select>
+            <label for="preview-download-format">Download</label>
+            <select id="preview-download-format">
+                <option value="pdf">PDF</option>
+                <option value="word">Word</option>
+                <option value="excel">Excel</option>
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+            </select>
+            <button type="button" onclick="downloadPreview()">Download</button>
     </div>
     <div class="stats">
-      <div><div class="stat-val">{len(sentences)}</div><div class="stat-lbl">Sentences</div></div>
+            <div><div class="stat-val">{total_sentences}</div><div class="stat-lbl">Sentences</div></div>
       <div><div class="stat-val">{graded_triples}/{total_triples}</div><div class="stat-lbl">Triples graded</div></div>
-      <div><div class="stat-val" style="color:#86efac;">{overall_label}</div><div class="stat-lbl">Overall avg</div></div>
+            <div><div class="stat-val">{len(grader_options)}</div><div class="stat-lbl">Users graded</div></div>
+            <div><div class="stat-val" style="color:#86efac;">{overall_label}</div><div class="stat-lbl">Overall avg</div></div>
     </div>
   </div>
   <div class="container">
     {body}
   </div>
+    <script>
+        const PREVIEW_TOKEN = {preview_token_js};
+        const PREVIEW_MODE = {selected_mode_js};
+        const PREVIEW_USER_ID = {selected_user_id_js};
+
+        function onPreviewModeChange() {{
+            const selector = document.getElementById("preview-view-mode");
+            const rawValue = selector ? selector.value : "combined";
+            const chunks = rawValue.split(":");
+            const mode = chunks[0] || "combined";
+            const userId = chunks.length > 1 ? chunks.slice(1).join(":") : "";
+
+            const url = new URL(window.location.href);
+            url.searchParams.set("view_mode", mode);
+            if (userId) {{
+                url.searchParams.set("view_user_id", userId);
+            }} else {{
+                url.searchParams.delete("view_user_id");
+            }}
+            if (PREVIEW_TOKEN) {{
+                url.searchParams.set("token", PREVIEW_TOKEN);
+            }}
+            window.location.href = url.toString();
+        }}
+
+        function downloadPreview() {{
+            const formatSelector = document.getElementById("preview-download-format");
+            const format = formatSelector ? formatSelector.value : "pdf";
+            const url = new URL(window.location.origin + "/api/download/{session_id}/" + encodeURIComponent(format));
+            if (PREVIEW_TOKEN) {{
+                url.searchParams.set("token", PREVIEW_TOKEN);
+            }}
+            url.searchParams.set("view_mode", PREVIEW_MODE || "combined");
+            if (PREVIEW_MODE === "user" && PREVIEW_USER_ID) {{
+                url.searchParams.set("view_user_id", PREVIEW_USER_ID);
+            }}
+            window.open(url.toString(), "_blank", "noopener");
+        }}
+    </script>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+        return HTMLResponse(content=html_doc)
 
 
 @app.get("/api/sessions")
@@ -1768,6 +2105,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "owner_name": owner_name,
                 "is_owner": is_owner,
                 "can_edit": _can_edit_session_directly(data, None, user),
+                "can_suggest": _can_suggest_session(data, None, user),
                 "can_approve": _can_approve_session(data, None, user),
                 "root_session_id": session_id,
                 "is_copy": False,
@@ -1819,6 +2157,7 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
                 "owner_name": owner_name,
                 "is_owner": is_owner,
                 "can_edit": _can_edit_session_directly(data, p, user),
+                "can_suggest": _can_suggest_session(data, p, user),
                 "can_approve": _can_approve_session(data, p, user),
                 "root_session_id": session_id,
                 "is_copy": False,
@@ -1902,6 +2241,9 @@ async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = D
     """Add a suggested triple edit."""
     user_name = _display_name(user)
     json_path, session = _load_session_for_access(body.session_id)
+
+    if not _can_suggest_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Session owner cannot add triple suggestions.")
     
     # Find the sentence and triple
     sentence = None

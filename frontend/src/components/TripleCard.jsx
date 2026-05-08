@@ -7,6 +7,7 @@ export default function TripleCard({
   gradesByUser = {},
   currentUserId,
   readOnly = false,
+  canSuggest = true,
   onChange,
 }) {
   const { subject, predicate, object } = triple;
@@ -38,7 +39,13 @@ export default function TripleCard({
         <button
           type="button"
           onClick={() => emitTripleCopy("subject")}
-          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition-colors"
+          disabled={!canSuggest}
+          className={[
+            "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors",
+            canSuggest
+              ? "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
+              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed",
+          ].join(" ")}
           title="Copy subject into suggestion form"
         >
           {subject}
@@ -47,7 +54,13 @@ export default function TripleCard({
         <button
           type="button"
           onClick={() => emitTripleCopy("predicate")}
-          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-200 hover:bg-indigo-200 transition-colors"
+          disabled={!canSuggest}
+          className={[
+            "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors",
+            canSuggest
+              ? "bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200"
+              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed",
+          ].join(" ")}
           title="Copy predicate into suggestion form"
         >
           {predicate}
@@ -56,25 +69,33 @@ export default function TripleCard({
         <button
           type="button"
           onClick={() => emitTripleCopy("object")}
-          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-teal-100 text-teal-800 border border-teal-200 hover:bg-teal-200 transition-colors"
+          disabled={!canSuggest}
+          className={[
+            "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors",
+            canSuggest
+              ? "bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200"
+              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed",
+          ].join(" ")}
           title="Copy object into suggestion form"
         >
           {object}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            window.dispatchEvent(
-              new CustomEvent("triple-copy", {
-                detail: { tripleId: triple.id, action: "new" },
-              })
-            )
-          }
-          className="ml-auto px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors font-medium"
-          title="Create a new suggestion"
-        >
-          + New Suggestion
-        </button>
+        {canSuggest && (
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("triple-copy", {
+                  detail: { tripleId: triple.id, action: "new" },
+                })
+              )
+            }
+            className="ml-auto px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors font-medium"
+            title="Create a new suggestion"
+          >
+            + New Suggestion
+          </button>
+        )}
       </div>
 
       {/* Triple Quality Section */}

@@ -130,11 +130,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     manual_mode,
     resumed,
     can_edit,
+    can_suggest,
     can_approve,
     is_owner,
   } = uploadData;
 
   const canEditSession = can_edit ?? true;
+  const canSuggestTriples = can_suggest ?? !is_owner;
   const canApproveSuggestions = can_approve ?? !!is_owner;
   const currentUserId = currentUser?.id || "";
   const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
@@ -509,6 +511,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const handleAddSuggestion = async (tripleId, suggestionData) => {
+    if (!canSuggestTriples) {
+      throw new Error("You are not allowed to add triple suggestions in this session.");
+    }
+
     // Ensure session is saved before adding suggestion
     if (!savedSessionId) {
       await handleSave();
@@ -1068,7 +1074,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <div>
               <h2 className="text-sm font-semibold text-slate-700">Shared Grading Activity</h2>
               <p className="text-xs text-slate-500 mt-1">
-                Collaborators can grade, suggest, and vote. Owner can suggest, vote, and approve suggestions.
+                Collaborators can grade, suggest, and vote. Owner can vote and approve suggestions.
               </p>
             </div>
             <div className="text-xs text-slate-600">
@@ -1336,11 +1342,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   gradesByUser={triple.grades_by_user}
                   currentUserId={currentUserId}
                   readOnly={!canEditSession}
+                  canSuggest={canSuggestTriples}
                   onChange={(grade) => handleGradeChange(triple.id, grade)}
                 />
                 <TripleSuggestions
                   triple={triple}
                   currentUser={currentUser}
+                  canSuggest={canSuggestTriples}
                   canApprove={canApproveSuggestions}
                   onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
                   onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
@@ -1400,7 +1408,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <p className="mt-3 text-xs text-slate-400 italic">No comments yet for this sentence.</p>
           )}
           <p className="mt-2 text-xs text-slate-500">
-            Shared mode: collaborators grade, suggest, and vote; owner suggests, votes, and approves.
+            Shared mode: collaborators grade, suggest, and vote; owner votes and approves.
           </p>
         </div>
 
