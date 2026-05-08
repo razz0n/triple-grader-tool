@@ -1,5 +1,5 @@
 """  
-main.py — FastAPI backend for the Ontology Triple Grading Tool.
+main.py — FastAPI backend for the Ontology Triple Grading Tool. 
 
 Endpoints:
   POST /api/upload              → parse uploaded file → return session data
@@ -9,13 +9,11 @@ Endpoints:
   GET  /api/sessions            → list saved sessions
 """
 
-import json
-import os
-import uuid
 import hashlib
-import secrets
 import html
+import json
 import re
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -25,35 +23,74 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel
 
+from auth import (
+    current_user,
+    current_user_from_bearer_or_query,
+    ensure_default_users,
+    find_user_for_login,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_username,
+    hash_password,
+    issue_token,
+    load_users,
+    revoke_token,
+    save_users,
+    upsert_user_db,
+    user_from_token,
+    verify_password,
+)
+from config import APP_TITLE, APP_VERSION, CORS_ORIGINS, FRONTEND_DIST, SESSIONS_ROOT, STORAGE_DIR, TOKENS_FILE, USERS_FILE
 from database import (
-    add_token_db,
-    delete_token_db,
     delete_sessions_db,
     init_database,
     list_sessions_db,
     load_session_db,
-    load_tokens_db,
-    load_users_db,
     save_single_session_db,
-    save_tokens_db,
-    save_users_db,
-    upsert_user_db,
     use_database_storage,
 )
 from exporter import to_csv, to_excel, to_json, to_pdf, to_word
-from parser import parse_file, parse_file_rich
-
-DEFAULT_USERS = [
-    {"username": "user_ysh", "name": "user_ysh", "email": "user_ysh@example.com", "password": "psd_ysh_psd"},
-    {"username": "user_jw", "name": "user_jw", "email": "user_jw@example.com", "password": "psd_jw_psd"},
-    {"username": "user_rl", "name": "user_rl", "email": "user_rl@example.com", "password": "psd_rl_psd"},
-    {"username": "user_ab", "name": "user_ab", "email": "user_ab@example.com", "password": "psd_ab_psd"},
-    {"username": "user_cd", "name": "user_cd", "email": "user_cd@example.com", "password": "psd_cd_psd"},
-]
-
-USERNAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{2,23}$")
+from models import (
+    ApproveSuggestionRequest,
+    AuthRequest,
+    EditSuggestionRequest,
+    EvaluationRequest,
+    RegisterRequest,
+    SaveRequest,
+    TripleSuggestionRequest,
+    VoteRequest,
+)
+from parser import parse_file_rich
+from services import (
+    apply_collaborative_grades,
+    calculate_average,
+    calculate_session_activity_for_user,
+    calculate_session_grading_stats,
+    can_approve_session,
+    can_edit_session_directly,
+    can_suggest_session,
+    is_session_owner,
+    merge_existing_sentence_comments,
+    merge_existing_suggestions,
+    normalize_grade_value,
+    normalize_sentence_comments,
+    normalize_sentence_metric_by_user,
+    normalize_sentence_metric_value,
+    project_session_for_view,
+    root_session_id,
+    sentence_groups_to_draft_sentences,
+    session_for_user_view,
+    with_session_access_flags,
+)
+from sessions import (
+    find_existing_session_path,
+    load_existing_session,
+    load_session_for_access,
+    save_loaded_session,
+)
+from utils import display_name, is_valid_username, norm_email, norm_username
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -89,202 +126,8 @@ _AUTH_SCHEME = HTTPBearer(auto_error=False)
 
 
 # ---------------------------------------------------------------------------
-# Auth helpers
+# Models
 # ---------------------------------------------------------------------------
-
-def _load_json(path: Path, default: Any):
-    if not path.exists():
-        return default
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except Exception:
-        return default
-
-
-def _save_json(path: Path, data: Any):
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, ensure_ascii=False)
-        fh.flush()
-        os.fsync(fh.fileno())  # Force write to disk immediately
-
-
-def _norm_email(email: str) -> str:
-    return email.strip().lower()
-
-
-def _norm_username(username: str) -> str:
-    return username.strip().lower()
-
-
-def _is_valid_username(username: str) -> bool:
-    return bool(USERNAME_PATTERN.fullmatch(_norm_username(username)))
-
-
-def _display_name(user: Dict[str, Any]) -> str:
-    name = (user.get("name") or "").strip()
-    if name:
-        return name
-    email = user.get("email", "")
-    local = email.split("@", 1)[0] if "@" in email else "User"
-    return local or "User"
-
-
-def _hash_password(password: str, salt_hex: Optional[str] = None) -> Dict[str, str]:
-    salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 260000)
-    return {"salt": salt.hex(), "hash": dk.hex()}
-
-
-def _verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
-    computed = _hash_password(password, salt_hex=salt_hex)["hash"]
-    return secrets.compare_digest(computed, hash_hex)
-
-
-def _load_users() -> Dict[str, Any]:
-    if use_database_storage():
-        users = load_users_db()
-        if "users" not in users:
-            users = {"users": []}
-        return users
-
-    users = _load_json(USERS_FILE, {"users": []})
-    if "users" not in users:
-        users = {"users": []}
-    return users
-
-
-def _save_users(users: Dict[str, Any]):
-    if use_database_storage():
-        save_users_db(users)
-        return
-    _save_json(USERS_FILE, users)
-
-
-def _load_tokens() -> Dict[str, Any]:
-    if use_database_storage():
-        tokens = load_tokens_db()
-        if "tokens" not in tokens:
-            tokens = {"tokens": {}}
-        return tokens
-
-    tokens = _load_json(TOKENS_FILE, {"tokens": {}})
-    if "tokens" not in tokens:
-        tokens = {"tokens": {}}
-    return tokens
-
-
-def _save_tokens(tokens: Dict[str, Any]):
-    if use_database_storage():
-        save_tokens_db(tokens)
-        return
-    _save_json(TOKENS_FILE, tokens)
-
-
-def _make_unique_username(base_username: str, users: list) -> str:
-    base = _norm_username(base_username) or "user"
-    existing = {_norm_username(user.get("username", "")) for user in users}
-    if base not in existing:
-        return base
-    suffix = 2
-    while f"{base}_{suffix}" in existing:
-        suffix += 1
-    return f"{base}_{suffix}"
-
-
-def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
-    users = _load_users()["users"]
-    target = _norm_email(email)
-    for user in users:
-        if user.get("email") == target:
-            return user
-    return None
-
-
-def _get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
-    users = _load_users()["users"]
-    target = _norm_username(username)
-    for user in users:
-        if _norm_username(user.get("username", "")) == target:
-            return user
-    return None
-
-
-def _find_user_for_login(login_value: str) -> Optional[Dict[str, Any]]:
-    identifier = login_value.strip()
-    if not identifier:
-        return None
-    if "@" in identifier:
-        by_email = _get_user_by_email(identifier)
-        if by_email:
-            return by_email
-    by_username = _get_user_by_username(identifier)
-    if by_username:
-        return by_username
-    return _get_user_by_email(identifier)
-
-
-def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
-    users = _load_users()["users"]
-    for user in users:
-        if user.get("id") == user_id:
-            return user
-    return None
-
-
-def _issue_token(user_id: str) -> str:
-    token = secrets.token_urlsafe(40)
-    created_at = datetime.utcnow().isoformat()
-    if use_database_storage():
-        add_token_db(token, user_id, created_at)
-    else:
-        tokens = _load_tokens()
-        tokens["tokens"][token] = {"user_id": user_id, "created_at": created_at}
-        _save_tokens(tokens)
-    return token
-
-
-def _user_from_token(token: str) -> Optional[Dict[str, Any]]:
-    tokens = _load_tokens()["tokens"]
-    token_data = tokens.get(token)
-    if not token_data:
-        return None
-    return _get_user_by_id(token_data.get("user_id", ""))
-
-
-def _revoke_token(token: str):
-    if use_database_storage():
-        delete_token_db(token)
-    else:
-        tokens = _load_tokens()
-        if token in tokens["tokens"]:
-            del tokens["tokens"][token]
-            _save_tokens(tokens)
-
-
-async def _current_user(
-    creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_SCHEME),
-) -> Dict[str, Any]:
-    if not creds or creds.scheme.lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    user = _user_from_token(creds.credentials)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    return user
-
-
-def _current_user_from_bearer_or_query(request: Request, token_qs: Optional[str]) -> Dict[str, Any]:
-    token = token_qs
-    if not token:
-        auth = request.headers.get("authorization", "")
-        if auth.lower().startswith("bearer "):
-            token = auth[7:].strip()
-    if not token:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    user = _user_from_token(token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    return user
 
 
 def _session_path_for_user(user_id: str, session_id: str) -> Path:
@@ -360,23 +203,23 @@ def _load_existing_session(session_id: str) -> tuple[Optional[Path], Optional[Di
 
 def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
     user_id = user.get("id", "")
-    user_username = _norm_username(user.get("username", ""))
-    user_email = _norm_email(user.get("email", ""))
+    user_username = norm_username(user.get("username", ""))
+    user_email = norm_email(user.get("email", ""))
 
     owner_user_id = str(session.get("owner_user_id") or "").strip()
     if owner_user_id and (
         owner_user_id == user_id
-        or _norm_username(owner_user_id) == user_username
-        or _norm_email(owner_user_id) == user_email
+        or norm_username(owner_user_id) == user_username
+        or norm_email(owner_user_id) == user_email
     ):
         return True
 
     owner_email = session.get("owner_email")
-    if owner_email and _norm_email(owner_email) == user_email:
+    if owner_email and norm_email(owner_email) == user_email:
         return True
 
     owner_username = session.get("owner_username")
-    if owner_username and _norm_username(owner_username) == user_username:
+    if owner_username and norm_username(owner_username) == user_username:
         return True
 
     owner_name = (session.get("owner_name") or "").strip()
@@ -393,8 +236,8 @@ def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], use
         parent_owner
         and (
             parent_owner == user_id
-            or _norm_username(parent_owner) == user_username
-            or _norm_email(parent_owner) == user_email
+            or norm_username(parent_owner) == user_username
+            or norm_email(parent_owner) == user_email
         )
     )
 
@@ -609,7 +452,7 @@ def _apply_collaborative_grades(
     user: Dict[str, Any],
 ) -> None:
     user_id = str(user.get("id") or "").strip()
-    user_name = _display_name(user)
+    user_name = display_name(user)
     now_iso = datetime.utcnow().isoformat()
     user_can_grade = not _is_session_owner(existing_session or incoming_session, None, user)
 
@@ -1209,93 +1052,31 @@ def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing
 
 
 
-def _ensure_default_users():
-    users_data = _load_users()
-    users = users_data.get("users", [])
-    changed = False
-
-    for seed in DEFAULT_USERS:
-        email = _norm_email(seed["email"])
-        username = _norm_username(seed["username"])
-        existing = next((u for u in users if _norm_email(u.get("email", "")) == email), None)
-
-        if existing:
-            if not existing.get("username"):
-                existing["username"] = username
-                changed = True
-            continue
-
-        if any(_norm_username(u.get("username", "")) == username for u in users):
-            continue
-
-        hashed = _hash_password(seed["password"])
-        users.append(
-            {
-                "id": str(uuid.uuid4()),
-                "username": username,
-                "name": seed["name"],
-                "email": email,
-                "password_salt": hashed["salt"],
-                "password_hash": hashed["hash"],
-                "created_at": datetime.utcnow().isoformat(),
-            }
-        )
-        changed = True
-
-    if changed:
-        users_data["users"] = users
-        _save_users(users_data)
-
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
-
-class SaveRequest(BaseModel):
-    session_id: str
-    source_filename: str
-    uploaded_at: str
-    sentences: list
-    manual_mode: bool = False
-
-
-class AuthRequest(BaseModel):
-    login: str = Field(min_length=2, max_length=120)
-    password: str = Field(min_length=8, max_length=128)
-
-
-class RegisterRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=80)
-    username: str = Field(min_length=3, max_length=24)
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 init_database(users_json_path=USERS_FILE, tokens_json_path=TOKENS_FILE, sessions_root=SESSIONS_ROOT)
-_ensure_default_users()
+ensure_default_users()
 
 @app.post("/api/auth/register")
 async def register(body: RegisterRequest):
-    email = _norm_email(str(body.email))
-    username = _norm_username(body.username)
+    email = norm_email(str(body.email))
+    username = norm_username(body.username)
 
-    if not _is_valid_username(username):
+    if not is_valid_username(username):
         raise HTTPException(
             status_code=422,
             detail="Username must be 3-24 chars, start with a letter, and use only lowercase letters, numbers, or underscore.",
         )
 
-    if _get_user_by_email(email):
+    if get_user_by_email(email):
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
-    if _get_user_by_username(username):
+    if get_user_by_username(username):
         raise HTTPException(status_code=409, detail="This username is already taken.")
 
-    hashed = _hash_password(body.password)
-    users_data = _load_users()
+    hashed = hash_password(body.password)
+    users_data = load_users()
 
     user = {
         "id": str(uuid.uuid4()),
@@ -1311,43 +1092,43 @@ async def register(body: RegisterRequest):
     if use_database_storage():
         upsert_user_db(user)
     else:
-        _save_users(users_data)
+        save_users(users_data)
 
     return {
         "ok": True,
         "message": "Account created successfully. Please log in.",
-        "user": {"id": user["id"], "username": user["username"], "name": _display_name(user), "email": user["email"]},
+        "user": {"id": user["id"], "username": user["username"], "name": display_name(user), "email": user["email"]},
     }
 
 
 @app.post("/api/auth/login")
 async def login(body: AuthRequest):
-    user = _find_user_for_login(body.login)
+    user = find_user_for_login(body.login)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username/email or password.")
 
-    if not _verify_password(body.password, user["password_salt"], user["password_hash"]):
+    if not verify_password(body.password, user["password_salt"], user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid username/email or password.")
 
-    token = _issue_token(user["id"])
+    token = issue_token(user["id"])
     return {
         "access_token": token,
         "token_type": "bearer",
         "user": {
             "id": user["id"],
             "username": user.get("username", ""),
-            "name": _display_name(user),
+            "name": display_name(user),
             "email": user["email"],
         },
     }
 
 
 @app.get("/api/auth/me")
-async def me(user: Dict[str, Any] = Depends(_current_user)):
+async def me(user: Dict[str, Any] = Depends(current_user)):
     return {
         "id": user["id"],
         "username": user.get("username", ""),
-        "name": _display_name(user),
+        "name": display_name(user),
         "email": user["email"],
     }
 
@@ -1355,11 +1136,11 @@ async def me(user: Dict[str, Any] = Depends(_current_user)):
 @app.post("/api/auth/logout")
 async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_SCHEME)):
     if creds and creds.scheme.lower() == "bearer":
-        _revoke_token(creds.credentials)
+        revoke_token(creds.credentials)
     return {"ok": True}
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(_current_user)):
+async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(current_user)):
     """Parse an uploaded file, save an owner draft, and return sentence-group data for review."""
     allowed_extensions = {".csv", ".xlsx", ".xls"}
     suffix = Path(file.filename).suffix.lower()
@@ -1394,9 +1175,9 @@ async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depen
         "sentences": _sentence_groups_to_draft_sentences(sentence_groups),
         "manual_mode": False,
         "owner_user_id": user.get("id", ""),
-        "owner_name": _display_name(user),
-        "owner_email": _norm_email(user.get("email", "")),
-        "owner_username": _norm_username(user.get("username", "")),
+        "owner_name": display_name(user),
+        "owner_email": norm_email(user.get("email", "")),
+        "owner_username": norm_username(user.get("username", "")),
         "root_session_id": session_id,
         "is_copy": False,
     }
@@ -1413,7 +1194,7 @@ async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depen
 
 
 @app.post("/api/save")
-async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current_user)):
     """Persist a graded session to the storage directory."""
     session_data = body.model_dump()
 
@@ -1439,7 +1220,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
         sentence_comments = _normalize_sentence_comments(
             s.get("sentence_comments"),
             fallback_text=str(s.get("suggestion") or ""),
-            fallback_author=_display_name(user),
+            fallback_author=display_name(user),
             fallback_user_id=str(user.get("id") or "").strip(),
             fallback_created_at=s.get("comment_created_at"),
         )
@@ -1460,14 +1241,14 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
             s.get("completeness_by_user"),
             fallback_value=s.get("completeness"),
             fallback_user_id=str(user.get("id") or "").strip(),
-            fallback_user_name=_display_name(user),
+            fallback_user_name=display_name(user),
             fallback_updated_at=s.get("completeness_updated_at"),
         )
         s["external_relation_by_user"] = _normalize_sentence_metric_by_user(
             s.get("external_relation_by_user"),
             fallback_value=s.get("external_relation"),
             fallback_user_id=str(user.get("id") or "").strip(),
-            fallback_user_name=_display_name(user),
+            fallback_user_name=display_name(user),
             fallback_updated_at=s.get("external_relation_updated_at"),
         )
 
@@ -1483,7 +1264,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
 
     if existing_session:
         owner_user_id = str(existing_session.get("owner_user_id") or "").strip() or user.get("id", "")
-        owner_user = _get_user_by_id(owner_user_id)
+        owner_user = get_user_by_id(owner_user_id)
 
         owner_email = existing_session.get("owner_email")
         if not owner_email and owner_user:
@@ -1497,11 +1278,11 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
         session_data["owner_user_id"] = owner_user_id
         session_data["owner_name"] = (
             existing_session.get("owner_name")
-            or (_display_name(owner_user) if owner_user else None)
-            or _display_name(user)
+            or (display_name(owner_user) if owner_user else None)
+            or display_name(user)
         )
-        session_data["owner_email"] = _norm_email(str(owner_email or user.get("email", "")))
-        session_data["owner_username"] = _norm_username(str(owner_username or user.get("username", "")))
+        session_data["owner_email"] = norm_email(str(owner_email or user.get("email", "")))
+        session_data["owner_username"] = norm_username(str(owner_username or user.get("username", "")))
 
         # Keep prior evaluation payload unless overwritten explicitly.
         if existing_session.get("evaluation") and not session_data.get("evaluation"):
@@ -1509,9 +1290,9 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(_curren
     else:
         session_data["manual_mode"] = bool(session_data.get("manual_mode"))
         session_data["owner_user_id"] = user["id"]
-        session_data["owner_name"] = _display_name(user)
-        session_data["owner_email"] = _norm_email(user.get("email", ""))
-        session_data["owner_username"] = _norm_username(user.get("username", ""))
+        session_data["owner_name"] = display_name(user)
+        session_data["owner_email"] = norm_email(user.get("email", ""))
+        session_data["owner_username"] = norm_username(user.get("username", ""))
 
     session_data["root_session_id"] = body.session_id
     session_data["is_copy"] = False
@@ -1746,7 +1527,7 @@ async def download_session(
     view_user_id: Optional[str] = Query(default=None),
 ):
     """Download a saved session in the requested format."""
-    user = _current_user_from_bearer_or_query(request, token)
+    user = current_user_from_bearer_or_query(request, token)
     _, raw_session = _load_session_for_access(session_id)
     base_session = _session_for_user_view(raw_session, user)
 
@@ -1797,14 +1578,14 @@ async def download_session(
 
 
 @app.get("/api/session/{session_id}")
-async def get_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
+async def get_session(session_id: str, user: Dict[str, Any] = Depends(current_user)):
     """Return the full saved session JSON (used by the frontend to resume a session)."""
     session_path, session = _load_session_for_access(session_id)
     return _with_session_access_flags(session, session_path, user)
 
 
 @app.delete("/api/session/{session_id}")
-async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_current_user)):
+async def delete_session(session_id: str, user: Dict[str, Any] = Depends(current_user)):
     """Delete a saved session (owner only)."""
     session_path, session = _load_session_for_access(session_id)
 
@@ -1827,7 +1608,7 @@ async def delete_session(session_id: str, user: Dict[str, Any] = Depends(_curren
 @app.post("/api/session/{session_id}/copy")
 async def get_or_create_session_copy(
     session_id: str,
-    user: Dict[str, Any] = Depends(_current_user),
+    user: Dict[str, Any] = Depends(current_user),
 ):
     """Backward-compatible endpoint: return the same shared session (no per-user copies in v2)."""
     session_path, session = _load_session_for_access(session_id)
@@ -1846,7 +1627,7 @@ async def preview_session(
     view_user_id: Optional[str] = Query(default=None),
 ):
     """Render an HTML preview of a saved graded session (opens in browser tab)."""
-    user = _current_user_from_bearer_or_query(request, token)
+    user = current_user_from_bearer_or_query(request, token)
     if True:
         _, raw_session = _load_session_for_access(session_id)
         base_session = _session_for_user_view(raw_session, user)
@@ -2073,7 +1854,7 @@ async def preview_session(
 
 
 @app.get("/api/sessions")
-async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
+async def list_sessions(user: Dict[str, Any] = Depends(current_user)):
     """List all saved session files across all users for collaboration."""
     sessions = []
     if use_database_storage():
@@ -2092,9 +1873,9 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
             grading_stats = _session_grading_stats(data)
             user_activity = _session_activity_for_user(data, user)
 
-            owner_user = _get_user_by_id(owner_user_id)
+            owner_user = get_user_by_id(owner_user_id)
             is_owner = _is_session_owner(data, None, user)
-            owner_name = data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id)
+            owner_name = data.get("owner_name") or (display_name(owner_user) if owner_user else owner_user_id)
 
             sessions.append({
                 "session_id":      session_id,
@@ -2144,9 +1925,9 @@ async def list_sessions(user: Dict[str, Any] = Depends(_current_user)):
             grading_stats = _session_grading_stats(data)
             user_activity = _session_activity_for_user(data, user)
 
-            owner_user = _get_user_by_id(owner_user_id)
+            owner_user = get_user_by_id(owner_user_id)
             is_owner = _is_session_owner(data, p, user)
-            owner_name = data.get("owner_name") or (_display_name(owner_user) if owner_user else owner_user_id)
+            owner_name = data.get("owner_name") or (display_name(owner_user) if owner_user else owner_user_id)
 
             sessions.append({
                 "session_id":      session_id,
@@ -2237,9 +2018,9 @@ class ApproveSuggestionRequest(BaseModel):
 
 
 @app.post("/api/suggestions/add")
-async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = Depends(current_user)):
     """Add a suggested triple edit."""
-    user_name = _display_name(user)
+    user_name = display_name(user)
     json_path, session = _load_session_for_access(body.session_id)
 
     if not _can_suggest_session(session, json_path, user):
@@ -2283,9 +2064,9 @@ async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = D
 
 
 @app.post("/api/suggestions/vote")
-async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(current_user)):
     """Vote on a suggested triple edit."""
-    user_name = _display_name(user)
+    user_name = display_name(user)
     json_path, session = _load_session_for_access(body.session_id)
     
     # Find the sentence, triple, and suggestion
@@ -2327,9 +2108,9 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_
 
 
 @app.post("/api/suggestions/edit")
-async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = Depends(current_user)):
     """Edit a suggestion (only the author can edit)."""
-    user_name = _display_name(user)
+    user_name = display_name(user)
     json_path, session = _load_session_for_access(body.session_id)
 
     for s in session.get("sentences", []):
@@ -2357,10 +2138,10 @@ async def delete_suggestion(
     sentence_id: int,
     triple_id: str,
     suggestion_id: str,
-    user: Dict[str, Any] = Depends(_current_user)
+    user: Dict[str, Any] = Depends(current_user)
 ):
     """Delete a suggestion (only the author can delete)."""
-    user_name = _display_name(user)
+    user_name = display_name(user)
     json_path, session = _load_session_for_access(session_id)
     
     # Find and delete the suggestion
@@ -2381,14 +2162,14 @@ async def delete_suggestion(
 
 
 @app.post("/api/suggestions/approve")
-async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(current_user)):
     """Approve a suggestion and apply it to a triple (owner only)."""
     json_path, session = _load_session_for_access(body.session_id)
 
     if not _can_approve_session(session, json_path, user):
         raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
 
-    owner_name = _display_name(user)
+    owner_name = display_name(user)
 
     for s in session.get("sentences", []):
         if s.get("id") == body.sentence_id:
@@ -2428,7 +2209,7 @@ async def approve_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any
 
 
 @app.post("/api/suggestions/unapprove")
-async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(_current_user)):
+async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, Any] = Depends(current_user)):
     """Undo approval status for a suggestion (owner only)."""
     json_path, session = _load_session_for_access(body.session_id)
 
@@ -2480,7 +2261,7 @@ class EvaluationRequest(BaseModel):
 async def evaluate_session_endpoint(
     session_id: str,
     body: EvaluationRequest,
-    user: Dict[str, Any] = Depends(_current_user),
+    user: Dict[str, Any] = Depends(current_user),
 ):
     """Run OpenIE evaluation against a graded session and return P/R/F1 results."""
     _, session = _load_session_for_access(session_id)
@@ -2522,7 +2303,7 @@ async def evaluate_session_endpoint(
 async def download_evaluation(
     session_id: str,
     fmt: str,
-    user: Dict[str, Any] = Depends(_current_user),
+    user: Dict[str, Any] = Depends(current_user),
 ):
     """Download the last evaluation result for a session as JSON or CSV."""
     _, session = _load_session_for_access(session_id)
@@ -2619,3 +2400,11 @@ async def download_evaluation(
 # ---------------------------------------------------------------------------
 if _FRONTEND_DIST.is_dir():
     app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="static")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
