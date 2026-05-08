@@ -135,7 +135,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     is_owner,
   } = uploadData;
 
-  const canEditSession = can_edit ?? true;
+  const canEditSession = can_edit ?? !is_owner;
   const canSuggestTriples = can_suggest ?? !is_owner;
   const canApproveSuggestions = can_approve ?? !!is_owner;
   const currentUserId = currentUser?.id || "";

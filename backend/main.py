@@ -2308,6 +2308,10 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(_
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found.")
     
+    # Prevent voting on own suggestions
+    if suggestion.get("author") == user_name:
+        raise HTTPException(status_code=403, detail="You cannot vote on your own suggestions.")
+    
     # Record or clear vote (toggle support)
     if "votes" not in suggestion:
         suggestion["votes"] = {}

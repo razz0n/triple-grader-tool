@@ -242,6 +242,7 @@ export default function TripleSuggestions({
             const canDelete = canSuggest && sug.author === displayUserName;
             const isEditing = editingSuggestionId === sug.id;
             const currentUserVote = (sug.votes || {})[displayUserName] ?? null;
+            const canVote = sug.author !== displayUserName;
             const gradeVotes = Object.values(sug.votes || {})
               .map((v) => String(v))
               .filter((v) => /^(10|[0-9])$/.test(v));
@@ -377,9 +378,12 @@ export default function TripleSuggestions({
                 <div className="flex gap-2 items-center flex-wrap">
                   <button
                     onClick={() => voteHandler?.(sug.id, "yes")}
+                    disabled={!canVote}
                     className={[
                       "px-2 py-0.5 border rounded transition-colors text-xs font-medium",
-                      currentUserVote === "yes"
+                      !canVote
+                        ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+                        : currentUserVote === "yes"
                         ? "bg-green-600 text-white border-green-600"
                         : "bg-green-100 text-green-700 border-green-300 hover:bg-green-200",
                     ].join(" ")}
@@ -388,9 +392,12 @@ export default function TripleSuggestions({
                   </button>
                   <button
                     onClick={() => voteHandler?.(sug.id, "no")}
+                    disabled={!canVote}
                     className={[
                       "px-2 py-0.5 border rounded transition-colors text-xs font-medium",
-                      currentUserVote === "no"
+                      !canVote
+                        ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+                        : currentUserVote === "no"
                         ? "bg-red-600 text-white border-red-600"
                         : "bg-red-100 text-red-700 border-red-300 hover:bg-red-200",
                     ].join(" ")}
@@ -403,13 +410,16 @@ export default function TripleSuggestions({
                       <button
                         key={grade}
                         onClick={() => voteHandler?.(sug.id, grade)}
+                        disabled={!canVote}
                         className={[
                           "w-5 h-5 border rounded text-[10px] leading-none font-semibold transition-colors",
-                          currentUserVote === grade
+                          !canVote
+                            ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+                            : currentUserVote === grade
                             ? "bg-blue-600 text-white border-blue-600"
                             : "bg-white text-slate-700 border-slate-300 hover:bg-blue-100",
                         ].join(" ")}
-                        title={`Vote grade ${grade}`}
+                        title={canVote ? `Vote grade ${grade}` : "Cannot vote on your own suggestion"}
                       >
                         {grade}
                       </button>
