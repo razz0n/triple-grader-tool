@@ -1,0 +1,12 @@
+sentence_id,subject,predicate,object,sentence,confidence,source,row_id
+s0001,subject,predicate,object,,1.0,gold_new_set,1
+s0001,Code_001,has_action,usage_constraint_001,,1.0,gold_new_set,2
+s0001,Software_engineers,are,those_001,,1.0,gold_new_set,3
+s0001,those_001,contribute_to,analysis_001,,1.0,gold_new_set,4
+s0001,those_001,contribute_to,design_001,,1.0,gold_new_set,5
+s0001,analysis_001,is_of,software_systems,,1.0,gold_new_set,6
+s0002,Code_001,has_action,separate_001,,1.0,gold_new_set,8
+s0002,separate_001,has_importance,central,,1.0,gold_new_set,9
+s0002,separate_001,has_trend,growing,,1.0,gold_new_set,10
+s0003,Code_001,has_constraint_type,usage_constraint_001,,1.0,gold_new_set,12
+s0003,usage_constraint_001,targets,software_engineers,,1.0,gold_new_set,13

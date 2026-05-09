@@ -138,6 +138,16 @@ export default function App() {
       );
     }
 
+    if (uploadData && !gradingData) {
+      return (
+        <ReviewStep
+          uploadData={uploadData}
+          onConfirm={handleReviewConfirm}
+          onReset={handleReset}
+        />
+      );
+    }
+
     return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} onEvaluate={handleOpenEval} />;
   })();
 

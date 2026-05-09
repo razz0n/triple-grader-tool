@@ -2257,6 +2257,52 @@ class EvaluationRequest(BaseModel):
     gold_source: str = "graded_only"  # "graded_only" or "all"
 
 
+class EvaluationPreviewRequest(BaseModel):
+    gold_source: str = "graded_only"
+
+
+@app.post("/api/evaluate/{session_id}/preview")
+async def evaluate_preview_endpoint(
+    session_id: str,
+    body: EvaluationPreviewRequest,
+    user: Dict[str, Any] = Depends(current_user),
+):
+    """Return a lightweight preview of which sentences will be evaluated.
+    Does NOT run stanza — just returns sentence metadata."""
+    _, session = _load_session_for_access(session_id)
+    user_scoped_session = _session_for_user_view(session, user)
+
+    sentences = user_scoped_session.get("sentences", [])
+    review = []
+    total_gold = 0
+    for s in sentences:
+        all_triples = s.get("triples", [])
+        graded_count = sum(1 for t in all_triples if t.get("grade") is not None)
+        if body.gold_source == "graded_only":
+            gold_count = graded_count
+        else:
+            gold_count = len(all_triples)
+        total_gold += gold_count
+        review.append({
+            "sentence_id": s.get("id"),
+            "text": (s.get("text") or "").strip(),
+            "total_triples": len(all_triples),
+            "graded_triples": graded_count,
+            "gold_triples_used": gold_count,
+            "has_text": bool((s.get("text") or "").strip()),
+        })
+
+    return {
+        "session_id": session_id,
+        "gold_source": body.gold_source,
+        "total_sentences": len(sentences),
+        "sentences_with_text": sum(1 for r in review if r["has_text"]),
+        "sentences_with_gold": sum(1 for r in review if r["gold_triples_used"] > 0),
+        "total_gold_triples": total_gold,
+        "sentences": review,
+    }
+
+
 @app.post("/api/evaluate/{session_id}")
 async def evaluate_session_endpoint(
     session_id: str,
