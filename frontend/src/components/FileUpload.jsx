@@ -23,6 +23,89 @@ function buildManualSourceFilename(baseName, format) {
   return `${safeBase}.${cleanFormat}`;
 }
 
+function _isJsonFile(file) {
+  return typeof file?.name === "string" && file.name.toLowerCase().endsWith(".json");
+}
+
+function _extractSentenceText(item) {
+  if (!item || typeof item !== "object") return "";
+  return String(
+    item.text || item.sentence_text || item.sentence || item.sentence_candidate || ""
+  ).trim();
+}
+
+function _validateJsonUpload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Uploaded JSON must be an object at the top level.");
+  }
+
+  const validateTriple = (triple, path) => {
+    if (!triple || typeof triple !== "object" || Array.isArray(triple)) {
+      throw new Error(`${path} must be an object.`);
+    }
+    const subject = String(triple.subject || "").trim();
+    const predicate = String(triple.predicate || "").trim();
+    const object = String(triple.object || "").trim();
+    if (!subject || !predicate || !object) {
+      throw new Error(`${path} must include non-empty subject, predicate, and object.`);
+    }
+  };
+
+  const validateVersion = (version, path) => {
+    if (!version || typeof version !== "object" || Array.isArray(version)) {
+      throw new Error(`${path} must be an object.`);
+    }
+    if (!Array.isArray(version.triples) || version.triples.length === 0) {
+      throw new Error(`${path} must contain at least one triple.`);
+    }
+    version.triples.forEach((triple, ti) => {
+      validateTriple(triple, `${path}, triple #${ti + 1}`);
+    });
+  };
+
+  if (Array.isArray(payload.sentence_groups)) {
+    if (payload.sentence_groups.length === 0) {
+      throw new Error("Uploaded JSON must contain at least one sentence group.");
+    }
+    payload.sentence_groups.forEach((group, gi) => {
+      if (!group || typeof group !== "object" || Array.isArray(group)) {
+        throw new Error(`Sentence group #${gi + 1} must be an object.`);
+      }
+      const sentenceText = _extractSentenceText(group);
+      if (!sentenceText) {
+        throw new Error(`Sentence group #${gi + 1} is missing required sentence text.`);
+      }
+      if (!Array.isArray(group.versions) || group.versions.length === 0) {
+        throw new Error(`Sentence group #${gi + 1} must contain at least one version.`);
+      }
+      group.versions.forEach((version, vi) => {
+        validateVersion(version, `Sentence group #${gi + 1}, version #${vi + 1}`);
+      });
+    });
+    return;
+  }
+
+  if (!Array.isArray(payload.sentences) || payload.sentences.length === 0) {
+    throw new Error("Uploaded JSON must contain a non-empty 'sentences' array.");
+  }
+
+  payload.sentences.forEach((sentence, si) => {
+    if (!sentence || typeof sentence !== "object" || Array.isArray(sentence)) {
+      throw new Error(`Sentence #${si + 1} must be an object.`);
+    }
+    const sentenceText = _extractSentenceText(sentence);
+    if (!sentenceText) {
+      throw new Error(`Sentence #${si + 1} is missing required sentence text.`);
+    }
+    if (!Array.isArray(sentence.triples) || sentence.triples.length === 0) {
+      throw new Error(`Sentence #${si + 1} must contain at least one triple.`);
+    }
+    sentence.triples.forEach((triple, ti) => {
+      validateTriple(triple, `Sentence #${si + 1}, triple #${ti + 1}`);
+    });
+  });
+}
+
 export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual, recentUploadSessionId }) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -119,6 +202,16 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
       setError("");
       setLoading(true);
       try {
+        if (_isJsonFile(file)) {
+          const text = await file.text();
+          let payload;
+          try {
+            payload = JSON.parse(text);
+          } catch (err) {
+            throw new Error("Uploaded JSON is not valid JSON.");
+          }
+          _validateJsonUpload(payload);
+        }
         const data = await uploadFile(file);
         onUploadSuccess(data);
       } catch (e) {
