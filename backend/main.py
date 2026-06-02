@@ -1142,46 +1142,117 @@ async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_S
 def _json_to_sentence_groups(payload: Dict[str, Any]) -> list[Dict[str, Any]]:
     """Convert a downloaded session JSON into sentence_groups for review."""
     if isinstance(payload.get("sentence_groups"), list):
-        return payload["sentence_groups"]
+        sentence_groups = payload["sentence_groups"]
+        if not sentence_groups:
+            raise ValueError("Uploaded JSON contains an empty 'sentence_groups' list.")
+        return _validate_sentence_groups(sentence_groups)
 
     sentences = payload.get("sentences")
     if not isinstance(sentences, list):
         raise ValueError("JSON upload must contain either 'sentence_groups' or exported 'sentences'.")
 
+    if not sentences:
+        raise ValueError("Uploaded JSON contains no sentences.")
+
     groups: list[Dict[str, Any]] = []
     for idx, sentence in enumerate(sentences, start=1):
-        text = str(sentence.get("text") or sentence.get("sentence_text") or "").strip()
-        triples = sentence.get("triples") or []
+        if not isinstance(sentence, dict):
+            raise ValueError(f"Sentence #{idx} must be an object.")
+
+        sentence_text = str(
+            sentence.get("text")
+            or sentence.get("sentence_text")
+            or sentence.get("sentence")
+            or sentence.get("sentence_candidate")
+            or ""
+        ).strip()
+        if not sentence_text:
+            raise ValueError(f"Sentence #{idx} is missing required sentence text.")
+
+        triples = sentence.get("triples")
         if not isinstance(triples, list) or not triples:
-            continue
+            raise ValueError(f"Sentence #{idx} must contain at least one triple.")
 
         version_triples = []
         for ti, triple in enumerate(triples, start=1):
+            if not isinstance(triple, dict):
+                raise ValueError(f"Sentence #{idx}, triple #{ti} must be an object.")
+
+            subject = str(triple.get("subject") or "").strip()
+            predicate = str(triple.get("predicate") or "").strip()
+            obj = str(triple.get("object") or "").strip()
+            if not subject or not predicate or not obj:
+                raise ValueError(
+                    f"Sentence #{idx}, triple #{ti} must include non-empty subject, predicate, and object."
+                )
+
             version_triples.append({
                 "id": str(triple.get("id") or f"{idx}_1_{ti}"),
-                "subject": str(triple.get("subject") or ""),
-                "predicate": str(triple.get("predicate") or ""),
-                "object": str(triple.get("object") or ""),
+                "subject": subject,
+                "predicate": predicate,
+                "object": obj,
             })
 
         groups.append({
             "group_id": idx,
-            "sentence_text": text,
+            "sentence_text": sentence_text,
             "selected_version_id": f"{idx}_1",
             "versions": [
                 {
                     "version_id": f"{idx}_1",
                     "version_label": "Imported",
-                    "sentence_candidate": text,
+                    "sentence_candidate": sentence_text,
                     "triples": version_triples,
                 }
             ],
         })
 
-    if not groups:
-        raise ValueError("Uploaded JSON contains no valid sentences or triples.")
-
     return groups
+
+
+def _validate_sentence_groups(sentence_groups: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    if not isinstance(sentence_groups, list):
+        raise ValueError("'sentence_groups' must be a list.")
+
+    for gi, group in enumerate(sentence_groups, start=1):
+        if not isinstance(group, dict):
+            raise ValueError(f"Sentence group #{gi} must be an object.")
+
+        sentence_text = str(
+            group.get("sentence_text")
+            or group.get("text")
+            or group.get("sentence")
+            or ""
+        ).strip()
+        if not sentence_text:
+            raise ValueError(f"Sentence group #{gi} is missing required sentence text.")
+
+        versions = group.get("versions")
+        if not isinstance(versions, list) or not versions:
+            raise ValueError(f"Sentence group #{gi} must contain at least one version.")
+
+        for vi, version in enumerate(versions, start=1):
+            if not isinstance(version, dict):
+                raise ValueError(f"Sentence group #{gi}, version #{vi} must be an object.")
+
+            triples = version.get("triples")
+            if not isinstance(triples, list) or not triples:
+                raise ValueError(f"Sentence group #{gi}, version #{vi} must contain at least one triple.")
+
+            for ti, triple in enumerate(triples, start=1):
+                if not isinstance(triple, dict):
+                    raise ValueError(
+                        f"Sentence group #{gi}, version #{vi}, triple #{ti} must be an object."
+                    )
+                subject = str(triple.get("subject") or "").strip()
+                predicate = str(triple.get("predicate") or "").strip()
+                obj = str(triple.get("object") or "").strip()
+                if not subject or not predicate or not obj:
+                    raise ValueError(
+                        f"Sentence group #{gi}, version #{vi}, triple #{ti} must include non-empty subject, predicate, and object."
+                    )
+
+    return sentence_groups
 
 
 def _parse_uploaded_json(file_bytes: bytes) -> list[Dict[str, Any]]:
