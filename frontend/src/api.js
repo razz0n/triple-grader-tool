@@ -274,6 +274,19 @@ export async function unapproveSuggestion(sessionId, sentenceId, tripleId, sugge
 }
 
 /**
+ * Preview evaluation: returns sentence metadata without running stanza.
+ * @param {string} sessionId
+ * @param {"graded_only"|"all"} goldSource
+ * @returns {Promise<object>} preview data
+ */
+export async function previewEvaluation(sessionId, goldSource = "graded_only") {
+  const { data } = await API.post(`/api/evaluate/${sessionId}/preview`, {
+    gold_source: goldSource,
+  });
+  return data;
+}
+
+/**
  * Run OpenIE evaluation for a session.
  * @param {string} sessionId
  * @param {"exact"|"soft"} matchMode

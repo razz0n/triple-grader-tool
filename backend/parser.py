@@ -349,7 +349,7 @@ def parse_file(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
                 "subject":      t["subject"],
                 "predicate":    t["predicate"],
                 "object":       t["object"],
-                "grade":        None,
+                "grade":        10.0,  # Default grade for gold triples
                 "author":       None,
                 "completeness": None,
                 "relation":     10,

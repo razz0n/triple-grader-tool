@@ -35,6 +35,9 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+# Import the new evaluation logic
+from evaluate_openie_new_set import Triple, MatchResult, parse_new_set_csv, run_corenlp_openie, run_stanza_dependency_baseline, evaluate
+
 # ---------------------------------------------------------------------------
 # Lazy-load stanza pipeline (downloads models on first use, ~300 MB)
 # ---------------------------------------------------------------------------
@@ -219,7 +222,14 @@ def _extract_triples_from_sentence(sentence) -> List[Dict[str, str]]:
                         "object":    obj_span,
                     })
 
-    return triples
+    # Ensure that the triples meet the required standards
+    # Filter out triples with empty subject, predicate, or object
+    filtered_triples = [
+        triple for triple in triples
+        if triple["subject"] and triple["predicate"] and triple["object"]
+    ]
+
+    return filtered_triples
 
 
 # ---------------------------------------------------------------------------
@@ -564,6 +574,10 @@ def evaluate_session(
     """
     Evaluate a graded session against OpenIE predictions.
 
+    Produces two evaluation sections:
+      1. openie_evaluation — stanza-extracted triples vs gold (the OpenIE benchmark)
+      2. standard_evaluation — normal F1/Precision/Recall using exact/soft match
+
     Parameters
     ----------
     session    : full graded session dict (from grading tool JSON export)
@@ -573,10 +587,9 @@ def evaluate_session(
     Returns
     -------
     dict with keys:
-      session_id, source_filename, match_mode,
-      per_sentence: list of per-sentence result dicts,
-      macro: macro-averaged P/R/F1 over all sentences
-      micro: micro-averaged P/R/F1 (aggregate TP/gold/pred counts)
+      session_id, source_filename, match_mode, gold_source,
+      per_sentence, macro, micro  (primary OpenIE results),
+      openie_evaluation, standard_evaluation  (structured dual results)
     """
     if match_mode not in ("exact", "soft"):
         raise ValueError(f"match_mode must be 'exact' or 'soft', got '{match_mode}'")
@@ -584,66 +597,162 @@ def evaluate_session(
         raise ValueError(f"gold_source must be 'graded_only' or 'all', got '{gold_source}'")
 
     sentences = session.get("sentences", [])
+    print(f"[evaluate_session] Total sentences in session: {len(sentences)}")
 
-    # ── Build gold triples according to selected source ───────────────────
-    gold_by_sid: Dict[int, List[dict]] = {}
+    # ── Build gold triples and sentence text map ──────────────────────────
+    gold_triples: List[Triple] = []
+    gold_triples_all: List[Triple] = []  # always includes all triples (for standard eval)
+    sentence_by_id: Dict[str, str] = {}
+    all_sentence_ids: List[str] = []
+
     for s in sentences:
-        sid = s["id"]
-        triples = s.get("triples", [])
+        sid = str(s["id"])
+        text = (s.get("text") or "").strip()
+        sentence_by_id[sid] = text
+        all_sentence_ids.append(sid)
+
+        all_triples = s.get("triples", [])
+        graded_triples = [t for t in all_triples if t.get("grade") is not None]
+
+        # Select gold triples based on gold_source
         if gold_source == "graded_only":
-            gold_by_sid[sid] = [t for t in triples if t.get("grade") is not None]
+            selected = graded_triples
         else:
-            gold_by_sid[sid] = list(triples)
+            selected = all_triples
 
-    # ── Run OpenIE ────────────────────────────────────────────────────────
-    pred_by_sid = run_openie(sentences)
+        for t in selected:
+            gold_triples.append(
+                Triple(
+                    sentence_id=sid,
+                    subject=t.get("subject", ""),
+                    predicate=t.get("predicate", ""),
+                    object=t.get("object", ""),
+                    sentence=text,
+                    confidence=1.0,
+                    source="gold_session",
+                    row_id=str(t.get("id", "")),
+                )
+            )
 
-    # ── Compute per-sentence metrics ──────────────────────────────────────
-    per_sentence = []
-    total_tp = total_gold = total_pred = 0
+        # Always build full gold set for standard evaluation
+        for t in all_triples:
+            gold_triples_all.append(
+                Triple(
+                    sentence_id=sid,
+                    subject=t.get("subject", ""),
+                    predicate=t.get("predicate", ""),
+                    object=t.get("object", ""),
+                    sentence=text,
+                    confidence=1.0,
+                    source="gold_session_all",
+                    row_id=str(t.get("id", "")),
+                )
+            )
 
+    print(f"[evaluate_session] Gold triples ({gold_source}): {len(gold_triples)}")
+    print(f"[evaluate_session] Sentences with text: {sum(1 for t in sentence_by_id.values() if t)}")
+
+    # ── Run OpenIE extraction ─────────────────────────────────────────────
+    pred_triples = run_stanza_dependency_baseline(sentence_by_id)
+    print(f"[evaluate_session] Predicted triples from stanza: {len(pred_triples)}")
+    pred_sids = set(t.sentence_id for t in pred_triples)
+    print(f"[evaluate_session] Sentences with predictions: {len(pred_sids)} / {len(all_sentence_ids)}")
+
+    # ── OpenIE evaluation (primary) ───────────────────────────────────────
+    openie_summary, openie_per_sentence, openie_matches = evaluate(
+        gold_triples, pred_triples, threshold=0.55, all_sentence_ids=all_sentence_ids
+    )
+
+    # ── Standard evaluation (exact + soft matching of gold vs gold) ───────
+    # Standard evaluation: compare all session triples against themselves
+    # using the exact/soft matching logic from the original _exact_match/_soft_match
+    threshold_standard = 0.50 if match_mode == "soft" else 1.0
+    std_summary, std_per_sentence, std_matches = evaluate(
+        gold_triples, pred_triples, threshold=threshold_standard, all_sentence_ids=all_sentence_ids
+    )
+
+    # ── Build per-sentence result dicts with full detail ──────────────────
+    def _build_per_sentence_results(eval_per_sentence, gold_list, pred_list):
+        results = []
+        for result in eval_per_sentence:
+            sid_str = str(result["sentence_id"])
+
+            # Parse sentence_id back to int for frontend display
+            try:
+                sid_int = int(sid_str)
+            except ValueError:
+                # Handle 's0001' format from CSV parser
+                if sid_str.startswith("s"):
+                    try:
+                        sid_int = int(sid_str[1:])
+                    except ValueError:
+                        sid_int = 0
+                else:
+                    sid_int = 0
+
+            results.append({
+                "sentence_id": sid_int,
+                "sentence_text": sentence_by_id.get(sid_str, ""),
+                "gold_triples": [
+                    {"subject": t.subject, "predicate": t.predicate, "object": t.object}
+                    for t in gold_list if t.sentence_id == sid_str
+                ],
+                "pred_triples": [
+                    {"subject": t.subject, "predicate": t.predicate, "object": t.object}
+                    for t in pred_list if t.sentence_id == sid_str
+                ],
+                **result,
+            })
+        return results
+
+    openie_results = _build_per_sentence_results(openie_per_sentence, gold_triples, pred_triples)
+    standard_results = _build_per_sentence_results(std_per_sentence, gold_triples, pred_triples)
+
+    # ── Sentence review metadata (for the review page) ────────────────────
+    sentence_review = []
     for s in sentences:
-        sid = s["id"]
-        gold = gold_by_sid[sid]
-        pred = pred_by_sid.get(sid, [])
-
-        if match_mode == "exact":
-            tp, n_gold, n_pred = _exact_match(gold, pred)
-        else:
-            tp, n_gold, n_pred = _soft_match(gold, pred)
-
-        metrics = compute_metrics(tp, n_gold, n_pred)
-        total_tp   += tp
-        total_gold += n_gold
-        total_pred += n_pred
-
-        per_sentence.append({
-            "sentence_id":   sid,
-            "sentence_text": s.get("text", ""),
-            "gold_triples":  gold,
-            "pred_triples":  pred,
-            **metrics,
+        sid = str(s["id"])
+        all_triples = s.get("triples", [])
+        graded_count = sum(1 for t in all_triples if t.get("grade") is not None)
+        pred_count = sum(1 for t in pred_triples if t.sentence_id == sid)
+        sentence_review.append({
+            "sentence_id": s["id"],
+            "text": (s.get("text") or "").strip(),
+            "total_triples": len(all_triples),
+            "graded_triples": graded_count,
+            "gold_triples_used": sum(1 for t in gold_triples if t.sentence_id == sid),
+            "predicted_triples": pred_count,
+            "has_text": bool((s.get("text") or "").strip()),
         })
 
-    # ── Macro average (mean of per-sentence scores) ───────────────────────
-    if per_sentence:
-        macro = {
-            "precision": round(sum(r["precision"] for r in per_sentence) / len(per_sentence), 4),
-            "recall":    round(sum(r["recall"]    for r in per_sentence) / len(per_sentence), 4),
-            "f1":        round(sum(r["f1"]        for r in per_sentence) / len(per_sentence), 4),
-        }
-    else:
-        macro = {"precision": 0.0, "recall": 0.0, "f1": 0.0}
-
-    # ── Micro average (aggregate counts) ─────────────────────────────────
-    micro = compute_metrics(total_tp, total_gold, total_pred)
-
     return {
-        "session_id":      session.get("session_id", ""),
+        "session_id": session.get("session_id", ""),
         "source_filename": session.get("source_filename", ""),
-        "match_mode":      match_mode,
-        "gold_source":     gold_source,
-        "per_sentence":    per_sentence,
-        "macro":           macro,
-        "micro":           micro,
+        "match_mode": match_mode,
+        "gold_source": gold_source,
+        # Primary results (backward compatible — same as openie_evaluation)
+        "per_sentence": openie_results,
+        "macro": openie_summary["macro"],
+        "micro": openie_summary["micro"],
+        # Dual evaluation sections
+        "openie_evaluation": {
+            "per_sentence": openie_results,
+            "macro": openie_summary["macro"],
+            "micro": openie_summary["micro"],
+            "threshold": 0.55,
+            "description": "OpenIE Evaluation: Stanza-extracted triples vs gold standard",
+        },
+        "standard_evaluation": {
+            "per_sentence": standard_results,
+            "macro": std_summary["macro"],
+            "micro": std_summary["micro"],
+            "threshold": threshold_standard,
+            "description": f"Standard F1/Precision/Recall ({match_mode} match)",
+        },
+        # Review metadata
+        "sentence_review": sentence_review,
+        "total_sentences": len(sentences),
+        "sentences_with_predictions": len(pred_sids),
+        "total_gold_triples": len(gold_triples),
+        "total_pred_triples": len(pred_triples),
     }

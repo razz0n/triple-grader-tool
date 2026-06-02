@@ -2,6 +2,7 @@
 // Lets the user inspect every parsed sentence group, select which version
 // of triples to use, edit the sentence text, and toggle individual triples
 // on/off before proceeding to grading.
+// Also includes a review page to ensure all sentences are correctly processed before evaluation.
 
 import { useState, useCallback, useEffect } from "react";
 
@@ -838,7 +839,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
           </ol>
 
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:text-sm text-emerald-800 leading-relaxed">
-            Publishing returns you to the dashboard, and collaborators can grade this same shared file.
+            Publishing returns you to the dashboard, and collaborators can grade this file through their own copies.
           </div>
         </div>
 
