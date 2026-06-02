@@ -216,7 +216,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             ].join(" ")}
           >
             <p className="text-sm font-semibold text-slate-800">Option 1: Upload File</p>
-            <p className="text-xs text-slate-500 mt-1">Parse CSV/Excel, then review and clean.</p>
+            <p className="text-xs text-slate-500 mt-1">Parse CSV, Excel, or exported JSON, then review and clean.</p>
           </button>
           <button
             onClick={() => setStartMode("manual")}
@@ -278,14 +278,14 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                 </p>
                 <p className="text-xs text-slate-400 mt-1">or click to browse</p>
                 <p className="text-xs text-slate-400 mt-3 bg-slate-100 px-3 py-1 rounded-full">
-                  CSV · XLSX · XLS
+                  CSV · XLSX · XLS · JSON
                 </p>
               </>
             )}
             <input
               id="file-input"
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv,.xlsx,.xls,.json"
               className="hidden"
               onChange={onInputChange}
               disabled={loading}

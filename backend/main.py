@@ -1139,21 +1139,86 @@ async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_S
         revoke_token(creds.credentials)
     return {"ok": True}
 
+def _json_to_sentence_groups(payload: Dict[str, Any]) -> list[Dict[str, Any]]:
+    """Convert a downloaded session JSON into sentence_groups for review."""
+    if isinstance(payload.get("sentence_groups"), list):
+        return payload["sentence_groups"]
+
+    sentences = payload.get("sentences")
+    if not isinstance(sentences, list):
+        raise ValueError("JSON upload must contain either 'sentence_groups' or exported 'sentences'.")
+
+    groups: list[Dict[str, Any]] = []
+    for idx, sentence in enumerate(sentences, start=1):
+        text = str(sentence.get("text") or sentence.get("sentence_text") or "").strip()
+        triples = sentence.get("triples") or []
+        if not isinstance(triples, list) or not triples:
+            continue
+
+        version_triples = []
+        for ti, triple in enumerate(triples, start=1):
+            version_triples.append({
+                "id": str(triple.get("id") or f"{idx}_1_{ti}"),
+                "subject": str(triple.get("subject") or ""),
+                "predicate": str(triple.get("predicate") or ""),
+                "object": str(triple.get("object") or ""),
+            })
+
+        groups.append({
+            "group_id": idx,
+            "sentence_text": text,
+            "selected_version_id": f"{idx}_1",
+            "versions": [
+                {
+                    "version_id": f"{idx}_1",
+                    "version_label": "Imported",
+                    "sentence_candidate": text,
+                    "triples": version_triples,
+                }
+            ],
+        })
+
+    if not groups:
+        raise ValueError("Uploaded JSON contains no valid sentences or triples.")
+
+    return groups
+
+
+def _parse_uploaded_json(file_bytes: bytes) -> list[Dict[str, Any]]:
+    try:
+        payload = json.loads(file_bytes.decode("utf-8-sig"))
+    except Exception:
+        try:
+            payload = json.loads(file_bytes.decode("latin-1"))
+        except Exception as exc:
+            raise ValueError(f"Invalid JSON upload: {str(exc)}")
+
+    if not isinstance(payload, dict):
+        raise ValueError("Uploaded JSON must be an object at the top level.")
+
+    return _json_to_sentence_groups(payload)
+
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(current_user)):
     """Parse an uploaded file, save an owner draft, and return sentence-group data for review."""
-    allowed_extensions = {".csv", ".xlsx", ".xls"}
+    allowed_extensions = {".csv", ".xlsx", ".xls", ".json"}
     suffix = Path(file.filename).suffix.lower()
     if suffix not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type '{suffix}'. Allowed: {', '.join(allowed_extensions)}",
+            detail=f"Unsupported file type '{suffix}'. Allowed: {', '.join(sorted(allowed_extensions))}",
         )
 
     file_bytes = await file.read()
 
     try:
-        sentence_groups = parse_file_rich(file_bytes, file.filename)
+        if suffix == ".json":
+            sentence_groups = _parse_uploaded_json(file_bytes)
+        else:
+            sentence_groups = parse_file_rich(file_bytes, file.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Failed to parse file: {str(exc)}")
 
