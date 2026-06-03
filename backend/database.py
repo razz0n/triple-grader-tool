@@ -27,6 +27,10 @@ def _default_sqlite_url() -> str:
 DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url())
 _STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "json").strip().lower()
 
+# Convert postgresql:// to postgresql+psycopg:// for SQLAlchemy to use psycopg v3
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 # SQLite needs check_same_thread=False when used from FastAPI workers.
 _CONNECT_ARGS = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
