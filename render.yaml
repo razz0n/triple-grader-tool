@@ -1,7 +1,31 @@
 services:
+  # Backend API Service
   - type: web
-    name: ontology-grader
-    runtime: python
-    buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
-    plan: free
+    name: ontology-grader-backend
+    runtime: python311
+    plan: starter
+    
+    # Build configuration
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    
+    # Health check
+    healthCheckPath: /docs
+    
+    # Auto-deploy on push to main branch
+    autoDeploy: true
+    branch: main
+    
+    # Environment variables are set in Render dashboard
+    # Required:
+    # - DATABASE_URL (Supabase Session Pooler connection string)
+    # - STORAGE_BACKEND=database
+    # - CORS_ORIGINS (list of allowed frontend URLs)
+
+  # Frontend Static Site
+  - type: static_site
+    name: ontology-grader-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    autoDeploy: true
+    branch: main

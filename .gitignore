@@ -41,3 +41,10 @@ backend/*.jsonld
 
 # Local runtime DB
 backend/storage/app.db
+
+# Environment variables (NEVER commit credentials)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
