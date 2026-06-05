@@ -1754,7 +1754,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           </h2>
           <div className="space-y-4">
             {current.triples.map((triple, idx) => (
-              <div key={triple.id} className="rounded-xl shadow-md overflow-hidden">
+              <div key={triple.id} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                 {/* Triple number pill */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-1.5 flex items-center gap-2">
                   <span className="text-white text-[11px] font-bold uppercase tracking-wider">

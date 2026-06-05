@@ -156,33 +156,34 @@ export default function TripleSuggestions({
   }
 
   return (
-    <div className="border-t border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 overflow-hidden">
+    <div className="bg-slate-50/20 overflow-hidden">
       {/* Suggestions header bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-amber-100 border-b border-amber-200">
+      <div className="flex items-center justify-between px-5 py-2.5 bg-amber-50/60 border-t border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <span className="text-slate-500 text-sm">💡</span>
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Suggestions</span>
+          <span className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+            <span>💡</span> Suggestions
+          </span>
           {suggestions.length > 0 && (
-            <span className="bg-slate-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+            <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
               {suggestions.length}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-xs text-slate-500">
-          <span className="font-medium">{subject}</span>
-          <span className="text-slate-400">→</span>
-          <span className="font-medium">{predicate}</span>
-          <span className="text-slate-400">→</span>
-          <span className="font-medium">{object}</span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+          <span className="bg-blue-50/50 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">{subject}</span>
+          <span className="text-slate-300">→</span>
+          <span className="bg-indigo-50/50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px]">{predicate}</span>
+          <span className="text-slate-300">→</span>
+          <span className="bg-teal-50/50 text-teal-700 px-1.5 py-0.5 rounded text-[10px]">{object}</span>
         </div>
       </div>
 
-      <div className="p-3 space-y-3">
+      <div className="p-5 space-y-4">
 
       {/* Suggestion form */}
       {canSuggest && showForm && (
-        <div className="bg-white border border-amber-200 rounded-lg p-3 space-y-2 shadow-sm">
-          <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-md">
+          <div className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
             <span>✏️</span> New Triple Suggestion
           </div>
           <input
@@ -191,7 +192,7 @@ export default function TripleSuggestions({
             value={formData.subject}
             onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
             placeholder="Subject"
-            className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
           <input
             type="text"
@@ -199,7 +200,7 @@ export default function TripleSuggestions({
             value={formData.predicate}
             onChange={(e) => setFormData(prev => ({ ...prev, predicate: e.target.value }))}
             placeholder="Predicate"
-            className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
           />
           <input
             type="text"
@@ -207,13 +208,13 @@ export default function TripleSuggestions({
             value={formData.object}
             onChange={(e) => setFormData(prev => ({ ...prev, object: e.target.value }))}
             placeholder="Object"
-            className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-300"
+            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
           />
           <textarea
             value={formData.reason}
             onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
             placeholder="Reason (optional)"
-            className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 h-12 resize-none"
+            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all h-16 resize-none"
           />
           <div className="flex gap-2 justify-end">
             <button
@@ -221,13 +222,13 @@ export default function TripleSuggestions({
                 setFormData({ subject: "", predicate: "", object: "", reason: "" });
                 setShowForm(false);
               }}
-              className="px-2 py-1 text-xs bg-white border border-amber-300 text-amber-700 rounded hover:bg-amber-50 transition-colors"
+              className="px-3 py-1.5 text-xs bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-800 transition-all font-semibold"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmitSuggestion}
-              className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors font-medium"
+              className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 active:scale-95 transition-all font-semibold shadow-sm"
             >
               Save Suggestion
             </button>
@@ -252,10 +253,10 @@ export default function TripleSuggestions({
                 : null;
             return (
               <div key={sug.id} className={[
-                "bg-white border rounded-lg p-3 text-xs shadow-sm",
+                "bg-white border border-slate-200 rounded-xl p-4 text-xs shadow-sm",
                 sug.status === "approved"
-                  ? "border-emerald-300 border-l-4 border-l-emerald-500"
-                  : "border-amber-200 border-l-4 border-l-amber-400",
+                  ? "border-l-4 border-l-emerald-500"
+                  : "border-l-4 border-l-amber-500",
               ].join(" ")}>
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">

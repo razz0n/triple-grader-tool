@@ -77,7 +77,7 @@ export default function TripleCard({
 
   if (isNewPending && triple.is_editing) {
     return (
-      <div className="border-t border-r border-b border-slate-200 border-l-4 border-l-amber-500 rounded-none p-4 bg-white space-y-3">
+      <div className="border-l-4 border-l-amber-500 p-5 bg-white space-y-3">
         <div className="text-xs font-semibold text-amber-700 flex items-center gap-1">
           <span>✏️</span> Edit Suggested Triple
         </div>
@@ -131,7 +131,7 @@ export default function TripleCard({
     : "bg-white border-l-blue-500";
 
   return (
-    <div className={`border-t border-r border-b border-slate-200 border-l-4 rounded-none p-4 shadow-none transition-shadow ${cardBg}`}>
+    <div className={`border-l-4 p-5 transition-shadow ${cardBg}`}>
       {/* Removal status badge */}
       {triple?.marked_for_removal && (
         <div className="mb-3 px-3 py-1.5 bg-red-100 border border-red-300 rounded-lg text-xs font-semibold text-red-700">
