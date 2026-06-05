@@ -242,11 +242,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   // Compute live sentence grade for the current sentence
   const sentenceGrade = useMemo(() => {
-    const grades = current.triples
+    const activeTriples = (current.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+    const grades = activeTriples
       .map((t) => t.grade)
       .filter((g) => g !== null && g !== undefined);
     if (grades.length === 0) return null;
-    if (grades.length < current.triples.length) return "partial";
+    if (grades.length < activeTriples.length) return "partial";
     return (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1);
   }, [current]);
 
@@ -255,8 +256,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let graded = 0;
     let totalT = 0;
     sentences.forEach((s) => {
-      totalT += s.triples.length;
-      graded += s.triples.filter(
+      const activeTriples = (s.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+      totalT += activeTriples.length;
+      graded += activeTriples.filter(
         (t) => t.grade !== null && t.grade !== undefined
       ).length;
     });
@@ -273,7 +275,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let overallGradeSum = 0;
 
     sentences.forEach((sentence) => {
-      sentence.triples.forEach((triple) => {
+      (sentence.triples || []).forEach((triple) => {
+        if (triple.is_new_suggestion && triple.status !== "approved") return;
         const gradesByUser = triple?.grades_by_user && typeof triple.grades_by_user === "object"
           ? triple.grades_by_user
           : {};
@@ -748,6 +751,184 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               ),
             }
       )
+    );
+  };
+
+  const handleAddTripleComment = async (tripleId, comment) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId
+                  ? {
+                      ...t,
+                      triple_comments: [...(t.triple_comments || []), comment],
+                    }
+                  : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleDeleteTripleComment = async (tripleId, commentId) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId
+                  ? {
+                      ...t,
+                      triple_comments: (t.triple_comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    }
+                  : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleMarkTripleForRemoval = async (tripleId, marked) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId
+                  ? {
+                      ...t,
+                      marked_for_removal: marked,
+                      removal_reason: marked ? "Not needed" : null,
+                    }
+                  : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleAddTripleAdjacent = (tripleId, direction) => {
+    if (!canSuggestTriples) return;
+    const newTriple = {
+      id: `new_triple_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      subject: "",
+      predicate: "",
+      object: "",
+      is_new_suggestion: true,
+      is_editing: true,
+      status: "pending",
+      suggested_by: currentUserName,
+      suggested_by_id: currentUserId,
+      grade: null,
+      grades_by_user: {},
+      suggestions: [],
+      triple_comments: []
+    };
+
+    setSentences((prev) =>
+      prev.map((s, i) => {
+        if (i !== currentIdx) return s;
+        const index = s.triples.findIndex((t) => t.id === tripleId);
+        if (index === -1) return s;
+        const newTriples = [...s.triples];
+        if (direction === "above") {
+          newTriples.splice(index, 0, newTriple);
+        } else {
+          newTriples.splice(index + 1, 0, newTriple);
+        }
+        return { ...s, triples: newTriples };
+      })
+    );
+    hasUnsavedChangesRef.current = true;
+  };
+
+  const handleRemoveSuggestedTriple = (tripleId) => {
+    if (!window.confirm("Are you sure you want to remove this suggested triple?")) return;
+    setSentences((prev) =>
+      prev.map((s, i) => {
+        if (i !== currentIdx) return s;
+        return {
+          ...s,
+          triples: s.triples.filter((t) => t.id !== tripleId)
+        };
+      })
+    );
+    hasUnsavedChangesRef.current = true;
+  };
+
+  const handleApproveSuggestedTriple = (tripleId) => {
+    setSentences((prev) =>
+      prev.map((s, i) => {
+        if (i !== currentIdx) return s;
+        return {
+          ...s,
+          triples: s.triples.map((t) =>
+            t.id === tripleId
+              ? {
+                  ...t,
+                  status: "approved",
+                  approved_by: currentUserName,
+                  approved_at: new Date().toISOString()
+                }
+              : t
+          )
+        };
+      })
+    );
+    hasUnsavedChangesRef.current = true;
+    setTimeout(() => handleSave(), 100);
+  };
+
+  const handleSaveSuggestedTriple = (tripleId, fields) => {
+    setSentences((prev) =>
+      prev.map((s, i) => {
+        if (i !== currentIdx) return s;
+        return {
+          ...s,
+          triples: s.triples.map((t) =>
+            t.id === tripleId
+              ? {
+                  ...t,
+                  ...fields,
+                  is_editing: false
+                }
+              : t
+          )
+        };
+      })
+    );
+    hasUnsavedChangesRef.current = true;
+  };
+
+  const handleSetTripleEditing = (tripleId, isEditing) => {
+    setSentences((prev) =>
+      prev.map((s, i) => {
+        if (i !== currentIdx) return s;
+        return {
+          ...s,
+          triples: s.triples.map((t) =>
+            t.id === tripleId
+              ? {
+                  ...t,
+                  is_editing: isEditing
+                }
+              : t
+          )
+        };
+      })
     );
   };
 
@@ -1343,19 +1524,30 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   currentUserId={currentUserId}
                   readOnly={!canEditSession}
                   canSuggest={canSuggestTriples}
-                  onChange={(grade) => handleGradeChange(triple.id, grade)}
-                />
-                <TripleSuggestions
-                  triple={triple}
-                  currentUser={currentUser}
-                  canSuggest={canSuggestTriples}
                   canApprove={canApproveSuggestions}
-                  onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
-                  onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
-                  onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
-                  onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
-                  onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
+                  onChange={(grade) => handleGradeChange(triple.id, grade)}
+                  onAddTripleComment={(tripleId, comment) => handleAddTripleComment(tripleId, comment)}
+                  onDeleteTripleComment={(tripleId, commentId) => handleDeleteTripleComment(tripleId, commentId)}
+                  onMarkForRemoval={(tripleId, marked) => handleMarkTripleForRemoval(tripleId, marked)}
+                  onAddTripleAdjacent={(tripleId, direction) => handleAddTripleAdjacent(tripleId, direction)}
+                  onRemoveSuggestedTriple={(tripleId) => handleRemoveSuggestedTriple(tripleId)}
+                  onApproveSuggestedTriple={(tripleId) => handleApproveSuggestedTriple(tripleId)}
+                  onSaveSuggestedTriple={(tripleId, fields) => handleSaveSuggestedTriple(tripleId, fields)}
+                  onSetTripleEditing={(tripleId, isEditing) => handleSetTripleEditing(tripleId, isEditing)}
                 />
+                {(!triple.is_new_suggestion || triple.status === "approved") && (
+                  <TripleSuggestions
+                    triple={triple}
+                    currentUser={currentUser}
+                    canSuggest={canSuggestTriples}
+                    canApprove={canApproveSuggestions}
+                    onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
+                    onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
+                    onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
+                    onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
+                    onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
+                  />
+                )}
               </div>
             ))}
           </div>

@@ -74,3 +74,19 @@ class EvaluationRequest(BaseModel):
     """Request model for evaluation."""
     match_mode: str = "soft"  # "exact" or "soft"
     gold_source: str = "graded_only"  # "graded_only" or "all"
+
+
+class TripleCommentRequest(BaseModel):
+    """Request model for adding a comment to a triple."""
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    text: str
+
+
+class MarkTripleRemovalRequest(BaseModel):
+    """Request model for marking a triple as not needed."""
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    marked: bool

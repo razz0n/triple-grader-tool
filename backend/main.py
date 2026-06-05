@@ -446,6 +446,22 @@ def _normalize_sentence_comments(
     return normalized
 
 
+def _merge_triple_comments(
+    incoming_comments: Any,
+    existing_comments: Any,
+) -> list[Dict[str, Any]]:
+    norm_incoming = _normalize_sentence_comments(incoming_comments)
+    norm_existing = _normalize_sentence_comments(existing_comments)
+
+    merged_by_id = {str(c.get("id")): c for c in norm_existing if c.get("id")}
+    for c in norm_incoming:
+        cid = str(c.get("id"))
+        if cid:
+            merged_by_id[cid] = c
+
+    return sorted(merged_by_id.values(), key=lambda row: str(row.get("created_at") or ""))
+
+
 def _apply_collaborative_grades(
     incoming_session: Dict[str, Any],
     existing_session: Optional[Dict[str, Any]],
@@ -563,8 +579,25 @@ def _apply_collaborative_grades(
                 triple["subject"] = existing_triple.get("subject", triple.get("subject"))
                 triple["predicate"] = existing_triple.get("predicate", triple.get("predicate"))
                 triple["object"] = existing_triple.get("object", triple.get("object"))
+                
+                for key in ("is_new_suggestion", "status", "suggested_by", "suggested_by_id", "approved_by", "approved_at"):
+                    if key in existing_triple:
+                        triple[key] = existing_triple[key]
+
+                if "marked_for_removal" not in triple and "marked_for_removal" in existing_triple:
+                    triple["marked_for_removal"] = existing_triple["marked_for_removal"]
+                if "removal_reason" not in triple and "removal_reason" in existing_triple:
+                    triple["removal_reason"] = existing_triple["removal_reason"]
+
                 if isinstance(existing_triple.get("suggestions"), list):
                     triple["suggestions"] = existing_triple.get("suggestions", [])
+
+                triple["triple_comments"] = _merge_triple_comments(
+                    triple.get("triple_comments"),
+                    existing_triple.get("triple_comments")
+                )
+            else:
+                triple["triple_comments"] = _normalize_sentence_comments(triple.get("triple_comments"))
 
             existing_grades = _normalize_grades_by_user(
                 existing_triple.get("grades_by_user"),
@@ -616,6 +649,8 @@ def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
 
     for sentence in session_data.get("sentences", []):
         for triple in sentence.get("triples", []):
+            if triple.get("is_new_suggestion") and triple.get("status") != "approved":
+                continue
             total_triples += 1
             grades_by_user = _normalize_grades_by_user(
                 triple.get("grades_by_user"),
@@ -742,6 +777,8 @@ def _session_activity_for_user(session_data: Dict[str, Any], user: Dict[str, Any
         )
 
         for triple in sentence.get("triples", []):
+            if triple.get("is_new_suggestion") and triple.get("status") != "approved":
+                continue
             grades_by_user = _normalize_grades_by_user(
                 triple.get("grades_by_user"),
                 fallback_grade=triple.get("grade"),
@@ -1536,7 +1573,11 @@ def _project_session_for_view(
         sentence["completeness_by_user"] = completeness_by_user
         sentence["external_relation_by_user"] = external_relation_by_user
 
+        filtered_triples = []
         for triple in sentence.get("triples", []):
+            if triple.get("is_new_suggestion") and triple.get("status") != "approved":
+                continue
+            filtered_triples.append(triple)
             total_triples += 1
 
             grades_by_user = _normalize_grades_by_user(
@@ -1585,6 +1626,8 @@ def _project_session_for_view(
             if triple.get("grade") is not None:
                 graded_triples += 1
                 overall_triple_grades.append(float(triple["grade"]))
+
+        sentence["triples"] = filtered_triples
 
         if view_mode == "user" and view_user_id:
             selected_comp = completeness_by_user.get(view_user_id)
@@ -2382,6 +2425,131 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
                             }
 
     raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+
+# ---------------------------------------------------------------------------
+# Triple comments & removal endpoints
+# ---------------------------------------------------------------------------
+
+class TripleCommentRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    text: str
+
+
+class MarkTripleRemovalRequest(BaseModel):
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    marked: bool
+
+
+@app.post("/api/triples/comments/add")
+async def add_triple_comment(body: TripleCommentRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_name = display_name(user)
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(body.session_id)
+
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    triple = t
+                    break
+            break
+
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+
+    comment_id = f"comment_{uuid.uuid4().hex[:8]}"
+    comment = {
+        "id": comment_id,
+        "user_id": user_id,
+        "author": user_name,
+        "text": body.text,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    if "triple_comments" not in triple:
+        triple["triple_comments"] = []
+    triple["triple_comments"].append(comment)
+
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True, "comment": comment}
+
+
+@app.delete("/api/triples/comments/{session_id}/{sentence_id}/{triple_id}/{comment_id}")
+async def delete_triple_comment_endpoint(
+    session_id: str,
+    sentence_id: int,
+    triple_id: str,
+    comment_id: str,
+    user: Dict[str, Any] = Depends(current_user)
+):
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(session_id)
+
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == triple_id:
+                    triple = t
+                    break
+            break
+
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+
+    comments = triple.get("triple_comments", [])
+    found_idx = -1
+    for idx, c in enumerate(comments):
+        if c.get("id") == comment_id:
+            if c.get("user_id") != user_id:
+                raise HTTPException(status_code=403, detail="You cannot delete someone else's comment.")
+            found_idx = idx
+            break
+
+    if found_idx == -1:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+
+    comments.pop(found_idx)
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True}
+
+
+@app.post("/api/triples/mark-removal")
+async def mark_triple_removal(body: MarkTripleRemovalRequest, user: Dict[str, Any] = Depends(current_user)):
+    json_path, session = _load_session_for_access(body.session_id)
+
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    triple = t
+                    break
+            break
+
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+
+    triple["marked_for_removal"] = body.marked
+    triple["removal_reason"] = "Not needed" if body.marked else None
+
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

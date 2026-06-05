@@ -338,3 +338,53 @@ export async function downloadEvaluation(sessionId, fmt) {
   link.remove();
   window.URL.revokeObjectURL(url);
 }
+
+/**
+ * Add a comment to a triple.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} commentText
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function addTripleComment(sessionId, sentenceId, tripleId, commentText) {
+  const { data } = await API.post("/api/triples/comments/add", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    text: commentText,
+  });
+  return data;
+}
+
+/**
+ * Delete a comment from a triple.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} commentId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function deleteTripleComment(sessionId, sentenceId, tripleId, commentId) {
+  const { data } = await API.delete(`/api/triples/comments/${sessionId}/${sentenceId}/${tripleId}/${commentId}`);
+  return data;
+}
+
+/**
+ * Mark a triple as not needed / request removal.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {boolean} marked
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function markTripleForRemoval(sessionId, sentenceId, tripleId, marked) {
+  const { data } = await API.post("/api/triples/mark-removal", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    marked,
+  });
+  return data;
+}
+
