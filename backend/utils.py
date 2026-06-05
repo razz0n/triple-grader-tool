@@ -30,14 +30,18 @@ def save_json(path: Path, data: Any):
         os.fsync(fh.fileno())  # Force write to disk immediately
 
 
-def norm_email(email: str) -> str:
+def norm_email(email: Any) -> str:
     """Normalize email address."""
-    return email.strip().lower()
+    if email is None:
+        return ""
+    return str(email).strip().lower()
 
 
-def norm_username(username: str) -> str:
+def norm_username(username: Any) -> str:
     """Normalize username."""
-    return username.strip().lower()
+    if username is None:
+        return ""
+    return str(username).strip().lower()
 
 
 def is_valid_username(username: str) -> bool:

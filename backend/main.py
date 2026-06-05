@@ -1153,7 +1153,7 @@ async def login(body: AuthRequest):
         "token_type": "bearer",
         "user": {
             "id": user["id"],
-            "username": user.get("username", ""),
+            "username": user.get("username") or "",
             "name": display_name(user),
             "email": user["email"],
         },
@@ -1164,7 +1164,7 @@ async def login(body: AuthRequest):
 async def me(user: Dict[str, Any] = Depends(current_user)):
     return {
         "id": user["id"],
-        "username": user.get("username", ""),
+        "username": user.get("username") or "",
         "name": display_name(user),
         "email": user["email"],
     }
@@ -1454,8 +1454,8 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
             or (display_name(owner_user) if owner_user else None)
             or display_name(user)
         )
-        session_data["owner_email"] = norm_email(str(owner_email or user.get("email", "")))
-        session_data["owner_username"] = norm_username(str(owner_username or user.get("username", "")))
+        session_data["owner_email"] = norm_email(owner_email or user.get("email") or "")
+        session_data["owner_username"] = norm_username(owner_username or user.get("username") or "")
 
         # Keep prior evaluation payload unless overwritten explicitly.
         if existing_session.get("evaluation") and not session_data.get("evaluation"):
@@ -1464,8 +1464,8 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
         session_data["manual_mode"] = bool(session_data.get("manual_mode"))
         session_data["owner_user_id"] = user["id"]
         session_data["owner_name"] = display_name(user)
-        session_data["owner_email"] = norm_email(user.get("email", ""))
-        session_data["owner_username"] = norm_username(user.get("username", ""))
+        session_data["owner_email"] = norm_email(user.get("email") or "")
+        session_data["owner_username"] = norm_username(user.get("username") or "")
 
     session_data["root_session_id"] = body.session_id
     session_data["is_copy"] = False
