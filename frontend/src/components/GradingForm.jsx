@@ -1099,7 +1099,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="text-blue-700 text-xl font-bold select-none shrink-0">◈</div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-700 leading-tight">Ontology Triple Grader</div>
+              <div className="text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5">
+                Ontology Triple Grader
+                <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">v2.0</span>
+              </div>
               <div className="text-xs text-slate-400 truncate max-w-48">{source_filename}</div>
             </div>
           </div>
