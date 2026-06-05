@@ -281,7 +281,7 @@ export default function TripleCard({
             <span className="text-xs font-semibold text-slate-500 w-24 shrink-0">Quality (0-10)</span>
 
             <div className="flex items-center gap-1 flex-wrap">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <button
                   key={n}
                   onClick={() => onChange(n)}

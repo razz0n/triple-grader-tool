@@ -282,7 +282,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           : {};
 
         Object.entries(gradesByUser).forEach(([key, payload]) => {
-          const grade = Number(payload?.grade);
+          if (payload?.grade === null || payload?.grade === undefined || payload?.grade === "") return;
+          const grade = Number(payload.grade);
           if (!Number.isFinite(grade)) return;
 
           const userId = String(payload?.user_id || key || "");
@@ -360,7 +361,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 }
 
                 const values = Object.values(nextGradesByUser)
-                  .map((item) => Number(item?.grade))
+                  .filter((item) => item?.grade !== null && item?.grade !== undefined && item?.grade !== "")
+                  .map((item) => Number(item.grade))
                   .filter((value) => Number.isFinite(value));
 
                 return {
@@ -1296,7 +1298,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </div>
 
         {/* Sentence card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 sticky top-[60px] z-20">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full">
