@@ -420,12 +420,39 @@ def _normalize_sentence_comments(
             if created_at is None:
                 created_at = fallback_created_at or datetime.utcnow().isoformat()
 
+            replies = payload.get("replies") or []
+            normalized_replies = []
+            if isinstance(replies, list):
+                for r_idx, r_payload in enumerate(replies):
+                    if not isinstance(r_payload, dict):
+                        continue
+                    r_text = str(r_payload.get("text") or r_payload.get("comment") or "").strip()
+                    if not r_text:
+                        continue
+                    r_id = str(r_payload.get("id") or "").strip()
+                    if not r_id:
+                        r_id = f"reply_{r_idx}_{uuid.uuid4().hex[:8]}"
+                    r_user_id = str(r_payload.get("user_id") or r_payload.get("author_user_id") or "").strip()
+                    r_author = str(r_payload.get("author") or r_payload.get("user_name") or "").strip()
+                    if not r_author:
+                        r_author = r_user_id or "User"
+                    r_created_at = r_payload.get("created_at") or r_payload.get("posted_at") or datetime.utcnow().isoformat()
+                    normalized_replies.append({
+                        "id": r_id,
+                        "user_id": r_user_id,
+                        "author": r_author,
+                        "text": r_text,
+                        "created_at": r_created_at,
+                    })
+            normalized_replies.sort(key=lambda row: str(row.get("created_at") or ""))
+
             normalized.append({
                 "id": comment_id,
                 "user_id": user_id,
                 "author": author,
                 "text": text,
                 "created_at": created_at,
+                "replies": normalized_replies,
             })
 
     if not normalized:
@@ -457,6 +484,13 @@ def _merge_triple_comments(
     for c in norm_incoming:
         cid = str(c.get("id"))
         if cid:
+            if cid in merged_by_id:
+                existing_r = merged_by_id[cid].get("replies") or []
+                incoming_r = c.get("replies") or []
+                merged_replies_dict = {str(r.get("id")): r for r in existing_r}
+                for r in incoming_r:
+                    merged_replies_dict[str(r.get("id"))] = r
+                c["replies"] = sorted(merged_replies_dict.values(), key=lambda row: str(row.get("created_at") or ""))
             merged_by_id[cid] = c
 
     return sorted(merged_by_id.values(), key=lambda row: str(row.get("created_at") or ""))
@@ -1074,6 +1108,13 @@ def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing
             comment_id = str(comment.get("id") or "").strip()
             if not comment_id:
                 continue
+            if comment_id in merged_by_id:
+                existing_r = merged_by_id[comment_id].get("replies") or []
+                incoming_r = comment.get("replies") or []
+                merged_replies_dict = {str(r.get("id")): r for r in existing_r}
+                for r in incoming_r:
+                    merged_replies_dict[str(r.get("id"))] = r
+                comment["replies"] = sorted(merged_replies_dict.values(), key=lambda row: str(row.get("created_at") or ""))
             merged_by_id[comment_id] = comment
 
         merged_comments = sorted(

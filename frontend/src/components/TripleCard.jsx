@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import TripleComments from "./TripleComments";
 
 export default function TripleCard({
   triple,
@@ -284,7 +283,7 @@ export default function TripleCard({
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <button
                   key={n}
-                  onClick={() => onChange(n)}
+                  onClick={() => onChange(grade === n ? null : n)}
                   disabled={readOnly}
                   className={[
                     "w-6 h-6 rounded-full text-xs font-semibold border transition-all",
@@ -342,16 +341,7 @@ export default function TripleCard({
         </div>
       )}
 
-      {/* Triple Comments Section */}
-      <TripleComments
-        tripleId={triple.id}
-        comments={triple?.triple_comments || []}
-        currentUserId={currentUserId}
-        currentUserName={author || "User"}
-        readOnly={readOnly}
-        onAddComment={(comment) => onAddTripleComment?.(triple.id, comment)}
-        onDeleteComment={(commentId) => onDeleteTripleComment?.(triple.id, commentId)}
-      />
+
 
       {/* Mark for removal section */}
       {canSuggest && !isNewPending && (

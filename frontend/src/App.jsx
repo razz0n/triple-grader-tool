@@ -155,22 +155,26 @@ export default function App() {
   const greetingName = firstName || user?.username || user?.email || "User";
   const usernameTag = user?.username ? `@${user.username}` : "";
 
+  const isDashboard = !uploadData && !gradingData && !evalSession;
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
-          <p className="text-xs sm:text-sm text-slate-600">
-            Welcome, <span className="font-semibold text-slate-800">{greetingName}</span>
-            {usernameTag && <span className="ml-2 text-slate-400">({usernameTag})</span>}
-          </p>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
-          >
-            Logout
-          </button>
+      {isDashboard && (
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+          <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
+            <p className="text-xs sm:text-sm text-slate-600">
+              Welcome, <span className="font-semibold text-slate-800">{greetingName}</span>
+              {usernameTag && <span className="ml-2 text-slate-400">({usernameTag})</span>}
+            </p>
+            <button
+              onClick={handleLogout}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {workspaceView}
     </div>
   );

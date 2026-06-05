@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import TripleSuggestions from "./TripleSuggestions";
+import TripleComments from "./TripleComments";
 import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion, unapproveSuggestion } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
@@ -217,18 +218,36 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [downloading, setDownloading] = useState(false);
   const [dlError, setDlError]       = useState("");
   const dlRef                       = useRef(null);
+  const [moreOpen, setMoreOpen]     = useState(false);
+  const moreRef                     = useRef(null);
   const idleTimerRef                = useRef(null);
   const hasUnsavedChangesRef        = useRef(false);
   const savingRef                   = useRef(false);
   const latestPayloadRef            = useRef(null);
 
-  // Close download dropdown on outside click
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
+  const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
+
+  // Close dropdowns on outside click and handle scroll collapse
   useEffect(() => {
     const handler = (e) => {
       if (dlRef.current && !dlRef.current.contains(e.target)) setDlOpen(false);
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    const handleScroll = () => {
+      if (window.scrollY > 80) {
+        setIsCollapsed(true);
+      } else {
+        setIsCollapsed(false);
+      }
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   const total   = sentences.length;
@@ -381,7 +400,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const handleSentenceMetricChange = (field, value) => {
     if (!canEditSession) return;
-    const normalizedValue = normalizeMetricValue(value);
+    const isUndo = current[field] === value;
+    const normalizedValue = isUndo ? null : normalizeMetricValue(value);
     const byUserField = field === "completeness" ? "completeness_by_user" : "external_relation_by_user";
     const countField = field === "completeness" ? "completeness_count" : "external_relation_count";
     const averageField = field === "completeness" ? "completeness_average" : "external_relation_average";
@@ -800,6 +820,104 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
+  const handleAddTripleCommentReply = (tripleId, commentId, reply) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId
+                  ? {
+                      ...t,
+                      triple_comments: (t.triple_comments || []).map((c) =>
+                        c.id === commentId
+                          ? {
+                              ...c,
+                              replies: [...(c.replies || []), reply],
+                            }
+                          : c
+                      ),
+                    }
+                  : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleDeleteTripleCommentReply = (tripleId, commentId, replyId) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              triples: s.triples.map((t) =>
+                t.id === tripleId
+                  ? {
+                      ...t,
+                      triple_comments: (t.triple_comments || []).map((c) =>
+                        c.id === commentId
+                          ? {
+                              ...c,
+                              replies: (c.replies || []).filter((r) => r.id !== replyId),
+                            }
+                          : c
+                      ),
+                    }
+                  : t
+              ),
+            }
+      )
+    );
+  };
+
+  const handleAddSentenceCommentReply = (commentId, reply) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              sentence_comments: (s.sentence_comments || []).map((c) =>
+                c.id === commentId
+                  ? {
+                      ...c,
+                      replies: [...(c.replies || []), reply],
+                    }
+                  : c
+              ),
+            }
+      )
+    );
+  };
+
+  const handleDeleteSentenceCommentReply = (commentId, replyId) => {
+    hasUnsavedChangesRef.current = true;
+    setSentences((prev) =>
+      prev.map((s, i) =>
+        i !== currentIdx
+          ? s
+          : {
+              ...s,
+              sentence_comments: (s.sentence_comments || []).map((c) =>
+                c.id === commentId
+                  ? {
+                      ...c,
+                      replies: (c.replies || []).filter((r) => r.id !== replyId),
+                    }
+                  : c
+              ),
+            }
+      )
+    );
+  };
+
   const handleMarkTripleForRemoval = async (tripleId, marked) => {
     hasUnsavedChangesRef.current = true;
     setSentences((prev) =>
@@ -1095,17 +1213,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
       {/* ── Top bar ────────────────────────────────────────────────────── */}
       <div className="bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm fixed top-0 left-0 right-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
 
           {/* Logo + filename */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="text-blue-700 text-xl font-bold select-none shrink-0">◈</div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5">
-                Ontology Triple Grader
-                <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">v2.0</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5 min-w-0">
+                <span className="truncate">Ontology Triple Grader</span>
+                <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">v2.0</span>
               </div>
-              <div className="text-xs text-slate-400 truncate max-w-48">{source_filename}</div>
+              <div className="text-xs text-slate-400 truncate max-w-[120px] sm:max-w-[240px]">{source_filename}</div>
             </div>
           </div>
 
@@ -1145,22 +1263,20 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
           {/* ── Download split button ── */}
           <div className="relative shrink-0" ref={dlRef}>
-            <div className="flex rounded-lg overflow-hidden shadow-sm border border-green-600">
+            <div className="flex rounded-lg overflow-hidden shadow-sm border border-green-600 bg-green-600">
               {/* Main: download in selected format */}
               <button
                 onClick={() => handleDownload()}
                 disabled={downloading || !savedSessionId}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white hover:bg-green-700 active:scale-95 transition-all disabled:opacity-40 whitespace-nowrap"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white hover:bg-green-700 active:scale-95 transition-all disabled:opacity-40 whitespace-nowrap cursor-pointer"
               >
-                {downloading
-                  ? "…"
-                  : "⬇ Download"}
+                {downloading ? "…" : <><span className="hidden sm:inline">⬇ Download</span><span className="sm:hidden">⬇</span></>}
               </button>
               {/* Chevron: open format picker */}
               <button
                 onClick={() => setDlOpen((o) => !o)}
                 disabled={downloading}
-                className="px-2 py-1.5 text-xs font-bold bg-green-600 text-white hover:bg-green-700 border-l border-green-500 transition-all disabled:opacity-40"
+                className="px-2 py-1.5 text-xs font-bold bg-green-600 text-white hover:bg-green-700 border-l border-green-500 transition-all disabled:opacity-40 cursor-pointer"
                 aria-label="Choose download format"
               >
                 {dlOpen ? "▲" : "▼"}
@@ -1175,7 +1291,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     key={f.value}
                     onClick={() => { setDlFmt(f.value); setDlOpen(false); }}
                     className={[
-                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors",
+                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer",
                       f.value === dlFmt
                         ? "bg-green-50 text-green-700 font-semibold"
                         : "text-slate-700 hover:bg-slate-50",
@@ -1203,7 +1319,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             rel="noopener noreferrer"
             onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
             className={[
-              "flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+              "hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
               savedSessionId
                 ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50"
                 : "border-slate-200 text-slate-300 cursor-not-allowed",
@@ -1219,7 +1335,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               onClick={() => onEvaluate(savedSessionId, source_filename)}
               disabled={!savedSessionId}
               className={[
-                "flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+                "hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
                 savedSessionId
                   ? "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-500"
                   : "border-slate-200 text-slate-300 cursor-not-allowed",
@@ -1233,23 +1349,81 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           {/* Back to Dashboard */}
           <button
             onClick={onReset}
-            className="text-xs text-slate-500 hover:text-blue-700 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 shrink-0 whitespace-nowrap flex items-center gap-1"
+            className="hidden lg:flex text-xs text-slate-500 hover:text-blue-700 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 shrink-0 whitespace-nowrap items-center gap-1 cursor-pointer"
           >
             ← Dashboard
           </button>
+
+          {/* ── More actions dropdown button (visible on screens below lg) ── */}
+          <div className="relative shrink-0 lg:hidden" ref={moreRef}>
+            <button
+              onClick={() => setMoreOpen((o) => !o)}
+              className="flex items-center justify-center p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 active:scale-95 transition-all text-xs font-semibold gap-1 cursor-pointer"
+              title="More Actions"
+            >
+              <span>•••</span>
+            </button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-40 z-50">
+                <a
+                  href={previewHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
+                  className={[
+                    "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors",
+                    savedSessionId
+                      ? "text-slate-700 hover:bg-slate-50"
+                      : "text-slate-300 cursor-not-allowed",
+                  ].join(" ")}
+                >
+                  <span>👁</span> View Online
+                </a>
+                {onEvaluate && (
+                  <button
+                    onClick={() => {
+                      onEvaluate(savedSessionId, source_filename);
+                      setMoreOpen(false);
+                    }}
+                    disabled={!savedSessionId}
+                    className={[
+                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer",
+                      savedSessionId
+                        ? "text-purple-700 hover:bg-purple-50"
+                        : "text-slate-300 cursor-not-allowed",
+                    ].join(" ")}
+                  >
+                    <span>🔬</span> Evaluate
+                  </button>
+                )}
+                <div className="border-t border-slate-100 my-1"></div>
+                <button
+                  onClick={() => {
+                    onReset();
+                    setMoreOpen(false);
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <span>←</span> Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Inline status bar on small screens */}
-        {!savedSessionId && (
-          <div className="lg:hidden px-4 pb-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
-              </div>
-              <span className="text-xs text-blue-700 font-semibold">{gradingProgress.pct}%</span>
+        <div className="lg:hidden px-4 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 shrink-0">
+              {gradingProgress.graded}/{gradingProgress.total}
+            </span>
+            <div className="flex-1 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
             </div>
+            <span className="text-xs text-blue-700 font-semibold shrink-0">{gradingProgress.pct}%</span>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ── Main content ───────────────────────────────────────────────── */}
@@ -1298,208 +1472,263 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </div>
 
         {/* Sentence card */}
-        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 sticky top-[60px] z-20">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {currentIdx + 1} / {total}
-              </span>
-              <span className="text-sm text-slate-500 font-medium">Sentence</span>
-            </div>
-
-            {/* Grade badge */}
-            <div className={`text-right ${gradeColor}`}>
-              {sentenceGrade === null ? (
-                <span className="text-xs italic text-slate-400">
-                  No triples graded
+        <div className={`bg-white shadow-md border border-slate-200 sticky top-[88px] lg:top-[60px] z-20 transition-all duration-300 ${isCollapsed ? 'p-3 rounded-xl' : 'p-6 rounded-2xl'}`}>
+          {isCollapsed ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="bg-blue-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                  {currentIdx + 1} / {total}
                 </span>
-              ) : sentenceGrade === "partial" ? (
-                <span className="text-xs font-semibold">Grading incomplete</span>
-              ) : (
-                <div className="flex flex-col items-end">
-                  <span className="text-2xl font-bold leading-none">
-                    {sentenceGrade}
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0 hidden sm:inline">Sentence:</span>
+                <p className="text-xs font-medium text-slate-800 truncate" title={current.text}>
+                  {current.text}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Sentence metrics summary badges */}
+                {current.completeness !== null && current.completeness !== undefined && (
+                  <span className="bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px] font-bold text-green-700">
+                    Comp: {current.completeness}/10
                   </span>
-                  <span className="text-xs">/ 10 avg</span>
-                </div>
-              )}
-            </div>
-          </div>
+                )}
+                {current.external_relation !== null && current.external_relation !== undefined && (
+                  <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700">
+                    Rel: {current.external_relation}/10
+                  </span>
+                )}
+                {sentenceGrade !== null && sentenceGrade !== undefined && sentenceGrade !== "partial" && (
+                  <span className="bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold text-blue-700">
+                    Grade: {sentenceGrade}/10
+                  </span>
+                )}
 
-          {/* Sentence text */}
-          <blockquote className="text-base text-slate-800 font-medium leading-relaxed border-l-4 border-blue-300 pl-4 bg-blue-50/40 py-2 pr-2 rounded-r-xl">
-            {current.text}
-          </blockquote>
-
-          <div className="mt-5 border-t border-slate-100 pt-4 space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Sentence-level Metrics
-            </h3>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">Completeness (0-10)</span>
-              <div className="flex items-center gap-1 flex-wrap">
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                {/* Navigation Controls */}
+                <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
                   <button
-                    key={`comp-${n}`}
-                    onClick={() => handleSentenceMetricChange("completeness", n)}
-                    disabled={!canEditSession}
-                    className={[
-                      "w-6 h-6 rounded text-xs font-semibold border transition-all",
-                      "focus:outline-none focus:ring-2 focus:ring-green-400",
-                      current.completeness === n
-                        ? "bg-green-600 text-white border-green-600 scale-110 shadow"
-                        : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
-                      !canEditSession ? "opacity-70 cursor-not-allowed" : "",
-                    ].join(" ")}
+                    onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                    disabled={currentIdx === 0}
+                    className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    title="Previous Sentence"
                   >
-                    {n}
+                    ◀
                   </button>
-                ))}
+                  <button
+                    onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                    disabled={currentIdx === total - 1}
+                    className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    title="Next Sentence"
+                  >
+                    ▶
+                  </button>
+                </div>
               </div>
-              {current.completeness !== null && current.completeness !== undefined ? (
-                <span className="ml-1 text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                  {current.completeness}/10
-                </span>
-              ) : (
-                <span className="ml-1 text-xs text-slate-400 italic">not set</span>
-              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    {currentIdx + 1} / {total}
+                  </span>
+                  <span className="text-sm text-slate-500 font-medium">Sentence</span>
+                </div>
 
-              {current.completeness_average !== null && current.completeness_average !== undefined && (
-                <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                  Avg. {Number(current.completeness_average).toFixed(2)} ({current.completeness_count || 0})
-                </span>
-              )}
+                {/* Grade badge */}
+                <div className={`text-right ${gradeColor}`}>
+                  {sentenceGrade === null ? (
+                    <span className="text-xs italic text-slate-400">
+                      No triples graded
+                    </span>
+                  ) : sentenceGrade === "partial" ? (
+                    <span className="text-xs font-semibold">Grading incomplete</span>
+                  ) : (
+                    <div className="flex flex-col items-end">
+                      <span className="text-2xl font-bold leading-none">
+                        {sentenceGrade}
+                      </span>
+                      <span className="text-xs">/ 10 avg</span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-              {completenessMetricEntries.length > 0 && (
-                <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
-                  {completenessMetricEntries.map((entry) => {
-                    const isMe = currentUserId && entry.userId === currentUserId;
-                    return (
-                      <span
-                        key={`comp-${entry.userId}`}
+              {/* Sentence text */}
+              <blockquote className="text-base text-slate-800 font-medium leading-relaxed border-l-4 border-blue-300 pl-4 bg-blue-50/40 py-2 pr-2 rounded-r-xl">
+                {current.text}
+              </blockquote>
+
+              <div className="mt-5 border-t border-slate-100 pt-4 space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Sentence-level Metrics
+                </h3>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">Completeness (0-10)</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <button
+                        key={`comp-${n}`}
+                        onClick={() => handleSentenceMetricChange("completeness", n)}
+                        disabled={!canEditSession}
                         className={[
-                          "text-xs font-medium border px-2 py-1 rounded-full",
-                          isMe
-                            ? "bg-green-100 text-green-800 border-green-300"
-                            : "bg-slate-100 text-slate-700 border-slate-300",
+                          "w-6 h-6 rounded text-xs font-semibold border transition-all",
+                          "focus:outline-none focus:ring-2 focus:ring-green-400",
+                          current.completeness === n
+                            ? "bg-green-600 text-white border-green-600 scale-110 shadow"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
+                          !canEditSession ? "opacity-70 cursor-not-allowed" : "",
                         ].join(" ")}
                       >
-                        {entry.userName}
-                        {isMe ? " (you)" : ""}
-                        : {entry.value}/10
-                      </span>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  {current.completeness !== null && current.completeness !== undefined ? (
+                    <span className="ml-1 text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                      {current.completeness}/10
+                    </span>
+                  ) : (
+                    <span className="ml-1 text-xs text-slate-400 italic">not set</span>
+                  )}
+
+                  {current.completeness_average !== null && current.completeness_average !== undefined && (
+                    <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                      Avg. {Number(current.completeness_average).toFixed(2)} ({current.completeness_count || 0})
+                    </span>
+                  )}
+
+                  {completenessMetricEntries.length > 0 && (
+                    <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
+                      {completenessMetricEntries.map((entry) => {
+                        const isMe = currentUserId && entry.userId === currentUserId;
+                        return (
+                          <span
+                            key={`comp-${entry.userId}`}
+                            className={[
+                              "text-xs font-medium border px-2 py-1 rounded-full",
+                              isMe
+                                ? "bg-green-100 text-green-800 border-green-300"
+                                : "bg-slate-100 text-slate-700 border-slate-300",
+                            ].join(" ")}
+                          >
+                            {entry.userName}
+                            {isMe ? " (you)" : ""}
+                            : {entry.value}/10
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">External Relation (0-10)</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <button
+                        key={`rel-${n}`}
+                        onClick={() => handleSentenceMetricChange("external_relation", n)}
+                        disabled={!canEditSession}
+                        className={[
+                          "w-6 h-6 rounded text-xs font-semibold border transition-all",
+                          "focus:outline-none focus:ring-2 focus:ring-indigo-400",
+                          current.external_relation === n
+                            ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-indigo-50 hover:border-indigo-400",
+                          !canEditSession ? "opacity-70 cursor-not-allowed" : "",
+                        ].join(" ")}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  {current.external_relation !== null && current.external_relation !== undefined ? (
+                    <span className="ml-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                      {current.external_relation}/10
+                    </span>
+                  ) : (
+                    <span className="ml-1 text-xs text-slate-400 italic">not set</span>
+                  )}
+
+                  {current.external_relation_average !== null && current.external_relation_average !== undefined && (
+                    <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                      Avg. {Number(current.external_relation_average).toFixed(2)} ({current.external_relation_count || 0})
+                    </span>
+                  )}
+
+                  {externalRelationMetricEntries.length > 0 && (
+                    <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
+                      {externalRelationMetricEntries.map((entry) => {
+                        const isMe = currentUserId && entry.userId === currentUserId;
+                        return (
+                          <span
+                            key={`rel-${entry.userId}`}
+                            className={[
+                              "text-xs font-medium border px-2 py-1 rounded-full",
+                              isMe
+                                ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                                : "bg-slate-100 text-slate-700 border-slate-300",
+                            ].join(" ")}
+                          >
+                            {entry.userName}
+                            {isMe ? " (you)" : ""}
+                            : {entry.value}/10
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Navigation arrows */}
+              <div className="flex items-center justify-between mt-5">
+                <button
+                  onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                  disabled={currentIdx === 0}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  ← Previous
+                </button>
+
+                {/* Dot navigator */}
+                <div className="hidden sm:flex gap-1 flex-wrap justify-center max-w-xs">
+                  {sentences.map((s, i) => {
+                    const allGraded = s.triples.every((t) => t.grade !== null);
+                    const anyGraded = s.triples.some((t) => t.grade !== null);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setCurrentIdx(i)}
+                        title={`Sentence ${i + 1}`}
+                        className={[
+                          "w-3 h-3 rounded-full transition-all",
+                          i === currentIdx
+                            ? "bg-blue-700 scale-125"
+                            : allGraded
+                            ? "bg-green-500"
+                            : anyGraded
+                            ? "bg-amber-400"
+                            : "bg-slate-300 hover:bg-slate-400",
+                        ].join(" ")}
+                      />
                     );
                   })}
                 </div>
-              )}
-            </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">External Relation (0-10)</span>
-              <div className="flex items-center gap-1 flex-wrap">
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <button
-                    key={`rel-${n}`}
-                    onClick={() => handleSentenceMetricChange("external_relation", n)}
-                    disabled={!canEditSession}
-                    className={[
-                      "w-6 h-6 rounded text-xs font-semibold border transition-all",
-                      "focus:outline-none focus:ring-2 focus:ring-indigo-400",
-                      current.external_relation === n
-                        ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow"
-                        : "bg-white text-slate-600 border-slate-300 hover:bg-indigo-50 hover:border-indigo-400",
-                      !canEditSession ? "opacity-70 cursor-not-allowed" : "",
-                    ].join(" ")}
-                  >
-                    {n}
-                  </button>
-                ))}
+                <button
+                  onClick={() =>
+                    setCurrentIdx((i) => Math.min(total - 1, i + 1))
+                  }
+                  disabled={currentIdx === total - 1}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  Next →
+                </button>
               </div>
-              {current.external_relation !== null && current.external_relation !== undefined ? (
-                <span className="ml-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                  {current.external_relation}/10
-                </span>
-              ) : (
-                <span className="ml-1 text-xs text-slate-400 italic">not set</span>
-              )}
-
-              {current.external_relation_average !== null && current.external_relation_average !== undefined && (
-                <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                  Avg. {Number(current.external_relation_average).toFixed(2)} ({current.external_relation_count || 0})
-                </span>
-              )}
-
-              {externalRelationMetricEntries.length > 0 && (
-                <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
-                  {externalRelationMetricEntries.map((entry) => {
-                    const isMe = currentUserId && entry.userId === currentUserId;
-                    return (
-                      <span
-                        key={`rel-${entry.userId}`}
-                        className={[
-                          "text-xs font-medium border px-2 py-1 rounded-full",
-                          isMe
-                            ? "bg-indigo-100 text-indigo-800 border-indigo-300"
-                            : "bg-slate-100 text-slate-700 border-slate-300",
-                        ].join(" ")}
-                      >
-                        {entry.userName}
-                        {isMe ? " (you)" : ""}
-                        : {entry.value}/10
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation arrows */}
-          <div className="flex items-center justify-between mt-5">
-            <button
-              onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-              disabled={currentIdx === 0}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              ← Previous
-            </button>
-
-            {/* Dot navigator */}
-            <div className="hidden sm:flex gap-1 flex-wrap justify-center max-w-xs">
-              {sentences.map((s, i) => {
-                const allGraded = s.triples.every((t) => t.grade !== null);
-                const anyGraded = s.triples.some((t) => t.grade !== null);
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setCurrentIdx(i)}
-                    title={`Sentence ${i + 1}`}
-                    className={[
-                      "w-3 h-3 rounded-full transition-all",
-                      i === currentIdx
-                        ? "bg-blue-700 scale-125"
-                        : allGraded
-                        ? "bg-green-500"
-                        : anyGraded
-                        ? "bg-amber-400"
-                        : "bg-slate-300 hover:bg-slate-400",
-                    ].join(" ")}
-                  />
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() =>
-                setCurrentIdx((i) => Math.min(total - 1, i + 1))
-              }
-              disabled={currentIdx === total - 1}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              Next →
-            </button>
-          </div>
+            </>
+          )}
         </div>
 
         {/* Triples */}
@@ -1553,6 +1782,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
                   />
                 )}
+                <TripleComments
+                  tripleId={triple.id}
+                  comments={triple?.triple_comments || []}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  readOnly={!canEditSession}
+                  onAddComment={(comment) => handleAddTripleComment(triple.id, comment)}
+                  onDeleteComment={(commentId) => handleDeleteTripleComment(triple.id, commentId)}
+                  onAddReply={(commentId, reply) => handleAddTripleCommentReply(triple.id, commentId, reply)}
+                  onDeleteReply={(commentId, replyId) => handleDeleteTripleCommentReply(triple.id, commentId, replyId)}
+                />
               </div>
             ))}
           </div>
@@ -1598,6 +1838,102 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap break-words">
                     {comment.text}
                   </p>
+
+                  {/* Sentence Comment Reply actions */}
+                  {canEditSession && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingToSentenceCommentId(replyingToSentenceCommentId === comment.id ? null : comment.id);
+                          setSentenceCommentReplyText("");
+                        }}
+                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Nested Sentence Comment Reply Form */}
+                  {canEditSession && replyingToSentenceCommentId === comment.id && (
+                    <div className="pl-3 border-l-2 border-blue-200 mt-2 space-y-1.5">
+                      <textarea
+                        value={sentenceCommentReplyText}
+                        onChange={(e) => setSentenceCommentReplyText(e.target.value)}
+                        placeholder="Write a reply…"
+                        rows={1}
+                        className="w-full text-xs border border-slate-200 rounded p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300"
+                      />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const text = String(sentenceCommentReplyText || "").trim();
+                            if (!text) return;
+                            const newReply = {
+                              id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                              author: currentUserName || "User",
+                              user_id: currentUserId || "",
+                              text,
+                              created_at: new Date().toISOString(),
+                            };
+                            await handleAddSentenceCommentReply(comment.id, newReply);
+                            setSentenceCommentReplyText("");
+                            setReplyingToSentenceCommentId(null);
+                          }}
+                          disabled={!sentenceCommentReplyText.trim()}
+                          className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium cursor-pointer"
+                        >
+                          Reply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingToSentenceCommentId(null);
+                            setSentenceCommentReplyText("");
+                          }}
+                          className="text-[10px] px-2 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-medium cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nested Sentence Comment Replies List */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="pl-3 border-l-2 border-blue-200 mt-2 space-y-2">
+                      {comment.replies.map((reply) => (
+                        <div key={reply.id} className="bg-white border border-slate-100 rounded p-2 text-[11px] leading-relaxed">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500">
+                                <span className="font-semibold text-slate-700">{reply.author || "User"}</span>
+                                <span>•</span>
+                                <span>{formatCommentTimestamp(reply.created_at)}</span>
+                              </div>
+                              <p className="text-slate-600 mt-0.5 break-words">{reply.text}</p>
+                            </div>
+                            {canEditSession && reply.user_id === currentUserId && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm("Remove this reply?")) {
+                                    handleDeleteSentenceCommentReply(comment.id, reply.id);
+                                  }
+                                }}
+                                className="flex-shrink-0 px-1 text-slate-400 hover:text-red-600 transition-colors text-[10px] cursor-pointer"
+                                title="Delete reply"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
