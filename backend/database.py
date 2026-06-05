@@ -24,6 +24,19 @@ def _default_sqlite_url() -> str:
     return f"sqlite:///{(base_dir / 'storage' / 'app.db').as_posix()}"
 
 
+# Load local .env manually if present
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+    try:
+        with open(_env_path, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ[_k.strip()] = _v.strip()
+    except Exception:
+        pass
+
 DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url())
 _STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "json").strip().lower()
 
