@@ -1219,7 +1219,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="text-blue-700 text-xl font-bold select-none shrink-0">◈</div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5 min-w-0">
+              <div className="text-xs sm:text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5 min-w-0">
                 <span className="truncate">Ontology Triple Grader</span>
                 <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">v2.0</span>
               </div>
@@ -1252,9 +1252,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap cursor-pointer"
               >
-                {saving ? "Saving…" : "💾 Save"}
+                {saving ? "Saving…" : <><span className="hidden sm:inline">💾 Save</span><span className="sm:hidden">💾</span></>}
               </button>
               {saveMsg && <span className="text-xs text-emerald-600 mt-0.5 max-w-32 text-right leading-tight">{saveMsg}</span>}
               {saveError && <span className="text-xs text-red-500 mt-0.5 max-w-28 text-right leading-tight">{saveError}</span>}
@@ -1474,55 +1474,71 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         {/* Sentence card */}
         <div className={`bg-white shadow-md border border-slate-200 sticky top-[88px] lg:top-[60px] z-20 transition-all duration-300 ${isCollapsed ? 'p-3 rounded-xl' : 'p-6 rounded-2xl'}`}>
           {isCollapsed ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="bg-blue-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                  {currentIdx + 1} / {total}
-                </span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0 hidden sm:inline">Sentence:</span>
-                <p className="text-xs font-medium text-slate-800 truncate" title={current.text}>
-                  {current.text}
-                </p>
-              </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">
+                    {currentIdx + 1} / {total}
+                  </span>
+                  <span className="text-sm text-slate-500 font-medium">Sentence</span>
+                </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Sentence metrics summary badges */}
-                {current.completeness !== null && current.completeness !== undefined && (
-                  <span className="bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px] font-bold text-green-700">
-                    Comp: {current.completeness}/10
-                  </span>
-                )}
-                {current.external_relation !== null && current.external_relation !== undefined && (
-                  <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700">
-                    Rel: {current.external_relation}/10
-                  </span>
-                )}
-                {sentenceGrade !== null && sentenceGrade !== undefined && sentenceGrade !== "partial" && (
-                  <span className="bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold text-blue-700">
-                    Grade: {sentenceGrade}/10
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Sentence metrics summary badges */}
+                  {current.completeness !== null && current.completeness !== undefined && (
+                    <span className="bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px] font-bold text-green-700">
+                      Comp: {current.completeness}/10
+                    </span>
+                  )}
+                  {current.external_relation !== null && current.external_relation !== undefined && (
+                    <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700">
+                      Rel: {current.external_relation}/10
+                    </span>
+                  )}
 
-                {/* Navigation Controls */}
-                <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-                  <button
-                    onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                    disabled={currentIdx === 0}
-                    className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                    title="Previous Sentence"
-                  >
-                    ◀
-                  </button>
-                  <button
-                    onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
-                    disabled={currentIdx === total - 1}
-                    className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                    title="Next Sentence"
-                  >
-                    ▶
-                  </button>
+                  {/* Grade state */}
+                  <div className={`text-right ${gradeColor}`}>
+                    {sentenceGrade === null ? (
+                      <span className="text-xs italic text-slate-400">
+                        No triples graded
+                      </span>
+                    ) : sentenceGrade === "partial" ? (
+                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                        Grading incomplete
+                      </span>
+                    ) : (
+                      <span className="bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold text-blue-700">
+                        Grade: {sentenceGrade}/10 avg
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Navigation Controls */}
+                  <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                    <button
+                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                      disabled={currentIdx === 0}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Previous Sentence"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                      disabled={currentIdx === total - 1}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Next Sentence"
+                    >
+                      ▶
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Sentence text */}
+              <blockquote className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed border-l-4 border-blue-300 pl-3 bg-blue-50/40 py-1.5 pr-2 rounded-r-lg">
+                {current.text}
+              </blockquote>
             </div>
           ) : (
             <>
