@@ -61,6 +61,11 @@ from models import (
     SaveRequest,
     TripleSuggestionRequest,
     VoteRequest,
+    TripleCommentRequest,
+    CommentReplyRequest,
+    SuggestionReplyRequest,
+    NotificationReadRequest,
+    NotificationReadAllRequest,
 )
 from parser import parse_file_rich
 from services import (
@@ -420,6 +425,13 @@ def _normalize_sentence_comments(
             if created_at is None:
                 created_at = fallback_created_at or datetime.utcnow().isoformat()
 
+            read_by_raw = payload.get("read_by") or []
+            if not isinstance(read_by_raw, list):
+                read_by_raw = [read_by_raw] if read_by_raw else []
+            read_by = list(set([str(uid).strip() for uid in read_by_raw if uid]))
+            if user_id and user_id not in read_by:
+                read_by.append(user_id)
+
             replies = payload.get("replies") or []
             normalized_replies = []
             if isinstance(replies, list):
@@ -437,12 +449,21 @@ def _normalize_sentence_comments(
                     if not r_author:
                         r_author = r_user_id or "User"
                     r_created_at = r_payload.get("created_at") or r_payload.get("posted_at") or datetime.utcnow().isoformat()
+                    
+                    r_read_by_raw = r_payload.get("read_by") or []
+                    if not isinstance(r_read_by_raw, list):
+                        r_read_by_raw = [r_read_by_raw] if r_read_by_raw else []
+                    r_read_by = list(set([str(uid).strip() for uid in r_read_by_raw if uid]))
+                    if r_user_id and r_user_id not in r_read_by:
+                        r_read_by.append(r_user_id)
+
                     normalized_replies.append({
                         "id": r_id,
                         "user_id": r_user_id,
                         "author": r_author,
                         "text": r_text,
                         "created_at": r_created_at,
+                        "read_by": r_read_by,
                     })
             normalized_replies.sort(key=lambda row: str(row.get("created_at") or ""))
 
@@ -452,6 +473,7 @@ def _normalize_sentence_comments(
                 "author": author,
                 "text": text,
                 "created_at": created_at,
+                "read_by": read_by,
                 "replies": normalized_replies,
             })
 
@@ -461,15 +483,100 @@ def _normalize_sentence_comments(
             legacy_author = str(fallback_author or "Legacy comment").strip() or "Legacy comment"
             legacy_user_id = str(fallback_user_id or "").strip()
             legacy_hash = hashlib.sha1(legacy_text.encode("utf-8")).hexdigest()[:10]
+            
+            legacy_read_by_raw = payload.get("read_by") or [] if isinstance(payload, dict) else []
+            if not isinstance(legacy_read_by_raw, list):
+                legacy_read_by_raw = [legacy_read_by_raw] if legacy_read_by_raw else []
+            legacy_read_by = list(set([str(uid).strip() for uid in legacy_read_by_raw if uid]))
+            if legacy_user_id and legacy_user_id not in legacy_read_by:
+                legacy_read_by.append(legacy_user_id)
+
             normalized.append({
                 "id": f"legacy_comment_{legacy_hash}",
                 "user_id": legacy_user_id,
                 "author": legacy_author,
                 "text": legacy_text,
                 "created_at": fallback_created_at or datetime.utcnow().isoformat(),
+                "read_by": legacy_read_by,
             })
 
     normalized.sort(key=lambda row: str(row.get("created_at") or ""))
+    return normalized
+
+
+def _normalize_suggestions(raw_suggestions: Any) -> list[Dict[str, Any]]:
+    normalized = []
+    if not isinstance(raw_suggestions, list):
+        return normalized
+    for idx, payload in enumerate(raw_suggestions):
+        if not isinstance(payload, dict):
+            continue
+        sug_id = str(payload.get("id") or "").strip()
+        if not sug_id:
+            sug_id = f"suggestion_{idx}_{uuid.uuid4().hex[:8]}"
+        
+        author = str(payload.get("author") or "").strip()
+        user_id = str(payload.get("user_id") or "").strip()
+        if not author:
+            author = user_id or "User"
+        
+        read_by_raw = payload.get("read_by") or []
+        if not isinstance(read_by_raw, list):
+            read_by_raw = [read_by_raw] if read_by_raw else []
+        read_by = list(set([str(uid).strip() for uid in read_by_raw if uid]))
+        if user_id and user_id not in read_by:
+            read_by.append(user_id)
+            
+        replies = payload.get("replies") or []
+        normalized_replies = []
+        if isinstance(replies, list):
+            for r_idx, r_payload in enumerate(replies):
+                if not isinstance(r_payload, dict):
+                    continue
+                r_text = str(r_payload.get("text") or r_payload.get("comment") or "").strip()
+                if not r_text:
+                    continue
+                r_id = str(r_payload.get("id") or "").strip()
+                if not r_id:
+                    r_id = f"reply_{r_idx}_{uuid.uuid4().hex[:8]}"
+                r_user_id = str(r_payload.get("user_id") or r_payload.get("author_user_id") or "").strip()
+                r_author = str(r_payload.get("author") or r_payload.get("user_name") or "").strip()
+                if not r_author:
+                    r_author = r_user_id or "User"
+                r_created_at = r_payload.get("created_at") or r_payload.get("posted_at") or datetime.utcnow().isoformat()
+                
+                r_read_by_raw = r_payload.get("read_by") or []
+                if not isinstance(r_read_by_raw, list):
+                    r_read_by_raw = [r_read_by_raw] if r_read_by_raw else []
+                r_read_by = list(set([str(uid).strip() for uid in r_read_by_raw if uid]))
+                if r_user_id and r_user_id not in r_read_by:
+                    r_read_by.append(r_user_id)
+                
+                normalized_replies.append({
+                    "id": r_id,
+                    "user_id": r_user_id,
+                    "author": r_author,
+                    "text": r_text,
+                    "created_at": r_created_at,
+                    "read_by": r_read_by,
+                })
+        normalized_replies.sort(key=lambda row: str(row.get("created_at") or ""))
+        
+        normalized.append({
+            "id": sug_id,
+            "author": author,
+            "user_id": user_id,
+            "subject": str(payload.get("subject") or "").strip(),
+            "predicate": str(payload.get("predicate") or "").strip(),
+            "object": str(payload.get("object") or "").strip(),
+            "reason": str(payload.get("reason") or "").strip(),
+            "created_at": payload.get("created_at") or datetime.utcnow().isoformat(),
+            "votes": payload.get("votes") or {},
+            "status": payload.get("status") or "pending",
+            "approved_by": payload.get("approved_by"),
+            "read_by": read_by,
+            "replies": normalized_replies,
+        })
     return normalized
 
 
@@ -907,6 +1014,8 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
         )
 
         for triple in sentence.get("triples", []):
+            triple["triple_comments"] = _normalize_sentence_comments(triple.get("triple_comments"))
+            triple["suggestions"] = _normalize_suggestions(triple.get("suggestions"))
             grades_by_user = triple.get("grades_by_user") if isinstance(triple.get("grades_by_user"), dict) else {}
             grade_values = [
                 float(payload.get("grade"))
@@ -1057,7 +1166,7 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
             if isinstance(existing_suggestions, list):
                 # Suggestion writes are already persisted server-side by dedicated endpoints.
                 # Preserve them to avoid stale client payloads wiping comments/posts.
-                triple["suggestions"] = existing_suggestions
+                triple["suggestions"] = _normalize_suggestions(existing_suggestions)
 
 
 def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
@@ -2263,15 +2372,20 @@ async def add_suggestion(body: TripleSuggestionRequest, user: Dict[str, Any] = D
     
     # Create suggestion
     suggestion_id = str(uuid.uuid4())
+    user_id = str(user.get("id") or "").strip()
     suggestion = {
         "id": suggestion_id,
         "author": user_name,
+        "user_id": user_id,
         "subject": body.subject,
         "predicate": body.predicate,
         "object": body.object,
         "reason": body.reason or "",
         "created_at": datetime.utcnow().isoformat(),
         "votes": {},
+        "status": "pending",
+        "read_by": [user_id] if user_id else [],
+        "replies": [],
     }
     
     if "suggestions" not in triple:
@@ -2472,12 +2586,6 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
 # Triple comments & removal endpoints
 # ---------------------------------------------------------------------------
 
-class TripleCommentRequest(BaseModel):
-    session_id: str
-    sentence_id: int
-    triple_id: str
-    text: str
-
 
 class MarkTripleRemovalRequest(BaseModel):
     session_id: str
@@ -2565,6 +2673,356 @@ async def delete_triple_comment_endpoint(
     _save_loaded_session(json_path, session)
 
     return {"ok": True}
+
+
+@app.post("/api/comments/reply")
+async def add_comment_reply(body: CommentReplyRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_name = display_name(user)
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(body.session_id)
+
+    sentence = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            break
+
+    if not sentence:
+        raise HTTPException(status_code=404, detail="Sentence not found.")
+
+    comment = None
+    if body.triple_id:
+        # It's a reply to a triple comment
+        triple = None
+        for t in sentence.get("triples", []):
+            if t.get("id") == body.triple_id:
+                triple = t
+                break
+        if not triple:
+            raise HTTPException(status_code=404, detail="Triple not found.")
+        
+        comments = triple.get("triple_comments", [])
+        for c in comments:
+            if c.get("id") == body.comment_id:
+                comment = c
+                break
+    else:
+        # It's a reply to a sentence comment
+        comments = sentence.get("sentence_comments", [])
+        for c in comments:
+            if c.get("id") == body.comment_id:
+                comment = c
+                break
+
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+
+    reply_id = f"reply_{uuid.uuid4().hex[:8]}"
+    reply = {
+        "id": reply_id,
+        "user_id": user_id,
+        "author": user_name,
+        "text": body.text,
+        "created_at": datetime.utcnow().isoformat(),
+        "read_by": [user_id] if user_id else [],
+    }
+
+    if "replies" not in comment:
+        comment["replies"] = []
+    comment["replies"].append(reply)
+
+    # Save the session
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True, "reply": reply}
+
+
+@app.delete("/api/comments/reply/{session_id}/{sentence_id}/{comment_id}/{reply_id}")
+async def delete_comment_reply(
+    session_id: str,
+    sentence_id: int,
+    comment_id: str,
+    reply_id: str,
+    triple_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(current_user)
+):
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(session_id)
+
+    sentence = None
+    for s in session.get("sentences", []):
+        if s.get("id") == sentence_id:
+            sentence = s
+            break
+
+    if not sentence:
+        raise HTTPException(status_code=404, detail="Sentence not found.")
+
+    comment = None
+    if triple_id:
+        triple = None
+        for t in sentence.get("triples", []):
+            if t.get("id") == triple_id:
+                triple = t
+                break
+        if not triple:
+            raise HTTPException(status_code=404, detail="Triple not found.")
+        
+        comments = triple.get("triple_comments", [])
+        for c in comments:
+            if c.get("id") == comment_id:
+                comment = c
+                break
+    else:
+        comments = sentence.get("sentence_comments", [])
+        for c in comments:
+            if c.get("id") == comment_id:
+                comment = c
+                break
+
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+
+    replies = comment.get("replies", [])
+    found_idx = -1
+    for idx, r in enumerate(replies):
+        if r.get("id") == reply_id:
+            if r.get("user_id") != user_id:
+                raise HTTPException(status_code=403, detail="You cannot delete someone else's reply.")
+            found_idx = idx
+            break
+
+    if found_idx == -1:
+        raise HTTPException(status_code=404, detail="Reply not found.")
+
+    replies.pop(found_idx)
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True}
+
+
+@app.post("/api/suggestions/reply")
+async def add_suggestion_reply(body: SuggestionReplyRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_name = display_name(user)
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(body.session_id)
+
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == body.sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == body.triple_id:
+                    triple = t
+                    break
+            break
+
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+
+    suggestion = None
+    for sug in triple.get("suggestions", []):
+        if sug.get("id") == body.suggestion_id:
+            suggestion = sug
+            break
+
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+    reply_id = f"reply_{uuid.uuid4().hex[:8]}"
+    reply = {
+        "id": reply_id,
+        "user_id": user_id,
+        "author": user_name,
+        "text": body.text,
+        "created_at": datetime.utcnow().isoformat(),
+        "read_by": [user_id] if user_id else [],
+    }
+
+    if "replies" not in suggestion:
+        suggestion["replies"] = []
+    suggestion["replies"].append(reply)
+
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True, "reply": reply}
+
+
+@app.delete("/api/suggestions/reply/{session_id}/{sentence_id}/{triple_id}/{suggestion_id}/{reply_id}")
+async def delete_suggestion_reply(
+    session_id: str,
+    sentence_id: int,
+    triple_id: str,
+    suggestion_id: str,
+    reply_id: str,
+    user: Dict[str, Any] = Depends(current_user)
+):
+    user_id = str(user.get("id") or "").strip()
+    json_path, session = _load_session_for_access(session_id)
+
+    sentence = None
+    triple = None
+    for s in session.get("sentences", []):
+        if s.get("id") == sentence_id:
+            sentence = s
+            for t in s.get("triples", []):
+                if t.get("id") == triple_id:
+                    triple = t
+                    break
+            break
+
+    if not sentence or not triple:
+        raise HTTPException(status_code=404, detail="Sentence or triple not found.")
+
+    suggestion = None
+    for sug in triple.get("suggestions", []):
+        if sug.get("id") == suggestion_id:
+            suggestion = sug
+            break
+
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+    replies = suggestion.get("replies", [])
+    found_idx = -1
+    for idx, r in enumerate(replies):
+        if r.get("id") == reply_id:
+            if r.get("user_id") != user_id:
+                raise HTTPException(status_code=403, detail="You cannot delete someone else's reply.")
+            found_idx = idx
+            break
+
+    if found_idx == -1:
+        raise HTTPException(status_code=404, detail="Reply not found.")
+
+    replies.pop(found_idx)
+    _save_loaded_session(json_path, session)
+
+    return {"ok": True}
+
+
+@app.post("/api/notifications/read")
+async def mark_notification_read(body: NotificationReadRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_id = str(user.get("id") or "").strip()
+    if not user_id:
+        return {"ok": False, "detail": "User not authenticated"}
+        
+    json_path, session = _load_session_for_access(body.session_id)
+    modified = False
+
+    for sentence in session.get("sentences", []):
+        # 1. Check sentence comments
+        for comment in sentence.get("sentence_comments", []):
+            if comment.get("id") == body.item_id:
+                if "read_by" not in comment:
+                    comment["read_by"] = []
+                if user_id not in comment["read_by"]:
+                    comment["read_by"].append(user_id)
+                    modified = True
+            for r in comment.get("replies", []):
+                if r.get("id") == body.item_id:
+                    if "read_by" not in r:
+                        r["read_by"] = []
+                    if user_id not in r["read_by"]:
+                        r["read_by"].append(user_id)
+                        modified = True
+
+        # 2. Check triples (comments, suggestions, suggestion replies)
+        for triple in sentence.get("triples", []):
+            for comment in triple.get("triple_comments", []):
+                if comment.get("id") == body.item_id:
+                    if "read_by" not in comment:
+                        comment["read_by"] = []
+                    if user_id not in comment["read_by"]:
+                        comment["read_by"].append(user_id)
+                        modified = True
+                for r in comment.get("replies", []):
+                    if r.get("id") == body.item_id:
+                        if "read_by" not in r:
+                            r["read_by"] = []
+                        if user_id not in r["read_by"]:
+                            r["read_by"].append(user_id)
+                            modified = True
+
+            for sug in triple.get("suggestions", []):
+                if sug.get("id") == body.item_id:
+                    if "read_by" not in sug:
+                        sug["read_by"] = []
+                    if user_id not in sug["read_by"]:
+                        sug["read_by"].append(user_id)
+                        modified = True
+                for r in sug.get("replies", []):
+                    if r.get("id") == body.item_id:
+                        if "read_by" not in r:
+                            r["read_by"] = []
+                        if user_id not in r["read_by"]:
+                            r["read_by"].append(user_id)
+                            modified = True
+
+    if modified:
+        _save_loaded_session(json_path, session)
+
+    return {"ok": True}
+
+
+@app.post("/api/notifications/read-all")
+async def mark_all_notifications_read(body: NotificationReadAllRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_id = str(user.get("id") or "").strip()
+    if not user_id:
+        return {"ok": False, "detail": "User not authenticated"}
+        
+    json_path, session = _load_session_for_access(body.session_id)
+    modified = False
+
+    for sentence in session.get("sentences", []):
+        # 1. Sentence comments
+        for comment in sentence.get("sentence_comments", []):
+            if "read_by" not in comment:
+                comment["read_by"] = []
+            if user_id not in comment["read_by"]:
+                comment["read_by"].append(user_id)
+                modified = True
+            for r in comment.get("replies", []):
+                if "read_by" not in r:
+                    r["read_by"] = []
+                if user_id not in r["read_by"]:
+                    r["read_by"].append(user_id)
+                    modified = True
+
+        # 2. Triples
+        for triple in sentence.get("triples", []):
+            for comment in triple.get("triple_comments", []):
+                if "read_by" not in comment:
+                    comment["read_by"] = []
+                if user_id not in comment["read_by"]:
+                    comment["read_by"].append(user_id)
+                    modified = True
+                for r in comment.get("replies", []):
+                    if "read_by" not in r:
+                        r["read_by"] = []
+                    if user_id not in r["read_by"]:
+                        r["read_by"].append(user_id)
+                        modified = True
+
+            for sug in triple.get("suggestions", []):
+                if "read_by" not in sug:
+                    sug["read_by"] = []
+                if user_id not in sug["read_by"]:
+                    sug["read_by"].append(user_id)
+                    modified = True
+                for r in sug.get("replies", []):
+                    if "read_by" not in r:
+                        r["read_by"] = []
+                    if user_id not in r["read_by"]:
+                        r["read_by"].append(user_id)
+                        modified = True
+
+    if modified:
+        _save_loaded_session(json_path, session)
+
+    return {"ok": True}
+
 
 
 @app.post("/api/triples/mark-removal")

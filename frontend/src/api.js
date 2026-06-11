@@ -388,3 +388,101 @@ export async function markTripleForRemoval(sessionId, sentenceId, tripleId, mark
   return data;
 }
 
+/**
+ * Add a reply to a comment (either sentence level or triple level).
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string|null} tripleId
+ * @param {string} commentId
+ * @param {string} text
+ * @returns {Promise<{ok: boolean, reply: object}>}
+ */
+export async function replyToComment(sessionId, sentenceId, tripleId, commentId, text) {
+  const { data } = await API.post("/api/comments/reply", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    comment_id: commentId,
+    text,
+  });
+  return data;
+}
+
+/**
+ * Delete a comment reply.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} commentId
+ * @param {string} replyId
+ * @param {string|null} tripleId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function deleteCommentReply(sessionId, sentenceId, commentId, replyId, tripleId = null) {
+  const url = `/api/comments/reply/${sessionId}/${sentenceId}/${commentId}/${replyId}`;
+  const { data } = await API.delete(url, {
+    params: tripleId ? { triple_id: tripleId } : {},
+  });
+  return data;
+}
+
+/**
+ * Add a reply to a suggestion.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @param {string} text
+ * @returns {Promise<{ok: boolean, reply: object}>}
+ */
+export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggestionId, text) {
+  const { data } = await API.post("/api/suggestions/reply", {
+    session_id: sessionId,
+    sentence_id: sentenceId,
+    triple_id: tripleId,
+    suggestion_id: suggestionId,
+    text,
+  });
+  return data;
+}
+
+/**
+ * Delete a reply to a suggestion.
+ * @param {string} sessionId
+ * @param {number} sentenceId
+ * @param {string} tripleId
+ * @param {string} suggestionId
+ * @param {string} replyId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function deleteSuggestionReply(sessionId, sentenceId, tripleId, suggestionId, replyId) {
+  const { data } = await API.delete(`/api/suggestions/reply/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}/${replyId}`);
+  return data;
+}
+
+/**
+ * Mark a specific notification item as read.
+ * @param {string} sessionId
+ * @param {string} itemId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function markNotificationRead(sessionId, itemId) {
+  const { data } = await API.post("/api/notifications/read", {
+    session_id: sessionId,
+    item_id: itemId,
+  });
+  return data;
+}
+
+/**
+ * Mark all notifications in a session as read.
+ * @param {string} sessionId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function markAllNotificationsRead(sessionId) {
+  const { data } = await API.post("/api/notifications/read-all", {
+    session_id: sessionId,
+  });
+  return data;
+}
+
+

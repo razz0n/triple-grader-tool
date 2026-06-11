@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import TripleCard from "./TripleCard";
 import TripleSuggestions from "./TripleSuggestions";
 import TripleComments from "./TripleComments";
-import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion, unapproveSuggestion } from "../api";
+import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion, unapproveSuggestion, replyToComment, deleteCommentReply, replyToSuggestion, deleteSuggestionReply, markNotificationRead, markAllNotificationsRead } from "../api";
 
 const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
 
@@ -229,11 +229,16 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
   const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
 
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [highlightedElementId, setHighlightedElementId] = useState(null);
+  const notificationsRef = useRef(null);
+
   // Close dropdowns on outside click and handle scroll collapse
   useEffect(() => {
     const handler = (e) => {
       if (dlRef.current && !dlRef.current.contains(e.target)) setDlOpen(false);
       if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) setNotificationsOpen(false);
     };
     const handleScroll = () => {
       if (window.scrollY > 80) {
@@ -258,6 +263,214 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     () => normalizeSentenceComments(current?.sentence_comments),
     [current?.sentence_comments]
   );
+
+  const notifications = useMemo(() => {
+    const list = [];
+    if (!currentUserId) return list;
+
+    sentences.forEach((sentence) => {
+      // 1. Sentence comments replies
+      (sentence.sentence_comments || []).forEach((comment) => {
+        (comment.replies || []).forEach((reply) => {
+          const isOwn = reply.user_id === currentUserId;
+          const isRead = (reply.read_by || []).includes(currentUserId);
+          if (!isOwn && !isRead) {
+            list.push({
+              id: reply.id,
+              type: "comment_reply",
+              title: `New reply from ${reply.author || "User"}`,
+              text: reply.text,
+              createdAt: reply.created_at,
+              sentenceId: sentence.id,
+              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+              tripleId: null,
+              commentId: comment.id,
+            });
+          }
+        });
+      });
+
+      // 2. Triple comments replies & suggestions & suggestion replies
+      (sentence.triples || []).forEach((triple) => {
+        (triple.triple_comments || []).forEach((comment) => {
+          (comment.replies || []).forEach((reply) => {
+            const isOwn = reply.user_id === currentUserId;
+            const isRead = (reply.read_by || []).includes(currentUserId);
+            if (!isOwn && !isRead) {
+              list.push({
+                id: reply.id,
+                type: "comment_reply",
+                title: `New reply from ${reply.author || "User"} on triple`,
+                text: reply.text,
+                createdAt: reply.created_at,
+                sentenceId: sentence.id,
+                sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+                tripleId: triple.id,
+                commentId: comment.id,
+              });
+            }
+          });
+        });
+
+        (triple.suggestions || []).forEach((sug) => {
+          // Check suggestion itself
+          const isOwnSug = sug.user_id === currentUserId;
+          const isReadSug = (sug.read_by || []).includes(currentUserId);
+          if (!isOwnSug && !isReadSug) {
+            list.push({
+              id: sug.id,
+              type: "suggestion",
+              title: `New suggestion from ${sug.author || "User"}`,
+              text: `Triple: ${sug.subject} → ${sug.predicate} → ${sug.object}`,
+              createdAt: sug.created_at,
+              sentenceId: sentence.id,
+              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+              tripleId: triple.id,
+            });
+          }
+
+          // Check suggestion replies
+          (sug.replies || []).forEach((reply) => {
+            const isOwnReply = reply.user_id === currentUserId;
+            const isReadReply = (reply.read_by || []).includes(currentUserId);
+            if (!isOwnReply && !isReadReply) {
+              list.push({
+                id: reply.id,
+                type: "suggestion_reply",
+                title: `New reply from ${reply.author || "User"} on suggestion`,
+                text: reply.text,
+                createdAt: reply.created_at,
+                sentenceId: sentence.id,
+                sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+                tripleId: triple.id,
+                suggestionId: sug.id,
+              });
+            }
+          });
+        });
+      });
+    });
+
+    // Sort notifications by date (newest first)
+    return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [sentences, currentUserId]);
+
+  const handleNotificationClick = async (notif) => {
+    // Mark as read on the backend
+    try {
+      const sessionId = savedSessionId || initialSessionId;
+      await markNotificationRead(sessionId, notif.id);
+      
+      // Update local state to mark as read immediately
+      setSentences((prev) =>
+        prev.map((s) => {
+          if (s.id !== notif.sentenceId) return s;
+          
+          // Update sentence comments replies
+          const updatedComments = (s.sentence_comments || []).map((c) => {
+            const readBy = c.id === notif.id ? [...(c.read_by || []), currentUserId] : (c.read_by || []);
+            const updatedReplies = (c.replies || []).map((r) => ({
+              ...r,
+              read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
+            }));
+            return { ...c, read_by: readBy, replies: updatedReplies };
+          });
+
+          // Update triples (comments, replies, suggestions, replies)
+          const updatedTriples = (s.triples || []).map((t) => {
+            const updatedTripleComments = (t.triple_comments || []).map((c) => {
+              const readBy = c.id === notif.id ? [...(c.read_by || []), currentUserId] : (c.read_by || []);
+              const updatedReplies = (c.replies || []).map((r) => ({
+                ...r,
+                read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
+              }));
+              return { ...c, read_by: readBy, replies: updatedReplies };
+            });
+
+            const updatedSuggestions = (t.suggestions || []).map((sug) => {
+              const readBy = sug.id === notif.id ? [...(sug.read_by || []), currentUserId] : (sug.read_by || []);
+              const updatedReplies = (sug.replies || []).map((r) => ({
+                ...r,
+                read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
+              }));
+              return { ...sug, read_by: readBy, replies: updatedReplies };
+            });
+
+            return { ...t, triple_comments: updatedTripleComments, suggestions: updatedSuggestions };
+          });
+
+          return { ...s, sentence_comments: updatedComments, triples: updatedTriples };
+        })
+      );
+    } catch (e) {
+      console.error("Failed to mark notification as read:", e);
+    }
+
+    // Navigate to the correct sentence
+    setCurrentIdx(notif.sentenceIdx);
+    setNotificationsOpen(false);
+
+    // Wait for the render update, then scroll and highlight
+    setTimeout(() => {
+      const targetId = notif.tripleId ? `triple-card-${notif.tripleId}` : `sentence-comment-box-${notif.sentenceId}`;
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedElementId(targetId);
+        setTimeout(() => {
+          setHighlightedElementId(null);
+        }, 3000);
+      }
+    }, 200);
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const sessionId = savedSessionId || initialSessionId;
+      await markAllNotificationsRead(sessionId);
+
+      // Update all locally
+      setSentences((prev) =>
+        prev.map((s) => {
+          const updatedComments = (s.sentence_comments || []).map((c) => {
+            const readBy = (c.read_by || []).includes(currentUserId) ? c.read_by : [...(c.read_by || []), currentUserId];
+            const updatedReplies = (c.replies || []).map((r) => ({
+              ...r,
+              read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
+            }));
+            return { ...c, read_by: readBy, replies: updatedReplies };
+          });
+
+          const updatedTriples = (s.triples || []).map((t) => {
+            const updatedTripleComments = (t.triple_comments || []).map((c) => {
+              const readBy = (c.read_by || []).includes(currentUserId) ? c.read_by : [...(c.read_by || []), currentUserId];
+              const updatedReplies = (c.replies || []).map((r) => ({
+                ...r,
+                read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
+              }));
+              return { ...c, read_by: readBy, replies: updatedReplies };
+            });
+
+            const updatedSuggestions = (t.suggestions || []).map((sug) => {
+              const readBy = (sug.read_by || []).includes(currentUserId) ? sug.read_by : [...(sug.read_by || []), currentUserId];
+              const updatedReplies = (sug.replies || []).map((r) => ({
+                ...r,
+                read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
+              }));
+              return { ...sug, read_by: readBy, replies: updatedReplies };
+            });
+
+            return { ...t, triple_comments: updatedTripleComments, suggestions: updatedSuggestions };
+          });
+
+          return { ...s, sentence_comments: updatedComments, triples: updatedTriples };
+        })
+      );
+      setNotificationsOpen(false);
+    } catch (e) {
+      console.error("Failed to mark all as read:", e);
+    }
+  };
 
   // Compute live sentence grade for the current sentence
   const sentenceGrade = useMemo(() => {
@@ -820,102 +1033,244 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
-  const handleAddTripleCommentReply = (tripleId, commentId, reply) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId
-                  ? {
-                      ...t,
-                      triple_comments: (t.triple_comments || []).map((c) =>
-                        c.id === commentId
-                          ? {
-                              ...c,
-                              replies: [...(c.replies || []), reply],
-                            }
-                          : c
-                      ),
-                    }
-                  : t
-              ),
-            }
-      )
-    );
+  const handleAddTripleCommentReply = async (tripleId, commentId, replyData) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await replyToComment(sessionId, current.id, tripleId, commentId, replyData.text);
+      if (result.ok && result.reply) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  triples: s.triples.map((t) =>
+                    t.id === tripleId
+                      ? {
+                          ...t,
+                          triple_comments: (t.triple_comments || []).map((c) =>
+                            c.id === commentId
+                              ? {
+                                  ...c,
+                                  replies: [...(c.replies || []), result.reply],
+                                }
+                              : c
+                          ),
+                        }
+                      : t
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error adding triple comment reply:", err);
+      alert("Failed to add reply: " + err.message);
+    }
   };
 
-  const handleDeleteTripleCommentReply = (tripleId, commentId, replyId) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId
-                  ? {
-                      ...t,
-                      triple_comments: (t.triple_comments || []).map((c) =>
-                        c.id === commentId
-                          ? {
-                              ...c,
-                              replies: (c.replies || []).filter((r) => r.id !== replyId),
-                            }
-                          : c
-                      ),
-                    }
-                  : t
-              ),
-            }
-      )
-    );
+  const handleDeleteTripleCommentReply = async (tripleId, commentId, replyId) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await deleteCommentReply(sessionId, current.id, commentId, replyId, tripleId);
+      if (result.ok) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  triples: s.triples.map((t) =>
+                    t.id === tripleId
+                      ? {
+                          ...t,
+                          triple_comments: (t.triple_comments || []).map((c) =>
+                            c.id === commentId
+                              ? {
+                                  ...c,
+                                  replies: (c.replies || []).filter((r) => r.id !== replyId),
+                                }
+                              : c
+                          ),
+                        }
+                      : t
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error deleting triple comment reply:", err);
+      alert("Failed to delete reply: " + err.message);
+    }
   };
 
-  const handleAddSentenceCommentReply = (commentId, reply) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              sentence_comments: (s.sentence_comments || []).map((c) =>
-                c.id === commentId
-                  ? {
-                      ...c,
-                      replies: [...(c.replies || []), reply],
-                    }
-                  : c
-              ),
-            }
-      )
-    );
+  const handleAddSentenceCommentReply = async (commentId, replyData) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await replyToComment(sessionId, current.id, null, commentId, replyData.text);
+      if (result.ok && result.reply) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  sentence_comments: (s.sentence_comments || []).map((c) =>
+                    c.id === commentId
+                      ? {
+                          ...c,
+                          replies: [...(c.replies || []), result.reply],
+                        }
+                      : c
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error adding sentence comment reply:", err);
+      alert("Failed to add reply: " + err.message);
+    }
   };
 
-  const handleDeleteSentenceCommentReply = (commentId, replyId) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              sentence_comments: (s.sentence_comments || []).map((c) =>
-                c.id === commentId
-                  ? {
-                      ...c,
-                      replies: (c.replies || []).filter((r) => r.id !== replyId),
-                    }
-                  : c
-              ),
-            }
-      )
-    );
+  const handleDeleteSentenceCommentReply = async (commentId, replyId) => {
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await deleteCommentReply(sessionId, current.id, commentId, replyId, null);
+      if (result.ok) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  sentence_comments: (s.sentence_comments || []).map((c) =>
+                    c.id === commentId
+                      ? {
+                          ...c,
+                          replies: (c.replies || []).filter((r) => r.id !== replyId),
+                        }
+                      : c
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error deleting sentence comment reply:", err);
+      alert("Failed to delete reply: " + err.message);
+    }
+  };
+
+  const handleAddSuggestionReply = async (suggestionId, text) => {
+    // Find tripleId for this suggestion
+    let foundTripleId = null;
+    for (const t of current.triples || []) {
+      if ((t.suggestions || []).some((sug) => sug.id === suggestionId)) {
+        foundTripleId = t.id;
+        break;
+      }
+    }
+    if (!foundTripleId) return;
+
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await replyToSuggestion(sessionId, current.id, foundTripleId, suggestionId, text);
+      if (result.ok && result.reply) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  triples: s.triples.map((t) =>
+                    t.id === foundTripleId
+                      ? {
+                          ...t,
+                          suggestions: (t.suggestions || []).map((sug) =>
+                            sug.id === suggestionId
+                              ? {
+                                  ...sug,
+                                  replies: [...(sug.replies || []), result.reply],
+                                }
+                              : sug
+                          ),
+                        }
+                      : t
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error adding suggestion reply:", err);
+      alert("Failed to add reply: " + err.message);
+    }
+  };
+
+  const handleDeleteSuggestionReply = async (suggestionId, replyId) => {
+    // Find tripleId for this suggestion
+    let foundTripleId = null;
+    for (const t of current.triples || []) {
+      if ((t.suggestions || []).some((sug) => sug.id === suggestionId)) {
+        foundTripleId = t.id;
+        break;
+      }
+    }
+    if (!foundTripleId) return;
+
+    if (!savedSessionId) {
+      await handleSave();
+    }
+    const sessionId = savedSessionId || initialSessionId;
+    try {
+      const result = await deleteSuggestionReply(sessionId, current.id, foundTripleId, suggestionId, replyId);
+      if (result.ok) {
+        setSentences((prev) =>
+          prev.map((s, i) =>
+            i !== currentIdx
+              ? s
+              : {
+                  ...s,
+                  triples: s.triples.map((t) =>
+                    t.id === foundTripleId
+                      ? {
+                          ...t,
+                          suggestions: (t.suggestions || []).map((sug) =>
+                            sug.id === suggestionId
+                              ? {
+                                  ...sug,
+                                  replies: (sug.replies || []).filter((r) => r.id !== replyId),
+                                }
+                              : sug
+                          ),
+                        }
+                      : t
+                  ),
+                }
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error deleting suggestion reply:", err);
+      alert("Failed to delete reply: " + err.message);
+    }
   };
 
   const handleMarkTripleForRemoval = async (tripleId, marked) => {
@@ -1259,6 +1614,76 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               {saveMsg && <span className="text-xs text-emerald-600 mt-0.5 max-w-32 text-right leading-tight">{saveMsg}</span>}
               {saveError && <span className="text-xs text-red-500 mt-0.5 max-w-28 text-right leading-tight">{saveError}</span>}
             </div>
+          </div>
+
+          {/* ── Notification Bell Icon 🔔 ── */}
+          <div className="relative shrink-0" ref={notificationsRef}>
+            <button
+              onClick={() => setNotificationsOpen(prev => !prev)}
+              className={[
+                "flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition-all relative cursor-pointer active:scale-95 shadow-sm",
+                notifications.length > 0 ? "border-red-200 text-red-600 font-bold" : ""
+              ].join(" ")}
+              title="Notifications"
+            >
+              <span className="text-sm">🔔</span>
+              {notifications.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none scale-95 animate-pulse">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Panel */}
+            {notificationsOpen && (
+              <div className="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl py-2 w-80 z-50 overflow-hidden flex flex-col max-h-[420px]">
+                <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Notifications</span>
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={handleMarkAllNotificationsRead}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold border-0 bg-transparent cursor-pointer"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-[300px]">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-xs text-slate-400">
+                      <div className="text-2xl mb-1">✨</div>
+                      You are all caught up!
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer text-left space-y-1"
+                      >
+                        <div className="flex justify-between items-start gap-1">
+                          <span className="text-xs font-bold text-slate-700 leading-snug">{notif.title}</span>
+                          <span className="text-[9px] text-slate-400 whitespace-nowrap tabular-nums mt-0.5">
+                            {formatCommentTimestamp(notif.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed break-words">{notif.text}</p>
+                        <div className="text-[9px] font-semibold text-blue-600 flex items-center gap-1">
+                          <span>Sentence #{notif.sentenceId}</span>
+                          {notif.tripleId && (
+                            <>
+                              <span>•</span>
+                              <span>Triple comment/suggestion</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Download split button ── */}
@@ -1753,69 +2178,90 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             Triples ({current.triples.length})
           </h2>
           <div className="space-y-4">
-            {current.triples.map((triple, idx) => (
-              <div key={triple.id} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-                {/* Triple number pill */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-1.5 flex items-center gap-2">
-                  <span className="text-white text-[11px] font-bold uppercase tracking-wider">
-                    Triple {idx + 1}
-                  </span>
-                  {triple.grade_average !== null && triple.grade_average !== undefined && (
-                    <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      Avg. Grade: {Number(triple.grade_average).toFixed(2)}/10
+            {current.triples.map((triple, idx) => {
+              const htmlId = `triple-card-${triple.id}`;
+              const isHighlighted = highlightedElementId === htmlId;
+              return (
+                <div
+                  key={triple.id}
+                  id={htmlId}
+                  className={[
+                    "bg-white rounded-xl shadow-md border overflow-hidden transition-all duration-500",
+                    isHighlighted ? "ring-4 ring-amber-400 border-amber-400 scale-[1.01] shadow-lg" : "border-slate-200"
+                  ].join(" ")}
+                >
+                  {/* Triple number pill */}
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-1.5 flex items-center gap-2">
+                    <span className="text-white text-[11px] font-bold uppercase tracking-wider">
+                      Triple {idx + 1}
                     </span>
-                  )}
-                </div>
-                <TripleCard
-                  triple={triple}
-                  grade={triple.grade}
-                  author={triple.author}
-                  gradesByUser={triple.grades_by_user}
-                  currentUserId={currentUserId}
-                  readOnly={!canEditSession}
-                  canSuggest={canSuggestTriples}
-                  canApprove={canApproveSuggestions}
-                  onChange={(grade) => handleGradeChange(triple.id, grade)}
-                  onAddTripleComment={(tripleId, comment) => handleAddTripleComment(tripleId, comment)}
-                  onDeleteTripleComment={(tripleId, commentId) => handleDeleteTripleComment(tripleId, commentId)}
-                  onMarkForRemoval={(tripleId, marked) => handleMarkTripleForRemoval(tripleId, marked)}
-                  onAddTripleAdjacent={(tripleId, direction) => handleAddTripleAdjacent(tripleId, direction)}
-                  onRemoveSuggestedTriple={(tripleId) => handleRemoveSuggestedTriple(tripleId)}
-                  onApproveSuggestedTriple={(tripleId) => handleApproveSuggestedTriple(tripleId)}
-                  onSaveSuggestedTriple={(tripleId, fields) => handleSaveSuggestedTriple(tripleId, fields)}
-                  onSetTripleEditing={(tripleId, isEditing) => handleSetTripleEditing(tripleId, isEditing)}
-                />
-                {(!triple.is_new_suggestion || triple.status === "approved") && (
-                  <TripleSuggestions
+                    {triple.grade_average !== null && triple.grade_average !== undefined && (
+                      <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Avg. Grade: {Number(triple.grade_average).toFixed(2)}/10
+                      </span>
+                    )}
+                  </div>
+                  <TripleCard
                     triple={triple}
-                    currentUser={currentUser}
+                    grade={triple.grade}
+                    author={triple.author}
+                    gradesByUser={triple.grades_by_user}
+                    currentUserId={currentUserId}
+                    readOnly={!canEditSession}
                     canSuggest={canSuggestTriples}
                     canApprove={canApproveSuggestions}
-                    onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
-                    onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
-                    onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
-                    onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
-                    onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
+                    onChange={(grade) => handleGradeChange(triple.id, grade)}
+                    onAddTripleComment={(tripleId, comment) => handleAddTripleComment(tripleId, comment)}
+                    onDeleteTripleComment={(tripleId, commentId) => handleDeleteTripleComment(tripleId, commentId)}
+                    onMarkForRemoval={(tripleId, marked) => handleMarkTripleForRemoval(tripleId, marked)}
+                    onAddTripleAdjacent={(tripleId, direction) => handleAddTripleAdjacent(tripleId, direction)}
+                    onRemoveSuggestedTriple={(tripleId) => handleRemoveSuggestedTriple(tripleId)}
+                    onApproveSuggestedTriple={(tripleId) => handleApproveSuggestedTriple(tripleId)}
+                    onSaveSuggestedTriple={(tripleId, fields) => handleSaveSuggestedTriple(tripleId, fields)}
+                    onSetTripleEditing={(tripleId, isEditing) => handleSetTripleEditing(tripleId, isEditing)}
                   />
-                )}
-                <TripleComments
-                  tripleId={triple.id}
-                  comments={triple?.triple_comments || []}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  readOnly={!canEditSession}
-                  onAddComment={(comment) => handleAddTripleComment(triple.id, comment)}
-                  onDeleteComment={(commentId) => handleDeleteTripleComment(triple.id, commentId)}
-                  onAddReply={(commentId, reply) => handleAddTripleCommentReply(triple.id, commentId, reply)}
-                  onDeleteReply={(commentId, replyId) => handleDeleteTripleCommentReply(triple.id, commentId, replyId)}
-                />
-              </div>
-            ))}
+                  {(!triple.is_new_suggestion || triple.status === "approved") && (
+                    <TripleSuggestions
+                      triple={triple}
+                      currentUser={currentUser}
+                      canSuggest={canSuggestTriples}
+                      canApprove={canApproveSuggestions}
+                      onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
+                      onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
+                      onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
+                      onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
+                      onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
+                      onAddSuggestionReply={handleAddSuggestionReply}
+                      onDeleteSuggestionReply={handleDeleteSuggestionReply}
+                    />
+                  )}
+                  <TripleComments
+                    tripleId={triple.id}
+                    comments={triple?.triple_comments || []}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    readOnly={!canEditSession}
+                    onAddComment={(comment) => handleAddTripleComment(triple.id, comment)}
+                    onDeleteComment={(commentId) => handleDeleteTripleComment(triple.id, commentId)}
+                    onAddReply={(commentId, reply) => handleAddTripleCommentReply(triple.id, commentId, reply)}
+                    onDeleteReply={(commentId, replyId) => handleDeleteTripleCommentReply(triple.id, commentId, replyId)}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Suggestion */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div
+          id={`sentence-comment-box-${current.id}`}
+          className={[
+            "bg-white rounded-2xl shadow-sm border p-5 transition-all duration-500",
+            highlightedElementId === `sentence-comment-box-${current.id}`
+              ? "ring-4 ring-amber-400 border-amber-400 scale-[1.01] shadow-lg"
+              : "border-slate-200"
+          ].join(" ")}
+        >
           <label className="block text-sm font-semibold text-slate-600 mb-2">
             Suggestion / Comment for this Sentence
           </label>

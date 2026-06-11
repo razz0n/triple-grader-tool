@@ -90,3 +90,33 @@ class MarkTripleRemovalRequest(BaseModel):
     sentence_id: int
     triple_id: str
     marked: bool
+
+
+class CommentReplyRequest(BaseModel):
+    """Request model for adding a reply to a comment (sentence or triple comment)."""
+    session_id: str
+    sentence_id: int
+    triple_id: Optional[str] = None
+    comment_id: str
+    text: str
+
+
+class SuggestionReplyRequest(BaseModel):
+    """Request model for adding a reply (discussion comment) to a suggestion."""
+    session_id: str
+    sentence_id: int
+    triple_id: str
+    suggestion_id: str
+    text: str
+
+
+class NotificationReadRequest(BaseModel):
+    """Request model for marking a comment reply, suggestion, or suggestion reply as read."""
+    session_id: str
+    item_id: str
+
+
+class NotificationReadAllRequest(BaseModel):
+    """Request model for marking all items in a session as read."""
+    session_id: str
+

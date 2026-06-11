@@ -2,6 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
+function formatCommentTimestamp(isoTime) {
+  if (!isoTime) return "just now";
+  const parsed = new Date(isoTime);
+  if (Number.isNaN(parsed.getTime())) return "just now";
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function TripleSuggestions({ 
   triple, 
   onAddSuggestion, 
@@ -10,6 +22,8 @@ export default function TripleSuggestions({
   onVoteSuggestion,
   onDeleteSuggestion,
   onApproveSuggestion,
+  onAddSuggestionReply,
+  onDeleteSuggestionReply,
   canSuggest = true,
   canApprove = false,
   currentUserName,
@@ -19,6 +33,36 @@ export default function TripleSuggestions({
   const displayUserName = currentUserName || currentUser?.name || "";
   const voteHandler = onVote || onVoteSuggestion;
   const [showForm, setShowForm] = useState(false);
+  
+  const [expandedDiscussionIds, setExpandedDiscussionIds] = useState({});
+  const [discussionDrafts, setDiscussionDrafts] = useState({});
+
+  const toggleDiscussion = (sugId) => {
+    setExpandedDiscussionIds(prev => ({
+      ...prev,
+      [sugId]: !prev[sugId]
+    }));
+  };
+
+  const handlePostSuggestionReply = async (sugId) => {
+    const text = String(discussionDrafts[sugId] || "").trim();
+    if (!text) return;
+    try {
+      await onAddSuggestionReply?.(sugId, text);
+      setDiscussionDrafts(prev => ({ ...prev, [sugId]: "" }));
+    } catch (err) {
+      alert("Failed to add reply: " + err.message);
+    }
+  };
+
+  const handleDeleteSuggestionReply = async (sugId, replyId) => {
+    if (!window.confirm("Remove this reply?")) return;
+    try {
+      await onDeleteSuggestionReply?.(sugId, replyId);
+    } catch (err) {
+      alert("Failed to delete reply: " + err.message);
+    }
+  };
   const [formData, setFormData] = useState({
     subject: "",
     predicate: "",
@@ -405,6 +449,17 @@ export default function TripleSuggestions({
                   >
                     👎 {countVotes(sug.votes, "no")}
                   </button>
+                  <button
+                    onClick={() => toggleDiscussion(sug.id)}
+                    className={[
+                      "px-2 py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer",
+                      expandedDiscussionIds[sug.id]
+                        ? "bg-slate-200 text-slate-800 border-slate-400"
+                        : "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100",
+                    ].join(" ")}
+                  >
+                    💬 Discuss ({sug.replies?.length || 0})
+                  </button>
                   <div className="flex items-center gap-1 ml-1 flex-wrap">
                     <span className="text-slate-500">Grade:</span>
                     {gradeOptions.map((grade) => (
@@ -432,6 +487,66 @@ export default function TripleSuggestions({
                     </span>
                   )}
                 </div>
+
+                {expandedDiscussionIds[sug.id] && (
+                  <div className="mt-3.5 pl-3 border-l-2 border-slate-200 space-y-2">
+                    {sug.replies && sug.replies.length > 0 && (
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {sug.replies.map((reply) => {
+                          const isOwnReply = reply.user_id === (currentUser?.id || "");
+                          return (
+                            <div key={reply.id} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-[11px] leading-relaxed relative">
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500">
+                                    <span className="font-semibold text-slate-700">{reply.author || "User"}</span>
+                                    <span>•</span>
+                                    <span>{formatCommentTimestamp(reply.created_at)}</span>
+                                  </div>
+                                  <p className="text-slate-600 mt-0.5 break-words">{reply.text}</p>
+                                </div>
+                                {isOwnReply && (
+                                  <button
+                                    onClick={() => handleDeleteSuggestionReply(sug.id, reply.id)}
+                                    className="text-slate-400 hover:text-red-600 font-semibold cursor-pointer text-[10px] bg-transparent border-0"
+                                    title="Delete reply"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="space-y-2 pt-1">
+                      <textarea
+                        value={discussionDrafts[sug.id] || ""}
+                        onChange={(e) => setDiscussionDrafts(prev => ({ ...prev, [sug.id]: e.target.value }))}
+                        placeholder="Write a follow-up or reply…"
+                        rows={1}
+                        className="w-full text-xs border border-slate-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-300"
+                      />
+                      <div className="flex gap-1.5 justify-end">
+                        <button
+                          onClick={() => handlePostSuggestionReply(sug.id)}
+                          disabled={!(discussionDrafts[sug.id] || "").trim()}
+                          className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold cursor-pointer shadow-sm border-0"
+                        >
+                          Reply
+                        </button>
+                        <button
+                          onClick={() => toggleDiscussion(sug.id)}
+                          className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-semibold cursor-pointer border-0"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
