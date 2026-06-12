@@ -231,6 +231,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [highlightedElementId, setHighlightedElementId] = useState(null);
+  const [showPaperMetricsModal, setShowPaperMetricsModal] = useState(false);
   const notificationsRef = useRef(null);
 
   // Close dropdowns on outside click and handle scroll collapse
@@ -263,6 +264,191 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     () => normalizeSentenceComments(current?.sentence_comments),
     [current?.sentence_comments]
   );
+
+  const paperMetrics = useMemo(() => {
+    const totalSentences = sentences.length;
+    
+    let totalGoldTriples = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        if (!t.marked_for_removal) {
+          totalGoldTriples++;
+        }
+      });
+    });
+    
+    const avgTriplesPerSentence = totalSentences > 0 ? (totalGoldTriples / totalSentences).toFixed(2) : "0.00";
+    
+    const uniqueUsers = new Set();
+    const ownerId = String(uploadData.owner_user_id || "").trim();
+    if (ownerId) uniqueUsers.add(ownerId);
+    const ownerName = String(uploadData.owner_name || "").trim();
+    if (ownerName) uniqueUsers.add(ownerName);
+
+    sentences.forEach((s) => {
+      (s.sentence_comments || []).forEach((c) => {
+        if (c.user_id) uniqueUsers.add(c.user_id);
+        else if (c.author) uniqueUsers.add(c.author);
+        (c.replies || []).forEach((r) => {
+          if (r.user_id) uniqueUsers.add(r.user_id);
+          else if (r.author) uniqueUsers.add(r.author);
+        });
+      });
+      if (s.completeness_by_user) {
+        Object.keys(s.completeness_by_user).forEach((uid) => uniqueUsers.add(uid));
+      }
+      if (s.external_relation_by_user) {
+        Object.keys(s.external_relation_by_user).forEach((uid) => uniqueUsers.add(uid));
+      }
+      (s.triples || []).forEach((t) => {
+        if (t.grades_by_user) {
+          Object.keys(t.grades_by_user).forEach((uid) => uniqueUsers.add(uid));
+        }
+        (t.triple_comments || []).forEach((c) => {
+          if (c.user_id) uniqueUsers.add(c.user_id);
+          else if (c.author) uniqueUsers.add(c.author);
+          (c.replies || []).forEach((r) => {
+            if (r.user_id) uniqueUsers.add(r.user_id);
+            else if (r.author) uniqueUsers.add(r.author);
+          });
+        });
+        (t.suggestions || []).forEach((sug) => {
+          if (sug.user_id) uniqueUsers.add(sug.user_id);
+          else if (sug.author) uniqueUsers.add(sug.author);
+          (sug.replies || []).forEach((r) => {
+            if (r.user_id) uniqueUsers.add(r.user_id);
+            else if (r.author) uniqueUsers.add(r.author);
+          });
+        });
+      });
+    });
+    
+    // Remove empty/falsy values
+    uniqueUsers.delete("");
+    uniqueUsers.delete(undefined);
+    uniqueUsers.delete(null);
+    const numUsers = uniqueUsers.size > 0 ? uniqueUsers.size : 1;
+    
+    const calibrationSentences = sentences.filter(s => s.is_calibration).length;
+    const calibrationPct = totalSentences > 0 ? ((calibrationSentences / totalSentences) * 100).toFixed(1) : "0.0";
+    
+    let agreedTriples = 0;
+    let multiGradeTriples = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        const grades = Object.values(t.grades_by_user || {})
+          .map((g) => g?.grade)
+          .filter((g) => g !== null && g !== undefined);
+        if (grades.length >= 2) {
+          multiGradeTriples++;
+          const allSame = grades.every(g => g === grades[0]);
+          if (allSame) agreedTriples++;
+        }
+      });
+    });
+    const agreementPct = multiGradeTriples > 0 ? ((agreedTriples / multiGradeTriples) * 100).toFixed(1) + "%" : "N/A";
+    
+    let acceptedWithoutChange = 0;
+    let modifiedAfterReview = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        if (!t.marked_for_removal) {
+          const hasApprovedSug = (t.suggestions || []).some(sug => sug.status === "approved");
+          if (hasApprovedSug) {
+            modifiedAfterReview++;
+          } else {
+            acceptedWithoutChange++;
+          }
+        }
+      });
+    });
+    const acceptedPct = totalGoldTriples > 0 ? ((acceptedWithoutChange / totalGoldTriples) * 100).toFixed(1) : "0.0";
+    const modifiedPct = totalGoldTriples > 0 ? ((modifiedAfterReview / totalGoldTriples) * 100).toFixed(1) : "0.0";
+    
+    let rejectedTriples = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        if (t.marked_for_removal) {
+          rejectedTriples++;
+        }
+      });
+    });
+    
+    let missingTriplesAdded = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        if (t.is_new_suggestion && t.status === "approved") {
+          missingTriplesAdded++;
+        }
+      });
+    });
+    
+    let methodAdjudicationCount = 0;
+    sentences.forEach((s) => {
+      if ((s.sentence_comments || []).length > 0) {
+        methodAdjudicationCount++;
+      }
+    });
+    
+    let tripleAdjudicationCount = 0;
+    sentences.forEach((s) => {
+      (s.triples || []).forEach((t) => {
+        const hasComments = (t.triple_comments || []).length > 0;
+        const hasSugReplies = (t.suggestions || []).some(sug => (sug.replies || []).length > 0);
+        if (hasComments || hasSugReplies) {
+          tripleAdjudicationCount++;
+        }
+      });
+    });
+    
+    const guidelineKeywords = ["guideline", "rule", "instruction", "method decision"];
+    let guidelineUpdatesCount = 0;
+    sentences.forEach((s) => {
+      (s.sentence_comments || []).forEach((c) => {
+        const txt = (c.text || "").toLowerCase();
+        if (guidelineKeywords.some(k => txt.includes(k))) guidelineUpdatesCount++;
+        (c.replies || []).forEach((r) => {
+          const rTxt = (r.text || "").toLowerCase();
+          if (guidelineKeywords.some(k => rTxt.includes(k))) guidelineUpdatesCount++;
+        });
+      });
+    });
+
+    const guidelineUpdatesList = Array.isArray(uploadData.guideline_updates) ? uploadData.guideline_updates : [];
+    const numGuidelineUpdates = Math.max(guidelineUpdatesList.length, guidelineUpdatesCount);
+
+    let evalF1 = "N/A";
+    if (uploadData.evaluation && typeof uploadData.evaluation === "object") {
+      const f1Val = uploadData.evaluation.f1;
+      if (f1Val !== null && f1Val !== undefined) {
+        const parsedF1 = parseFloat(f1Val);
+        if (!isNaN(parsedF1)) {
+          evalF1 = parsedF1 <= 1.0 ? `${(parsedF1 * 100).toFixed(1)}%` : `${parsedF1.toFixed(1)}%`;
+        } else {
+          evalF1 = String(f1Val);
+        }
+      }
+    }
+    
+    return {
+      totalSentences,
+      totalGoldTriples,
+      avgTriplesPerSentence,
+      numUsers,
+      calibrationPct,
+      agreementPct,
+      acceptedWithoutChange,
+      acceptedPct,
+      modifiedAfterReview,
+      modifiedPct,
+      rejectedTriples,
+      missingTriplesAdded,
+      methodAdjudicationCount,
+      tripleAdjudicationCount,
+      numGuidelineUpdates,
+      evalF1,
+    };
+  }, [sentences, uploadData]);
 
   const notifications = useMemo(() => {
     const list = [];
@@ -1686,6 +1872,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             )}
           </div>
 
+          {/* ── Paper Quality & Process Indicators Button ── */}
+          <button
+            onClick={() => setShowPaperMetricsModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-300 active:scale-95 transition-all shadow-sm whitespace-nowrap cursor-pointer shrink-0"
+            title="View Paper Quality & Process Indicators"
+          >
+            📊 <span className="hidden sm:inline">Indicators</span>
+          </button>
+
           {/* ── Download split button ── */}
           <div className="relative shrink-0" ref={dlRef}>
             <div className="flex rounded-lg overflow-hidden shadow-sm border border-green-600 bg-green-600">
@@ -1821,6 +2016,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     <span>🔬</span> Evaluate
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setShowPaperMetricsModal(true);
+                    setMoreOpen(false);
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <span>📊</span> Indicators
+                </button>
                 <div className="border-t border-slate-100 my-1"></div>
                 <button
                   onClick={() => {
@@ -2406,6 +2610,151 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             Shared mode: collaborators grade, suggest, and vote; owner votes and approves.
           </p>
         </div>
+
+        {/* ── Paper Quality & Process Indicators Modal ── */}
+        {showPaperMetricsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowPaperMetricsModal(false)}
+            />
+            
+            {/* Modal Content */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full max-h-[85vh] flex flex-col relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+                <div className="flex items-center gap-2 text-left">
+                  <span className="text-xl">📊</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Paper Quality & Process Indicators</h3>
+                    <p className="text-[11px] text-slate-500">Live statistics mapped to the scientific paper evaluation criteria</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPaperMetricsModal(false)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors font-bold cursor-pointer border-0 bg-transparent"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Content Body */}
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                  {/* Metric cards */}
+                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Source Sentences</span>
+                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.totalSentences}</p>
+                    </div>
+                    <span className="text-slate-300 text-2xl font-light">📝</span>
+                  </div>
+
+                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Final Gold Triples</span>
+                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.totalGoldTriples}</p>
+                    </div>
+                    <span className="text-slate-300 text-2xl font-light">✨</span>
+                  </div>
+
+                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Avg Triples / Sentence</span>
+                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.avgTriplesPerSentence}</p>
+                    </div>
+                    <span className="text-slate-300 text-2xl font-light">📊</span>
+                  </div>
+
+                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Annotators & Reviewers</span>
+                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.numUsers}</p>
+                    </div>
+                    <span className="text-slate-300 text-2xl font-light">👥</span>
+                  </div>
+                </div>
+
+                {/* Detail Table */}
+                <div className="border border-slate-150 rounded-xl overflow-hidden shadow-sm bg-white mt-4">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-150 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="px-4 py-3">Quality & Process Indicator Metric</th>
+                        <th className="px-4 py-3 text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Percentage of sentences in calibration phase</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.calibrationPct}%</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Pilot-stage triple overlap / Approximate F1</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.evalF1}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Reviewer agreement on candidate-triple decisions</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.agreementPct}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Triples accepted without change</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
+                          {paperMetrics.acceptedWithoutChange} <span className="text-slate-400 font-normal">({paperMetrics.acceptedPct}%)</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Triples modified after review</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
+                          {paperMetrics.modifiedAfterReview} <span className="text-slate-400 font-normal">({paperMetrics.modifiedPct}%)</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Rejected triples</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.rejectedTriples}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Missing triples suggested & added after adjudication</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.missingTriplesAdded}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Method-level adjudication cases <span className="text-slate-400 font-normal text-[10px]">(general comments)</span></td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.methodAdjudicationCount}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Triple-level adjudication cases <span className="text-slate-400 font-normal text-[10px]">(triple comments/replies)</span></td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.tripleAdjudicationCount}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium text-left">Guideline updates or documented method decisions</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.numGuidelineUpdates}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Extra note / help */}
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-start gap-2.5 mt-2 text-left">
+                  <span className="text-blue-600 mt-0.5 text-sm">ℹ</span>
+                  <p className="text-[11px] leading-relaxed text-blue-800">
+                    <strong>How Adjudications are Determined:</strong> As requested, sentence-level adjudication events are tracked via general comments on the sentence (which discuss overall method and guidelines). Triple-level adjudication events are tracked via comments and discussion replies on individual triples and candidate suggestions. These metrics are dynamically calculated in real-time and will be rendered on the cover sheet when exporting a PDF report.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button
+                  onClick={() => setShowPaperMetricsModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                >
+                  Close View
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="h-8" />
       </div>
