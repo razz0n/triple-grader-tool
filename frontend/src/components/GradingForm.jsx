@@ -271,7 +271,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let totalGoldTriples = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
-        if (!t.marked_for_removal) {
+        if (
+          (!t.is_new_suggestion && !t.marked_for_removal) ||
+          (t.is_new_suggestion && t.status === "approved")
+        ) {
           totalGoldTriples++;
         }
       });
@@ -336,13 +339,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let multiGradeTriples = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
-        const grades = Object.values(t.grades_by_user || {})
-          .map((g) => g?.grade)
-          .filter((g) => g !== null && g !== undefined);
-        if (grades.length >= 2) {
-          multiGradeTriples++;
-          const allSame = grades.every(g => g === grades[0]);
-          if (allSame) agreedTriples++;
+        if (!t.is_new_suggestion) {
+          const grades = Object.values(t.grades_by_user || {})
+            .map((g) => g?.grade)
+            .filter((g) => g !== null && g !== undefined);
+          if (grades.length >= 2) {
+            multiGradeTriples++;
+            const allSame = grades.every(g => g === grades[0]);
+            if (allSame) agreedTriples++;
+          }
         }
       });
     });
@@ -352,7 +357,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let modifiedAfterReview = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
-        if (!t.marked_for_removal) {
+        if (!t.is_new_suggestion && !t.marked_for_removal) {
           const hasApprovedSug = (t.suggestions || []).some(sug => sug.status === "approved");
           if (hasApprovedSug) {
             modifiedAfterReview++;
@@ -368,7 +373,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let rejectedTriples = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
-        if (t.marked_for_removal) {
+        if (!t.is_new_suggestion && t.marked_for_removal) {
           rejectedTriples++;
         }
       });

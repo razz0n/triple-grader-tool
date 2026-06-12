@@ -266,7 +266,12 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
     num_sentences = len(sentences)
     
     triples = [t for s in sentences for t in s.get("triples", [])]
-    num_gold_triples = sum(1 for t in triples if not t.get("marked_for_removal"))
+    
+    num_gold_triples = sum(
+        1 for t in triples
+        if (not t.get("is_new_suggestion") and not t.get("marked_for_removal")) or
+           (t.get("is_new_suggestion") and t.get("status") == "approved")
+    )
     avg_triples = (num_gold_triples / num_sentences) if num_sentences > 0 else 0.0
     
     # Unique annotators & reviewers
@@ -355,14 +360,15 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
     total_multi_vote = 0
     for s in sentences:
         for t in s.get("triples", []):
-            grades = []
-            for entry in t.get("grades_by_user", {}).values():
-                if isinstance(entry, dict) and entry.get("grade") is not None:
-                    grades.append(float(entry["grade"]))
-            if len(grades) >= 2:
-                total_multi_vote += 1
-                if len(set(grades)) == 1:
-                    agreed_count += 1
+            if not t.get("is_new_suggestion"):
+                grades = []
+                for entry in t.get("grades_by_user", {}).values():
+                    if isinstance(entry, dict) and entry.get("grade") is not None:
+                        grades.append(float(entry["grade"]))
+                if len(grades) >= 2:
+                    total_multi_vote += 1
+                    if len(set(grades)) == 1:
+                        agreed_count += 1
     agreement_str = f"{agreed_count / total_multi_vote * 100:.1f}%" if total_multi_vote > 0 else "N/A"
     
     # Accepted without change
@@ -370,7 +376,7 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
     modified_after_review = 0
     for s in sentences:
         for t in s.get("triples", []):
-            if not t.get("marked_for_removal"):
+            if not t.get("is_new_suggestion") and not t.get("marked_for_removal"):
                 has_approved_sug = any(sug.get("status") == "approved" for sug in t.get("suggestions", []))
                 if has_approved_sug:
                     modified_after_review += 1
@@ -381,7 +387,7 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
     modified_after_review_pct = (modified_after_review / num_gold_triples * 100) if num_gold_triples > 0 else 0.0
     
     # Rejected triples
-    num_rejected_triples = sum(1 for t in triples if t.get("marked_for_removal"))
+    num_rejected_triples = sum(1 for t in triples if not t.get("is_new_suggestion") and t.get("marked_for_removal"))
     
     # Missing triples suggested and added
     num_suggested_added = sum(1 for t in triples if t.get("is_new_suggestion") and t.get("status") == "approved")
