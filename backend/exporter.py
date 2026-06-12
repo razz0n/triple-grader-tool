@@ -260,12 +260,239 @@ class _GradingPDF(FPDF):
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
 
+def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
+    from datetime import datetime
+    sentences = session.get("sentences", [])
+    num_sentences = len(sentences)
+    
+    triples = [t for s in sentences for t in s.get("triples", [])]
+    num_gold_triples = sum(1 for t in triples if not t.get("marked_for_removal"))
+    avg_triples = (num_gold_triples / num_sentences) if num_sentences > 0 else 0.0
+    
+    # Unique annotators & reviewers
+    users = set()
+    owner_id = str(session.get("owner_user_id") or "").strip()
+    if owner_id:
+        users.add(owner_id)
+    owner_name = str(session.get("owner_name") or "").strip()
+    if owner_name:
+        users.add(owner_name)
+        
+    for s in sentences:
+        for c in s.get("sentence_comments", []):
+            if c.get("user_id"):
+                users.add(c.get("user_id"))
+            if c.get("author"):
+                users.add(c.get("author"))
+            for r in c.get("replies", []):
+                if r.get("user_id"):
+                    users.add(r.get("user_id"))
+                if r.get("author"):
+                    users.add(r.get("author"))
+        
+        # completeness/relation by user
+        for val in s.get("completeness_by_user", {}).values():
+            if isinstance(val, dict):
+                if val.get("user_id"):
+                    users.add(val.get("user_id"))
+                if val.get("user_name"):
+                    users.add(val.get("user_name"))
+        for val in s.get("external_relation_by_user", {}).values():
+            if isinstance(val, dict):
+                if val.get("user_id"):
+                    users.add(val.get("user_id"))
+                if val.get("user_name"):
+                    users.add(val.get("user_name"))
+
+        for t in s.get("triples", []):
+            for val in t.get("grades_by_user", {}).values():
+                if isinstance(val, dict):
+                    if val.get("user_id"):
+                        users.add(val.get("user_id"))
+                    if val.get("user_name"):
+                        users.add(val.get("user_name"))
+            for c in t.get("triple_comments", []):
+                if c.get("user_id"):
+                    users.add(c.get("user_id"))
+                if c.get("author"):
+                    users.add(c.get("author"))
+                for r in c.get("replies", []):
+                    if r.get("user_id"):
+                        users.add(r.get("user_id"))
+                    if r.get("author"):
+                        users.add(r.get("author"))
+            for sug in t.get("suggestions", []):
+                if sug.get("user_id"):
+                    users.add(sug.get("user_id"))
+                if sug.get("author"):
+                    users.add(sug.get("author"))
+                for r in sug.get("replies", []):
+                    if r.get("user_id"):
+                        users.add(r.get("user_id"))
+                    if r.get("author"):
+                        users.add(r.get("author"))
+
+    # Cleanup empty strings or None from set
+    users = {u for u in users if u}
+    num_users = len(users) if users else 1
+    
+    # Calibration phase
+    calibration_sentences = sum(1 for s in sentences if s.get("is_calibration"))
+    calibration_pct = (calibration_sentences / num_sentences * 100) if num_sentences > 0 else 0.0
+    
+    # Pilot-stage triple overlap (OpenIE F1 if evaluated)
+    eval_f1 = "N/A"
+    if session.get("evaluation") and isinstance(session["evaluation"], dict):
+        f1_val = session["evaluation"].get("f1")
+        if f1_val is not None:
+            try:
+                eval_f1 = f"{float(f1_val)*100:.1f}%" if float(f1_val) <= 1.0 else f"{float(f1_val):.1f}%"
+            except ValueError:
+                eval_f1 = str(f1_val)
+                
+    # Reviewer agreement
+    agreed_count = 0
+    total_multi_vote = 0
+    for s in sentences:
+        for t in s.get("triples", []):
+            grades = []
+            for entry in t.get("grades_by_user", {}).values():
+                if isinstance(entry, dict) and entry.get("grade") is not None:
+                    grades.append(float(entry["grade"]))
+            if len(grades) >= 2:
+                total_multi_vote += 1
+                if len(set(grades)) == 1:
+                    agreed_count += 1
+    agreement_str = f"{agreed_count / total_multi_vote * 100:.1f}%" if total_multi_vote > 0 else "N/A"
+    
+    # Accepted without change
+    accepted_without_change = 0
+    modified_after_review = 0
+    for s in sentences:
+        for t in s.get("triples", []):
+            if not t.get("marked_for_removal"):
+                has_approved_sug = any(sug.get("status") == "approved" for sug in t.get("suggestions", []))
+                if has_approved_sug:
+                    modified_after_review += 1
+                else:
+                    accepted_without_change += 1
+                    
+    accepted_without_change_pct = (accepted_without_change / num_gold_triples * 100) if num_gold_triples > 0 else 0.0
+    modified_after_review_pct = (modified_after_review / num_gold_triples * 100) if num_gold_triples > 0 else 0.0
+    
+    # Rejected triples
+    num_rejected_triples = sum(1 for t in triples if t.get("marked_for_removal"))
+    
+    # Missing triples suggested and added
+    num_suggested_added = sum(1 for t in triples if t.get("is_new_suggestion") and t.get("status") == "approved")
+    
+    # Adjudication cases
+    num_method_adjudications = sum(1 for s in sentences if len(s.get("sentence_comments", [])) > 0)
+    
+    num_triple_adjudications = 0
+    for s in sentences:
+        for t in s.get("triples", []):
+            has_comments = len(t.get("triple_comments", [])) > 0
+            has_sug_replies = any(len(sug.get("replies", [])) > 0 for sug in t.get("suggestions", []))
+            if has_comments or has_sug_replies:
+                num_triple_adjudications += 1
+                
+    # Guideline updates
+    guideline_updates = session.get("guideline_updates", [])
+    if not isinstance(guideline_updates, list):
+        guideline_updates = []
+    guideline_keywords = ["guideline", "rule", "instruction", "method decision"]
+    auto_updates = 0
+    for s in sentences:
+        for c in s.get("sentence_comments", []):
+            txt = c.get("text", "").lower()
+            if any(k in txt for k in guideline_keywords):
+                auto_updates += 1
+            for r in c.get("replies", []):
+                r_txt = r.get("text", "").lower()
+                if any(k in r_txt for k in guideline_keywords):
+                    auto_updates += 1
+    num_guideline_updates = max(len(guideline_updates), auto_updates)
+    
+    return {
+        "num_sentences": num_sentences,
+        "num_gold_triples": num_gold_triples,
+        "avg_triples": avg_triples,
+        "num_users": num_users,
+        "calibration_pct": calibration_pct,
+        "eval_f1": eval_f1,
+        "agreement_str": agreement_str,
+        "accepted_without_change": accepted_without_change,
+        "accepted_without_change_pct": accepted_without_change_pct,
+        "modified_after_review": modified_after_review,
+        "modified_after_review_pct": modified_after_review_pct,
+        "num_rejected_triples": num_rejected_triples,
+        "num_suggested_added": num_suggested_added,
+        "num_method_adjudications": num_method_adjudications,
+        "num_triple_adjudications": num_triple_adjudications,
+        "num_guideline_updates": num_guideline_updates,
+    }
+
+
 def to_pdf(session: Dict[str, Any]) -> bytes:
     # Text helper: passthrough when using Unicode font; sanitize for core fonts
     _t = (lambda v: "" if v is None else str(v)) if _USE_ARIAL else _pdf_safe
 
     pdf = _GradingPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # ── Paper Quality & Process Indicators Summary Table ────────────────────
+    pdf.set_fill_color(30, 58, 95)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font(_PDF_FONT, "B", 11)
+    pdf.cell(0, 10, "  Paper Quality & Process Indicators Summary", ln=True, fill=True, align="L")
+    pdf.ln(3)
+
+    metrics = _calculate_paper_metrics(session)
+
+    pdf.set_font(_PDF_FONT, "", 9)
+    pdf.set_text_color(20, 20, 20)
+
+    table_data = [
+        ("Number of source sentences", str(metrics["num_sentences"])),
+        ("Number of final gold triples", str(metrics["num_gold_triples"])),
+        ("Average number of triples per sentence", f"{metrics['avg_triples']:.2f}"),
+        ("Number of annotators and reviewers", str(metrics["num_users"])),
+        ("Percentage of sentences in calibration phase", f"{metrics['calibration_pct']:.1f}%"),
+        ("Pilot-stage triple overlap / match results", metrics["eval_f1"]),
+        ("Reviewer agreement on candidate-triple decisions", metrics["agreement_str"]),
+        ("Triples accepted without change (Count / %)", f"{metrics['accepted_without_change']} / {metrics['accepted_without_change_pct']:.1f}%"),
+        ("Triples modified after review (Count / %)", f"{metrics['modified_after_review']} / {metrics['modified_after_review_pct']:.1f}%"),
+        ("Number of rejected triples", str(metrics["num_rejected_triples"])),
+        ("Missing triples suggested & added", str(metrics["num_suggested_added"])),
+        ("Number of method-level adjudication cases", str(metrics["num_method_adjudications"])),
+        ("Number of triple-level adjudication cases", str(metrics["num_triple_adjudications"])),
+        ("Number of guideline updates / method decisions", str(metrics["num_guideline_updates"])),
+    ]
+
+    col_w1 = 130
+    col_w2 = 50
+
+    pdf.set_font(_PDF_FONT, "B", 9)
+    pdf.set_fill_color(214, 228, 240)
+    pdf.cell(col_w1, 7, "  Quality & Process Indicator", border=1, fill=True)
+    pdf.cell(col_w2, 7, "Value", border=1, fill=True, align="C")
+    pdf.ln()
+
+    pdf.set_font(_PDF_FONT, "", 9)
+    for i, (indicator, val) in enumerate(table_data):
+        fill = (i % 2 == 0)
+        if fill:
+            pdf.set_fill_color(245, 248, 252)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+        pdf.cell(col_w1, 6, "  " + _t(indicator), border=1, fill=fill)
+        pdf.cell(col_w2, 6, _t(val), border=1, fill=fill, align="C")
+        pdf.ln()
+
+    pdf.ln(8)
+    # ── Page break to start the regular report ─────────────────────────────
     pdf.add_page()
 
     sentences = session.get("sentences", [])
