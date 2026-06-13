@@ -232,6 +232,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [highlightedElementId, setHighlightedElementId] = useState(null);
   const [showPaperMetricsModal, setShowPaperMetricsModal] = useState(false);
+  const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false);
+  const [pendingDownloadFormat, setPendingDownloadFormat] = useState(null);
   const notificationsRef = useRef(null);
 
   // Close dropdowns on outside click and handle scroll collapse
@@ -1726,6 +1728,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       setDlError("Save the session first.");
       return;
     }
+
+    if (gradingProgress.pct < 100) {
+      setPendingDownloadFormat(target);
+      setShowDownloadWarningModal(true);
+      return;
+    }
+
+    await executeDownload(target);
+  };
+
+  const executeDownload = async (target) => {
     setDownloading(true);
     try {
       await downloadSession(savedSessionId, target);
@@ -2755,6 +2768,65 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
                 >
                   Close View
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Download Warning Modal ── */}
+        {showDownloadWarningModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+              onClick={() => {
+                setShowDownloadWarningModal(false);
+                setPendingDownloadFormat(null);
+              }}
+            />
+            
+            {/* Modal Content */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6">
+                <div className="flex items-center gap-3 text-amber-600">
+                  <span className="text-2xl text-left">⚠️</span>
+                  <h3 className="text-base font-bold text-slate-800">Incomplete Grading Session</h3>
+                </div>
+                
+                <p className="mt-3 text-xs text-slate-600 leading-relaxed text-left">
+                  This document is currently only <strong className="text-slate-800 font-bold">{gradingProgress.pct}%</strong> graded (<strong className="text-slate-800 font-semibold">{gradingProgress.graded}</strong> of <strong className="text-slate-800 font-semibold">{gradingProgress.total}</strong> active triples have been graded).
+                </p>
+
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-left">
+                  <span className="text-amber-700 text-xs">⚠️</span>
+                  <p className="text-[10px] leading-normal text-amber-800">
+                    Downloading the report before completing the grading process will lead to incomplete or inaccurate quality and process statistics in the exported files.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowDownloadWarningModal(false);
+                    setPendingDownloadFormat(null);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowDownloadWarningModal(false);
+                    const format = pendingDownloadFormat;
+                    setPendingDownloadFormat(null);
+                    await executeDownload(format);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg active:scale-95 transition-all cursor-pointer"
+                >
+                  Download Anyway
                 </button>
               </div>
             </div>
