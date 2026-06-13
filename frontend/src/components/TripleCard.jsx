@@ -333,11 +333,15 @@ export default function TripleCard({
             </div>
 
             {grade !== null && grade !== undefined ? (
-              <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-455 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded-full">
-                {grade}/10
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/40 px-2 py-0.5 rounded-full">
+                <Check size={11} className="shrink-0" />
+                <span>Scored: {grade}/10</span>
               </span>
             ) : (
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">Not graded</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 px-2 py-0.5 rounded-full animate-pulse">
+                <AlertCircle size={11} className="shrink-0" />
+                <span>Ungraded</span>
+              </span>
             )}
           </div>
 

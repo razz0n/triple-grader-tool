@@ -236,6 +236,25 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [sidebarFilter, setSidebarFilter] = useState("all"); // "all" | "completed" | "pending"
   const [searchQuery, setSearchQuery] = useState("");
   const [isDark, setIsDark] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const mainRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainRef.current) {
+        setIsCollapsed(mainRef.current.scrollTop > 80);
+      }
+    };
+    const mainEl = mainRef.current;
+    if (mainEl) {
+      mainEl.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (mainEl) {
+        mainEl.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, []);
 
   const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
   const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
@@ -285,6 +304,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     };
   }, []);
 
+  // Auto-scroll active sidebar item into view
+  useEffect(() => {
+    const activeEl = document.getElementById(`sidebar-sentence-${currentIdx}`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [currentIdx]);
+
   const total   = sentences.length;
   const current = sentences[currentIdx];
   const completenessMetricEntries = metricEntries(current?.completeness_by_user);
@@ -293,6 +320,28 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     () => normalizeSentenceComments(current?.sentence_comments),
     [current?.sentence_comments]
   );
+
+  const ungradedTriples = useMemo(() => {
+    if (!current) return [];
+    return (current.triples || []).filter((t) => {
+      const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+      if (!isActive) return false;
+      const userGrade = t.grades_by_user?.[currentUserId]?.grade;
+      return userGrade === undefined || userGrade === null;
+    });
+  }, [current, currentUserId]);
+
+  const handleJumpToUngraded = () => {
+    if (ungradedTriples.length === 0) return;
+    const firstUngraded = ungradedTriples[0];
+    const elementId = `triple-card-${firstUngraded.id}`;
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedElementId(elementId);
+      setTimeout(() => setHighlightedElementId(null), 2050);
+    }
+  };
 
   const paperMetrics = useMemo(() => {
     const totalSentences = sentences.length;
@@ -1058,7 +1107,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const onMarkForRemoval = (tripleId, isMarked) => {
     if (!canSuggestTriples) return;
     markChanged();
-    const reason = isMarked ? window.prompt("Reason for removal (optional):") || "Not needed" : "";
+    const reason = isMarked ? "Requested removal" : "";
     setSentences((prev) =>
       prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
@@ -1481,12 +1530,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, [sentences, searchQuery, sidebarFilter]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
-      
-      {/* ── TOP HEADER BAR ────────────────────────────────────────────────── */}
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950/40 flex flex-col transition-colors duration-300">
       <header className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 h-[60px] flex items-center px-4 justify-between gap-3 select-none">
         
-        {/* Title, version & collapse sidebar trigger */}
+        {/* Title, version & collapse sidebar trigger + Dashboard Link */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1496,24 +1543,33 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <Menu size={16} />
           </button>
 
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 mr-1.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
               <Shield size={16} />
             </div>
             <div className="min-w-0">
               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
                 <span className="truncate">Ontology Grader</span>
-                <span className="bg-indigo-55 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 text-[9px] px-1.5 py-0.5 rounded-lg font-bold tracking-wider uppercase shrink-0">v2.0</span>
+                <span className="bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 text-[9px] px-1.5 py-0.5 rounded-lg font-bold tracking-wider uppercase shrink-0">v2.0</span>
               </div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[120px] sm:max-w-[200px]">{source_filename}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[120px] sm:max-w-[150px]">{source_filename}</p>
             </div>
           </div>
+
+          {/* Dashboard Back Link */}
+          <button
+            onClick={onReset}
+            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
+          >
+            <ArrowLeft size={13} />
+            <span>Dashboard</span>
+          </button>
         </div>
 
         {/* Global Progress Bar (visible on md screens up) */}
         <div className="hidden lg:flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-850 px-3 py-1.5 rounded-xl">
           <div className="flex flex-col text-right">
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider leading-none">Overall Progress</span>
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-none">Overall Progress</span>
             <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mt-1">{gradingProgress.graded} / {gradingProgress.total} Triples</span>
           </div>
           <div className="w-20 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
@@ -1525,16 +1581,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
           
-          {/* Theme Mode Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-550 dark:text-slate-400 cursor-pointer shadow-sm active:scale-95 transition-all"
-            title="Toggle Light/Dark Theme"
-          >
-            {isDark ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-
-          {/* Save Action */}
+          {/* 1. Save Action */}
           <div className="relative flex items-center">
             <button
               onClick={handleSave}
@@ -1551,13 +1598,103 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               </span>
             )}
             {saveError && (
-              <span className="absolute right-0 top-full mt-2 bg-rose-50 dark:bg-rose-950/90 text-rose-800 dark:text-rose-350 border border-rose-250 dark:border-rose-900/40 px-2.5 py-1 rounded-lg text-[10px] font-semibold shadow-lg whitespace-nowrap z-50">
+              <span className="absolute right-0 top-full mt-2 bg-rose-50 dark:bg-rose-950/90 text-rose-805 dark:text-rose-350 border border-rose-250 dark:border-rose-900/40 px-2.5 py-1 rounded-lg text-[10px] font-semibold shadow-lg whitespace-nowrap z-50">
                 {saveError}
               </span>
             )}
           </div>
 
-          {/* Notifications Trigger */}
+          {/* 2. Download Split Dropdown Button */}
+          <div className="relative shrink-0 flex" ref={dlRef}>
+            <div className="flex rounded-xl overflow-hidden shadow-sm border border-emerald-600 dark:border-emerald-700 bg-emerald-600 dark:bg-emerald-700">
+              <button
+                onClick={() => handleDownload()}
+                disabled={downloading || !savedSessionId}
+                className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+              >
+                {downloading ? "..." : (
+                  <>
+                    <Download size={14} />
+                    <span className="hidden md:inline">Download</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setDlOpen((o) => !o)}
+                disabled={downloading}
+                className="px-2 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 border-l border-emerald-500 dark:border-emerald-600 transition-all disabled:opacity-40 cursor-pointer"
+                aria-label="Choose format"
+              >
+                {dlOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            </div>
+
+            {dlOpen && (
+              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
+                {DL_FORMATS.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => { setDlFmt(f.value); setDlOpen(false); handleDownload(f.value); }}
+                    className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                      f.value === dlFmt
+                        ? "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-bold"
+                        : "text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850"
+                    }`}
+                  >
+                    <span className="text-sm shrink-0">{f.icon}</span>
+                    <span>{f.label}</span>
+                    {f.value === dlFmt && <span className="ml-auto text-indigo-650 text-xs">✔</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 3. View Report tab */}
+          <a
+            href={previewHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
+            className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
+              savedSessionId
+                ? "border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-300 bg-white dark:bg-slate-900 hover:border-indigo-400 hover:bg-indigo-50/30"
+                : "border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
+            }`}
+            title={savedSessionId ? "Preview report in a new tab" : "Save changes first"}
+          >
+            <Eye size={14} />
+            <span>View</span>
+          </a>
+
+          {/* 4. Run Evaluate */}
+          {onEvaluate && (
+            <button
+              onClick={() => onEvaluate(savedSessionId, source_filename)}
+              disabled={!savedSessionId}
+              className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
+                savedSessionId
+                  ? "border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 text-purple-750 dark:text-purple-400 hover:bg-purple-100/50"
+                  : "border-slate-250 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
+              }`}
+              title={savedSessionId ? "Run Stanza OpenIE evaluation match checks" : "Save changes first"}
+            >
+              <Activity size={14} />
+              <span>Evaluate</span>
+            </button>
+          )}
+
+          {/* 5. Paper Quality indicators */}
+          <button
+            onClick={() => setShowPaperMetricsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+            title="View Paper Quality Metrics"
+          >
+            <BarChart3 size={14} />
+            <span className="hidden md:inline">Indicators</span>
+          </button>
+
+          {/* 6. Notifications Trigger */}
           <div className="relative" ref={notificationsRef}>
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -1606,7 +1743,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       <div
                         key={notif.id}
                         onClick={() => handleNotificationClick(notif)}
-                        className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors cursor-pointer text-left space-y-1"
+                        className="px-4 py-3 hover:bg-slate-55 dark:hover:bg-slate-900/40 transition-colors cursor-pointer text-left space-y-1"
                       >
                         <div className="flex justify-between items-start gap-1">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-350 leading-snug">{notif.title}</span>
@@ -1615,7 +1752,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed break-words">{notif.text}</p>
-                        <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                        <div className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400 flex items-center gap-1.5">
                           <span>Sentence #{notif.sentenceId}</span>
                           {notif.tripleId && (
                             <>
@@ -1632,103 +1769,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             )}
           </div>
 
-          {/* Paper Quality indicators */}
+          {/* 7. Theme Mode Toggle */}
           <button
-            onClick={() => setShowPaperMetricsModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
-            title="View Paper Quality Metrics"
+            onClick={toggleTheme}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer shadow-sm active:scale-95 transition-all"
+            title="Toggle Light/Dark Theme"
           >
-            <BarChart3 size={14} />
-            <span className="hidden md:inline">Indicators</span>
-          </button>
-
-          {/* Download Split Dropdown Button */}
-          <div className="relative shrink-0 flex" ref={dlRef}>
-            <div className="flex rounded-xl overflow-hidden shadow-sm border border-emerald-600 dark:border-emerald-700 bg-emerald-600 dark:bg-emerald-700">
-              <button
-                onClick={() => handleDownload()}
-                disabled={downloading || !savedSessionId}
-                className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
-              >
-                {downloading ? "..." : (
-                  <>
-                    <Download size={14} />
-                    <span className="hidden md:inline">Download</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => setDlOpen((o) => !o)}
-                disabled={downloading}
-                className="px-2 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 border-l border-emerald-550 dark:border-emerald-650 transition-all disabled:opacity-40 cursor-pointer"
-                aria-label="Choose format"
-              >
-                {dlOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            </div>
-
-            {dlOpen && (
-              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
-                {DL_FORMATS.map((f) => (
-                  <button
-                    key={f.value}
-                    onClick={() => { setDlFmt(f.value); setDlOpen(false); handleDownload(f.value); }}
-                    className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                      f.value === dlFmt
-                        ? "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-bold"
-                        : "text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850"
-                    }`}
-                  >
-                    <span className="text-sm shrink-0">{f.icon}</span>
-                    <span>{f.label}</span>
-                    {f.value === dlFmt && <span className="ml-auto text-indigo-650 text-xs">✔</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* View Report tab */}
-          <a
-            href={previewHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
-            className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
-              savedSessionId
-                ? "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 hover:border-indigo-400 hover:bg-indigo-50/30"
-                : "border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
-            }`}
-            title={savedSessionId ? "Preview report in a new tab" : "Save changes first"}
-          >
-            <Eye size={14} />
-            <span>View</span>
-          </a>
-
-          {/* Run Evaluate */}
-          {onEvaluate && (
-            <button
-              onClick={() => onEvaluate(savedSessionId, source_filename)}
-              disabled={!savedSessionId}
-              className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
-                savedSessionId
-                  ? "border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 text-purple-750 dark:text-purple-400 hover:bg-purple-100/50"
-                  : "border-slate-250 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
-              }`}
-              title={savedSessionId ? "Run Stanza OpenIE evaluation match checks" : "Save changes first"}
-            >
-              <Activity size={14} />
-              <span>Evaluate</span>
-            </button>
-          )}
-
-          {/* Dashboard Back Link */}
-          <button
-            onClick={onReset}
-            className="hidden lg:inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all"
-          >
-            <ArrowLeft size={13} />
-            <span>Dashboard</span>
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
           </button>
 
           {/* Small screens actions overflow toggle */}
@@ -1748,7 +1795,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
                   className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors ${
                     savedSessionId
-                      ? "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850"
+                      ? "text-slate-700 dark:text-slate-300 hover:bg-slate-55 dark:hover:bg-slate-850"
                       : "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                   }`}
                 >
@@ -1764,7 +1811,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
                       savedSessionId
                         ? "text-purple-750 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-slate-850"
-                        : "text-slate-350 dark:text-slate-650 cursor-not-allowed"
+                        : "text-slate-355 dark:text-slate-650 cursor-not-allowed"
                     }`}
                   >
                     <Activity size={13} /> Evaluate Stanza
@@ -1863,17 +1910,26 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   const completenessBadge = allGraded
                     ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 border border-emerald-150 dark:border-emerald-900/30"
                     : noneGraded
-                    ? "bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-850"
+                    ? "bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-850"
                     : "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-450 border border-amber-150 dark:border-amber-900/30";
+
+                  const badgeIcon = allGraded ? (
+                    <CheckCircle2 size={10} className="shrink-0" />
+                  ) : noneGraded ? (
+                    <AlertCircle size={10} className="shrink-0" />
+                  ) : (
+                    <AlertTriangle size={10} className="shrink-0" />
+                  );
 
                   return (
                     <button
                       key={s.id}
+                      id={`sidebar-sentence-${s.originalIndex}`}
                       onClick={() => setCurrentIdx(s.originalIndex)}
                       className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
                         isSelected
-                          ? "bg-indigo-50/65 dark:bg-indigo-950/25 border-indigo-300 dark:border-indigo-850 shadow-sm"
-                          : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700"
+                          ? "bg-indigo-50/65 dark:bg-indigo-950/25 border-indigo-300 dark:border-indigo-850 border-l-4 border-l-indigo-600 dark:border-l-indigo-500 shadow-sm"
+                          : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 border-l-4 border-l-transparent"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -1888,8 +1944,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                               {s.comment_count}
                             </span>
                           )}
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${completenessBadge}`}>
-                            {gradedT}/{activeT.length} Graded
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${completenessBadge}`}>
+                            {badgeIcon}
+                            <span>{gradedT}/{activeT.length} Graded</span>
                           </span>
                         </div>
                       </div>
@@ -1913,7 +1970,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </AnimatePresence>
 
         {/* RIGHT MAIN PANEL */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 h-full bg-slate-50 dark:bg-slate-950/30">
+        <main ref={mainRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 h-full bg-slate-100 dark:bg-slate-950/40">
           
           {/* Graders Collaborators Banner Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
@@ -1964,21 +2021,58 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               <p className="text-xs text-slate-400 dark:text-slate-500 italic">No grading entries recorded yet.</p>
             )}
           </div>
-
+          
           {/* Active Sentence Workspace Card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4 flex-wrap">
-              <div className="flex items-center gap-2">
+          <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl transition-all duration-300 ${
+            isCollapsed 
+              ? "sticky top-[60px] md:top-[60px] z-20 p-3.5 space-y-2.5 shadow-md border-indigo-150 dark:border-indigo-900/40" 
+              : "p-6 space-y-5"
+          }`}>
+            <div className={`flex items-center justify-between gap-3 flex-wrap ${
+              isCollapsed ? "border-b-0 pb-0" : "border-b border-slate-100 dark:border-slate-800/80 pb-4"
+            }`}>
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-xl">
                   {currentIdx + 1} / {total}
                 </span>
                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Active Sentence
                 </span>
+                {ungradedTriples.length > 0 && (
+                  <button
+                    onClick={handleJumpToUngraded}
+                    className="bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/45 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-[10px] px-2.5 py-1 rounded-xl font-extrabold cursor-pointer transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                    title="Scroll to the first ungraded triple"
+                  >
+                    <AlertTriangle size={11} className="text-rose-600 dark:text-rose-400" />
+                    <span>Jump to Ungraded ({ungradedTriples.length})</span>
+                  </button>
+                )}
               </div>
 
               {/* Status & completeness summary badges */}
               <div className="flex items-center gap-2">
+                {isCollapsed && (
+                  <div className="flex items-center gap-1 mr-2 border-r border-slate-150 dark:border-slate-800 pr-2">
+                    <button
+                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                      disabled={currentIdx === 0}
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-950 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer text-slate-500"
+                      title="Previous Sentence"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                      disabled={currentIdx === total - 1}
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-950 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer text-slate-500"
+                      title="Next Sentence"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+
                 {current.completeness_average !== null && (
                   <span className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border border-indigo-150 dark:border-indigo-900/30 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider">
                     Completeness: {Number(current.completeness_average).toFixed(1)}/10
@@ -1992,7 +2086,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
                 <div className={`text-right font-bold ${gradeColor}`}>
                   {sentenceGrade === null ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 px-2 py-1 rounded-xl">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-xl">
                       Ungraded
                     </span>
                   ) : sentenceGrade === "partial" ? (
@@ -2000,7 +2094,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       Incomplete
                     </span>
                   ) : (
-                    <span className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-455">
+                    <span className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
                       Avg Grade: {sentenceGrade}/10
                     </span>
                   )}
@@ -2009,151 +2103,159 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             </div>
 
             {/* Sentence Blockquote text */}
-            <blockquote className="text-sm sm:text-base text-slate-800 dark:text-slate-100 font-semibold leading-relaxed border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-r-2xl border border-slate-200/55 dark:border-slate-850">
+            <blockquote className={`border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-950/40 rounded-r-2xl border border-slate-200/50 dark:border-slate-800 transition-all duration-300 ${
+              isCollapsed 
+                ? "text-xs p-2 max-h-16 overflow-y-auto font-medium" 
+                : "text-sm sm:text-base p-4 font-semibold leading-relaxed"
+            }`}>
               {current.text}
             </blockquote>
 
-            {/* Metric inputs (Completeness & Relation sliders) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-              
-              {/* Completeness Input */}
-              <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 rounded-2xl p-4.5 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
-                      1. Sentence Completeness
-                    </h3>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      How completely does the extracted triple set capture the original sentence semantics?
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
-                    {current.completeness !== null ? `${current.completeness}/10` : "—"}
-                  </span>
-                </div>
+            {!isCollapsed && (
+              <>
+                {/* Metric inputs (Completeness & Relation sliders) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                  
+                  {/* Completeness Input */}
+                  <div className="bg-indigo-50/25 dark:bg-indigo-950/15 border border-indigo-150 dark:border-indigo-900/30 rounded-2xl p-4.5 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                          1. Sentence Completeness
+                        </h3>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          How completely does the extracted triple set capture the original sentence semantics?
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                        {current.completeness !== null ? `${current.completeness}/10` : "—"}
+                      </span>
+                    </div>
 
-                {/* Score rating row */}
-                <div className="flex flex-wrap items-center gap-1">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
-                    <button
-                      key={scoreVal}
-                      onClick={() => handleSentenceCompletenessChange(scoreVal)}
-                      disabled={!canEditSession}
-                      className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
-                        current.completeness === scoreVal
-                          ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
-                          : "bg-white dark:bg-slate-950 text-slate-650 dark:text-slate-405 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-                      } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
-                    >
-                      {scoreVal}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Averages list */}
-                {completenessMetricEntries.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-850 pt-3">
-                    {completenessMetricEntries.map((entry) => {
-                      const isMe = currentUserId && entry.userId === currentUserId;
-                      return (
-                        <span
-                          key={`c-${entry.userId}`}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
-                            isMe
-                              ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-750 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
-                              : "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-850"
-                          }`}
+                    {/* Score rating row */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                        <button
+                          key={scoreVal}
+                          onClick={() => handleSentenceCompletenessChange(scoreVal)}
+                          disabled={!canEditSession}
+                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                            current.completeness === scoreVal
+                              ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
+                              : "bg-white dark:bg-slate-950 text-slate-650 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
-                          <span>{entry.userName}</span>
-                          {isMe && <span className="text-[9px] opacity-75">(you)</span>}
-                          <span className="opacity-40">&bull;</span>
-                          <span className="font-bold">{entry.value}/10</span>
-                        </span>
-                      );
-                    })}
+                          {scoreVal}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Averages list */}
+                    {completenessMetricEntries.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-3">
+                        {completenessMetricEntries.map((entry) => {
+                          const isMe = currentUserId && entry.userId === currentUserId;
+                          return (
+                            <span
+                              key={`c-${entry.userId}`}
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                                isMe
+                                  ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-750 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
+                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                              }`}
+                            >
+                              <span>{entry.userName}</span>
+                              {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                              <span className="opacity-40">&bull;</span>
+                              <span className="font-bold">{entry.value}/10</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* External Relation Input */}
-              <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 rounded-2xl p-4.5 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
-                      2. External Relation mapping
-                    </h3>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      Does the predicate match schema properties and domain guidelines accurately?
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
-                    {current.external_relation !== null ? `${current.external_relation}/10` : "—"}
-                  </span>
-                </div>
+                  {/* External Relation Input */}
+                  <div className="bg-emerald-50/25 dark:bg-emerald-950/15 border border-emerald-150 dark:border-emerald-900/30 rounded-2xl p-4.5 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                          2. External Relation mapping
+                        </h3>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          Does the predicate match schema properties and domain guidelines accurately?
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        {current.external_relation !== null ? `${current.external_relation}/10` : "—"}
+                      </span>
+                    </div>
 
-                {/* Score rating row */}
-                <div className="flex flex-wrap items-center gap-1">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
-                    <button
-                      key={scoreVal}
-                      onClick={() => handleSentenceExternalRelationChange(scoreVal)}
-                      disabled={!canEditSession}
-                      className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
-                        current.external_relation === scoreVal
-                          ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
-                          : "bg-white dark:bg-slate-950 text-slate-650 dark:text-slate-405 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-                      } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
-                    >
-                      {scoreVal}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Averages list */}
-                {externalRelationMetricEntries.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-850 pt-3">
-                    {externalRelationMetricEntries.map((entry) => {
-                      const isMe = currentUserId && entry.userId === currentUserId;
-                      return (
-                        <span
-                          key={`r-${entry.userId}`}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
-                            isMe
-                              ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-755 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
-                              : "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-855"
-                          }`}
+                    {/* Score rating row */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                        <button
+                          key={scoreVal}
+                          onClick={() => handleSentenceExternalRelationChange(scoreVal)}
+                          disabled={!canEditSession}
+                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                            current.external_relation === scoreVal
+                              ? "bg-emerald-600 border-emerald-650 text-white scale-110 shadow-sm"
+                              : "bg-white dark:bg-slate-955 text-slate-650 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
-                          <span>{entry.userName}</span>
-                          {isMe && <span className="text-[9px] opacity-75">(you)</span>}
-                          <span className="opacity-40">&bull;</span>
-                          <span className="font-bold">{entry.value}/10</span>
-                        </span>
-                      );
-                    })}
+                          {scoreVal}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Averages list */}
+                    {externalRelationMetricEntries.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-805 pt-3">
+                        {externalRelationMetricEntries.map((entry) => {
+                          const isMe = currentUserId && entry.userId === currentUserId;
+                          return (
+                            <span
+                              key={`r-${entry.userId}`}
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                                isMe
+                                  ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-750 dark:text-emerald-400 border-emerald-250 dark:border-emerald-900"
+                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                              }`}
+                            >
+                              <span>{entry.userName}</span>
+                              {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                              <span className="opacity-40">&bull;</span>
+                              <span className="font-bold">{entry.value}/10</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-            </div>
+                </div>
 
-            {/* Bottom arrow buttons navigator (remains on mobile/no sidebar) */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/80">
-              <button
-                onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                disabled={currentIdx === 0}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
-              >
-                &larr; Previous Sentence
-              </button>
+                {/* Bottom arrow buttons navigator (remains on mobile/no sidebar) */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                  <button
+                    onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                    disabled={currentIdx === 0}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-55 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+                  >
+                    &larr; Previous Sentence
+                  </button>
 
-              <button
-                onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
-                disabled={currentIdx === total - 1}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
-              >
-                Next Sentence &rarr;
-              </button>
-            </div>
+                  <button
+                    onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                    disabled={currentIdx === total - 1}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-55 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+                  >
+                    Next Sentence &rarr;
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Triples List Card Panel */}
