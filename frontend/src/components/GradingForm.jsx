@@ -1970,8 +1970,227 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </AnimatePresence>
 
         {/* RIGHT MAIN PANEL */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 h-full bg-slate-100 dark:bg-slate-950/40">
+        <main ref={mainRef} className="flex-1 flex flex-col h-full bg-slate-100 dark:bg-slate-950/40 overflow-hidden">
           
+          {/* Active Sentence Workspace Card (Fixed Top Section) */}
+          <div className="px-4 sm:px-6 pt-4 shrink-0 bg-slate-100 dark:bg-slate-950/40">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between gap-3 flex-wrap border-b border-slate-100 dark:border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-xl">
+                    {currentIdx + 1} / {total}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Active Sentence
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSentenceMetrics(!showSentenceMetrics)}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-550 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-850 rounded-xl px-2.5 py-1 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
+                    title="Toggle Sentence Completeness & Relation Metrics"
+                  >
+                    <BarChart3 size={11} />
+                    <span>{showSentenceMetrics ? "Hide Metrics" : "Show Metrics"}</span>
+                  </button>
+                  {ungradedTriples.length > 0 && (
+                    <button
+                      onClick={handleJumpToUngraded}
+                      className="bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/45 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-[10px] px-2.5 py-1 rounded-xl font-extrabold cursor-pointer transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                      title="Scroll to the first ungraded triple"
+                    >
+                      <AlertTriangle size={11} className="text-rose-600 dark:text-rose-400" />
+                      <span>Jump to Ungraded ({ungradedTriples.length})</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Status & completeness summary badges */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 mr-2 border-r border-slate-150 dark:border-slate-800 pr-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                      disabled={currentIdx === 0}
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-955 dark:hover:bg-slate-850 disabled:opacity-40 cursor-pointer text-slate-500"
+                      title="Previous Sentence"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                      disabled={currentIdx === total - 1}
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-955 dark:hover:bg-slate-850 disabled:opacity-40 cursor-pointer text-slate-500"
+                      title="Next Sentence"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+
+                  {current.completeness_average !== null && (
+                    <span className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border border-indigo-150 dark:border-indigo-900/30 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider">
+                      Completeness: {Number(current.completeness_average).toFixed(1)}/10
+                    </span>
+                  )}
+                  {current.external_relation_average !== null && (
+                    <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 border border-emerald-150 dark:border-emerald-900/30 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider">
+                      Relation: {Number(current.external_relation_average).toFixed(1)}/10
+                    </span>
+                  )}
+
+                  <div className={`text-right font-bold ${gradeColor}`}>
+                    {sentenceGrade === null ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-xl">
+                        Ungraded
+                      </span>
+                    ) : sentenceGrade === "partial" ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900/50 px-2 py-1 rounded-xl text-amber-800 dark:text-amber-400">
+                        Incomplete
+                      </span>
+                    ) : (
+                      <span className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                        Avg Grade: {sentenceGrade}/10
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sentence Blockquote text */}
+              <blockquote className="border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-955/40 rounded-r-2xl border border-slate-200/50 dark:border-slate-800 p-3.5 font-semibold leading-relaxed text-sm sm:text-base">
+                {current.text}
+              </blockquote>
+
+              {showSentenceMetrics && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                  
+                  {/* Completeness Input */}
+                  <div className="bg-indigo-50/25 dark:bg-indigo-950/15 border border-indigo-150 dark:border-indigo-900/30 rounded-2xl p-4.5 space-y-3.5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                          1. Sentence Completeness
+                        </h3>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          How completely does the extracted triple set capture the original sentence semantics?
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                        {current.completeness !== null ? `${current.completeness}/10` : "—"}
+                      </span>
+                    </div>
+
+                    {/* Score rating row */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                        <button
+                          key={scoreVal}
+                          onClick={() => handleSentenceCompletenessChange(scoreVal)}
+                          disabled={!canEditSession}
+                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                            current.completeness === scoreVal
+                              ? "bg-indigo-600 border-indigo-655 text-white scale-110 shadow-sm"
+                              : "bg-white dark:bg-slate-950 text-slate-655 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          {scoreVal}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Averages list */}
+                    {completenessMetricEntries.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-3">
+                        {completenessMetricEntries.map((entry) => {
+                          const isMe = currentUserId && entry.userId === currentUserId;
+                          return (
+                            <span
+                              key={`c-${entry.userId}`}
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                                isMe
+                                  ? "bg-indigo-50 dark:bg-indigo-955 text-indigo-755 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
+                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                              }`}
+                            >
+                              <span>{entry.userName}</span>
+                              {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                              <span className="opacity-40">&bull;</span>
+                              <span className="font-bold">{entry.value}/10</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* External Relation Input */}
+                  <div className="bg-emerald-50/25 dark:bg-emerald-955/15 border border-emerald-150 dark:border-emerald-900/30 rounded-2xl p-4.5 space-y-3.5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                          2. External Relation mapping
+                        </h3>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          Does the predicate match schema properties and domain guidelines accurately?
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        {current.external_relation !== null ? `${current.external_relation}/10` : "—"}
+                      </span>
+                    </div>
+
+                    {/* Score rating row */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                        <button
+                          key={scoreVal}
+                          onClick={() => handleSentenceExternalRelationChange(scoreVal)}
+                          disabled={!canEditSession}
+                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                            current.external_relation === scoreVal
+                              ? "bg-emerald-600 border-emerald-650 text-white scale-110 shadow-sm"
+                              : "bg-white dark:bg-slate-955 text-slate-655 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          {scoreVal}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Averages list */}
+                    {externalRelationMetricEntries.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-805 pt-3">
+                        {externalRelationMetricEntries.map((entry) => {
+                          const isMe = currentUserId && entry.userId === currentUserId;
+                          return (
+                            <span
+                              key={`r-${entry.userId}`}
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                                isMe
+                                  ? "bg-emerald-50 dark:bg-emerald-955 text-emerald-750 dark:text-emerald-450 border-emerald-250 dark:border-emerald-900"
+                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                              }`}
+                            >
+                              <span>{entry.userName}</span>
+                              {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                              <span className="opacity-40">&bull;</span>
+                              <span className="font-bold">{entry.value}/10</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable Container (Collaborators Activity, Triples Workspace, and Sentence Comments) */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
+            
+            {/* Graders Collaborators Banner Card */}
           {/* Graders Collaborators Banner Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
             <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -2518,6 +2737,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             )}
           </div>
 
+          </div>
           <div className="h-6" />
         </main>
       </div>
