@@ -1,7 +1,25 @@
-// FileUpload.jsx — Drag-and-drop / click file uploader
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { uploadFile, listSessions, loadSession, deleteSession } from "../api";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  UploadCloud,
+  FileSpreadsheet,
+  FileCode,
+  FileText,
+  Edit,
+  Info,
+  Trash2,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Folder,
+  Calendar,
+  User,
+  GraduationCap,
+  Clock,
+  CheckCircle,
+  AlertCircle
+} from "lucide-react";
 
 const MANUAL_FORMAT_OPTIONS = [
   { value: "csv", label: "CSV (.csv)" },
@@ -115,8 +133,8 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   const [manualFormat, setManualFormat] = useState("csv");
 
   const [sessions, setSessions]       = useState([]);
-  const [resuming, setResuming]       = useState(null); // session_id being loaded
-  const [deleting, setDeleting]       = useState(null); // session_id being deleted
+  const [resuming, setResuming]       = useState(null);
+  const [deleting, setDeleting]       = useState(null);
   const [resumeError, setResumeError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
@@ -127,13 +145,12 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   useEffect(() => {
     listSessions()
       .then((list) => {
-        // Sort newest first by uploaded_at
         const sorted = [...list].sort((a, b) =>
           b.uploaded_at.localeCompare(a.uploaded_at)
         );
         setSessions(sorted);
       })
-      .catch(() => {}); // silently ignore if backend not ready
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -157,7 +174,6 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
 
   const handleResume = async (sessionMeta) => {
     const sessionId = sessionMeta?.session_id;
-
     if (!sessionId) return;
 
     setResumeError("");
@@ -215,8 +231,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
         const data = await uploadFile(file);
         onUploadSuccess(data);
       } catch (e) {
-        const msg =
-          e?.response?.data?.detail || e.message || "Upload failed.";
+        const msg = e?.response?.data?.detail || e.message || "Upload failed.";
         setError(typeof msg === "string" ? msg : JSON.stringify(msg));
       } finally {
         setLoading(false);
@@ -237,12 +252,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     if (file) processFile(file);
   };
 
-  const filteredSessions = sessions
-    .filter((s) => {
-      if (sessionFilter === "mine") return !!s.is_owner;
-      if (sessionFilter === "others") return !s.is_owner;
-      return true;
-    });
+  const filteredSessions = sessions.filter((s) => {
+    if (sessionFilter === "mine") return !!s.is_owner;
+    if (sessionFilter === "others") return !s.is_owner;
+    return true;
+  });
 
   const groupedSessions = useMemo(() => {
     const grouped = new Map();
@@ -281,287 +295,274 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8 sm:py-12">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="max-w-2xl mx-auto px-4 py-8 sm:py-12"
+    >
       <div className="w-full">
-
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white text-3xl mb-4 shadow-xl shadow-indigo-100 select-none">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253" />
-            </svg>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 mb-4 select-none">
+            <UploadCloud size={28} className="animate-pulse" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
             Ontology Triple Grader
           </h1>
-          <p className="mt-3 text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
-            Collaboratively review, grade, and refine natural language semantic triples with automated file processing or manual builder.
+          <p className="mt-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+            Collaboratively review, grade, and refine semantic triples with automated file processing or a fresh manual builder session.
           </p>
         </div>
 
-        {/* Start options switcher */}
+        {/* Mode Select Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => setStartMode("file")}
-            className={[
-              "relative group rounded-2xl border p-5 text-left transition-all duration-300 cursor-pointer overflow-hidden",
+            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${
               startMode === "file"
-                ? "border-indigo-500 bg-indigo-50/35 shadow-md shadow-indigo-100/30 ring-2 ring-indigo-500/10"
-                : "border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm hover:translate-y-[-1px]",
-            ].join(" ")}
+                ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-sm ring-2 ring-indigo-500/10"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400"
+            }`}
           >
-            <div className="flex items-center gap-3.5">
-              <div className={`p-2.5 rounded-xl transition-colors duration-300 ${startMode === "file" ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600'}`}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">Option 1: Upload File</p>
-                <p className="text-xs text-slate-500 mt-1 leading-normal">
-                  CSV, Excel, or JSON formats
-                </p>
-              </div>
+            <div
+              className={`p-2 rounded-xl transition-colors duration-200 ${
+                startMode === "file" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+              }`}
+            >
+              <UploadCloud size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                Option 1: Upload File
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                CSV, Excel, or JSON formats
+              </p>
             </div>
           </button>
-          
+
           <button
             onClick={() => setStartMode("manual")}
-            className={[
-              "relative group rounded-2xl border p-5 text-left transition-all duration-300 cursor-pointer overflow-hidden",
+            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${
               startMode === "manual"
-                ? "border-emerald-500 bg-emerald-50/35 shadow-md shadow-emerald-100/30 ring-2 ring-emerald-500/10"
-                : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm hover:translate-y-[-1px]",
-            ].join(" ")}
+                ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-sm ring-2 ring-indigo-500/10"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400"
+            }`}
           >
-            <div className="flex items-center gap-3.5">
-              <div className={`p-2.5 rounded-xl transition-colors duration-300 ${startMode === "manual" ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-emerald-50 group-hover:text-emerald-600'}`}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">Option 2: Manual Builder</p>
-                <p className="text-xs text-slate-500 mt-1 leading-normal">
-                  Start fresh &amp; add manually
-                </p>
-              </div>
+            <div
+              className={`p-2 rounded-xl transition-colors duration-200 ${
+                startMode === "manual" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+              }`}
+            >
+              <Edit size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                Option 2: Manual Builder
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                Start fresh and write manually
+              </p>
             </div>
           </button>
         </div>
 
-        {startMode === "file" ? (
-          <div className="mb-6 text-xs text-slate-600 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm leading-relaxed">
-            <div className="flex items-center gap-2 mb-2 font-semibold text-slate-700">
-              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 111.063.852l-.708 2.836a.75.75 0 001.063.852l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-              </svg>
-              Expected File Format
-            </div>
-            <ul className="space-y-1.5 pl-6 list-disc text-slate-500">
-              <li>Columns 1-3: <span className="font-medium text-slate-700">Subject, Predicate, Object</span> (one triple per row)</li>
-              <li>Column 8: <span className="font-medium text-slate-700">Natural-Language Sentence</span> (can span multiple rows for grouped triples)</li>
-              <li>Separators: Group sentences by inserting <span className="font-mono text-slate-600 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">blank rows</span> or <span className="font-mono text-slate-600 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">=======</span> dividers</li>
-            </ul>
+        {/* Informative Tips Panel */}
+        <div className="mb-6 p-4 bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-xl leading-normal text-xs text-slate-600 dark:text-slate-300">
+          <div className="flex items-center gap-2 mb-2 font-bold text-slate-700 dark:text-slate-200">
+            <Info size={16} className="text-indigo-500" />
+            {startMode === "file" ? "Expected Upload Format" : "Manual Builder Mode Overview"}
           </div>
-        ) : (
-          <div className="mb-6 text-xs text-slate-600 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm leading-relaxed">
-            <div className="flex items-center gap-2 mb-2 font-semibold text-emerald-800">
-              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-              </svg>
-              Manual Mode Tips
-            </div>
-            <ul className="space-y-1.5 pl-6 list-disc text-slate-500">
-              <li>Structure: Create custom sentences and insert triples in any order (above or below).</li>
-              <li>Collaboration: Saved sessions are stored in the database, letting other graders vote and suggest edits.</li>
-              <li>Flexibility: You can switch back to file upload mode at any point to load batches.</li>
+          {startMode === "file" ? (
+            <ul className="space-y-1 pl-5 list-disc text-slate-500 dark:text-slate-400 text-[11px]">
+              <li>
+                Columns 1-3: <span className="font-semibold text-slate-700 dark:text-slate-300">Subject, Predicate, Object</span> (one triple per row)
+              </li>
+              <li>
+                Column 8: <span className="font-semibold text-slate-700 dark:text-slate-300">Sentence Text</span> (grouped automatically for matching sentences)
+              </li>
+              <li>
+                Grouping: Add <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700">blank lines</span> or <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700">=======</span> dividers in your spreadsheet.
+              </li>
             </ul>
-          </div>
-        )}
+          ) : (
+            <ul className="space-y-1 pl-5 list-disc text-slate-500 dark:text-slate-400 text-[11px]">
+              <li>Create sentences manually, then construct custom triples under them dynamically.</li>
+              <li>Collaborators can access shared sessions, grading values, and suggesting revisions.</li>
+              <li>Switch back to upload mode at any point to load spreadsheet batches.</li>
+            </ul>
+          )}
+        </div>
 
-        {startMode === "file" ? (
-          <label
-            htmlFor="file-input"
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            className={[
-              "group flex flex-col items-center justify-center w-full h-60 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 relative overflow-hidden bg-white",
-              dragging
-                ? "border-indigo-500 bg-indigo-50/40 scale-[1.01] shadow-lg shadow-indigo-100/50"
-                : "border-slate-300 hover:border-indigo-500 hover:shadow-md hover:shadow-slate-100/70",
-            ].join(" ")}
-          >
-            {loading ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative w-12 h-12">
-                  <div className="absolute inset-0 border-4 border-indigo-200 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        {/* Upload Action / Form Card */}
+        <AnimatePresence mode="wait">
+          {startMode === "file" ? (
+            <motion.label
+              key="file-uploader"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              htmlFor="file-input"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={`group flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 bg-white dark:bg-slate-900 ${
+                dragging
+                  ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-md"
+                  : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
+              }`}
+            >
+              {loading ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 border-4 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 rounded-full animate-spin" />
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Parsing file and structuring triples...
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-slate-600">Parsing file and building triples…</span>
-                <span className="text-xs text-slate-400">Please don't close this tab</span>
+              ) : (
+                <>
+                  <div className="p-3.5 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-3">
+                    <UploadCloud size={32} />
+                  </div>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                    Drag &amp; drop file here
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    or <span className="text-indigo-600 dark:text-indigo-400 font-bold underline">browse files</span>
+                  </p>
+                  <div className="flex items-center gap-2 mt-4 text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase">
+                    <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-800">CSV</span>
+                    <span>·</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-800">XLSX</span>
+                    <span>·</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-800">JSON</span>
+                  </div>
+                </>
+              )}
+              <input
+                id="file-input"
+                type="file"
+                accept=".csv,.xlsx,.xls,.json"
+                className="hidden"
+                onChange={onInputChange}
+                disabled={loading}
+              />
+            </motion.label>
+          ) : (
+            <motion.div
+              key="manual-builder-form"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm"
+            >
+              <div className="flex items-start gap-4 mb-4">
+                <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Edit size={24} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    Create Manual Session
+                  </h3>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">
+                    Set a target filename prefix below. You will be redirected to the custom ontology builder workspace.
+                  </p>
+                </div>
               </div>
-            ) : (
-              <>
-                <div className="p-4 rounded-full bg-slate-50 text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors duration-300 mb-3">
-                  <svg className="w-10 h-10 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-                  </svg>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3 text-left mb-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                    File Name Prefix
+                  </label>
+                  <input
+                    type="text"
+                    value={manualFilename}
+                    onChange={(e) => setManualFilename(e.target.value)}
+                    placeholder="e.g., software_ethics_round1"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-slate-50/50 dark:bg-slate-950/50 text-slate-700 dark:text-slate-350 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                  />
                 </div>
-                <p className="text-sm font-bold text-slate-700">
-                  Drag &amp; drop your file here
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  or <span className="text-indigo-600 font-semibold underline group-hover:text-indigo-700">click to browse</span> your folders
-                </p>
-                
-                <div className="flex items-center gap-2 mt-4 text-[10px] font-semibold text-slate-500 tracking-wider uppercase">
-                  <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">CSV</span>
-                  <span>·</span>
-                  <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">XLSX</span>
-                  <span>·</span>
-                  <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">XLS</span>
-                  <span>·</span>
-                  <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">JSON</span>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                    Save Format
+                  </label>
+                  <select
+                    value={manualFormat}
+                    onChange={(e) => setManualFormat(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-slate-50/50 dark:bg-slate-950/50 text-slate-700 dark:text-slate-350 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                  >
+                    {MANUAL_FORMAT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </>
-            )}
-            <input
-              id="file-input"
-              type="file"
-              accept=".csv,.xlsx,.xls,.json"
-              className="hidden"
-              onChange={onInputChange}
-              disabled={loading}
-            />
-          </label>
-        ) : (
-          <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="inline-flex p-3 rounded-full bg-emerald-50 text-emerald-600 mb-3">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.67 2.67 0 1120.25 18l-5.83-5.83m-3 0a2.92 2.92 0 114.17 4.17m-4.17-4.17L10 14h-2V8h6v2l1.42 1.42M12 3a9 9 0 100 18 9 9 0 000-18z" />
-              </svg>
-            </div>
-            <p className="text-base font-bold text-slate-800">Create Manual Grading Session</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-              Design a custom ontology grading worksheet from scratch by creating sentences and triples.
-            </p>
-            
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-3 text-left max-w-lg mx-auto">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">
-                  File Name
-                </label>
-                <input
-                  type="text"
-                  value={manualFilename}
-                  onChange={(e) => setManualFilename(e.target.value)}
-                  placeholder="e.g., software_ethics_round1"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">
-                  Format
-                </label>
-                <select
-                  value={manualFormat}
-                  onChange={(e) => setManualFormat(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-4 gap-3">
+                <p className="text-[10px] text-slate-450 dark:text-slate-500">
+                  Target output: <span className="font-semibold text-slate-650 dark:text-slate-300">{buildManualSourceFilename(manualFilename, manualFormat)}</span>
+                </p>
+                <button
+                  onClick={() => {
+                    setError("");
+                    onStartManual?.({
+                      sourceFilename: buildManualSourceFilename(manualFilename, manualFormat),
+                      sourceFormat: manualFormat,
+                    });
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-550 text-white shadow-sm transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  {MANUAL_FORMAT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  Start Builder
+                  <ExternalLink size={14} />
+                </button>
               </div>
-            </div>
-            
-            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 max-w-lg mx-auto">
-              <p className="text-xs text-slate-500">
-                Target path: <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{buildManualSourceFilename(manualFilename, manualFormat)}</span>
-              </p>
-              <button
-                onClick={() => {
-                  setError("");
-                  onStartManual?.({
-                    sourceFilename: buildManualSourceFilename(manualFilename, manualFormat),
-                    sourceFormat: manualFormat,
-                  });
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-100 hover:shadow-md hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer"
-              >
-                Start Builder
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Error */}
+        {/* Error Notification */}
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0 text-red-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-            <span className="font-semibold">{error}</span>
+          <div className="mt-4 p-3.5 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 rounded-xl text-xs text-rose-800 dark:text-rose-350 flex items-start gap-2.5">
+            <AlertCircle size={16} className="text-rose-600 dark:text-rose-450 shrink-0 mt-0.5" />
+            <p className="font-medium leading-normal">{error}</p>
           </div>
         )}
 
-        {/* ── Recent Sessions ── */}
+        {/* Recent Sessions list */}
         {sessions.length > 0 && (
           <div className="mt-8">
-            <div className="flex items-center justify-between mb-3 gap-2">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
-                Recent Sessions
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock size={15} />
+                Recent Graded Sessions
               </h2>
-              <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200/50">
-                <button
-                  onClick={() => setSessionFilter("all")}
-                  className={[
-                    "px-3 py-1 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer",
-                    sessionFilter === "all"
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-white/50",
-                  ].join(" ")}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setSessionFilter("mine")}
-                  className={[
-                    "px-3 py-1 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer",
-                    sessionFilter === "mine"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-100"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-white/50",
-                  ].join(" ")}
-                >
-                  My Files
-                </button>
-                <button
-                  onClick={() => setSessionFilter("others")}
-                  className={[
-                    "px-3 py-1 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer",
-                    sessionFilter === "others"
-                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-100"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-white/50",
-                  ].join(" ")}
-                >
-                  Other Users
-                </button>
+
+              <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/40">
+                {["all", "mine", "others"].map((filterOpt) => (
+                  <button
+                    key={filterOpt}
+                    onClick={() => setSessionFilter(filterOpt)}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-200 cursor-pointer ${
+                      sessionFilter === filterOpt
+                        ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {filterOpt === "all" ? "All" : filterOpt === "mine" ? "My Files" : "Others"}
+                  </button>
+                ))}
               </div>
             </div>
-            
+
             <div className="space-y-3">
               {groupedSessions.map((group) => {
                 const headerDate = group.latestUploadedAt
@@ -575,30 +576,31 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                 const isCollapsed = !!collapsedSourceGroups[group.sourceKey];
 
                 return (
-                  <div key={group.sourceKey} className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden hover:border-slate-300 transition-all duration-200">
+                  <div
+                    key={group.sourceKey}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden hover:border-slate-350 dark:hover:border-slate-700 transition-all duration-250"
+                  >
                     <button
                       onClick={() => toggleSourceGroup(group.sourceKey)}
-                      className="w-full text-left px-5 py-4 hover:bg-slate-50/50 transition-colors duration-200 flex items-center justify-between gap-4 cursor-pointer"
+                      className="w-full text-left px-4.5 py-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors flex items-center justify-between gap-4 cursor-pointer"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="p-2.5 rounded-xl bg-slate-100 text-slate-500 shrink-0">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-                          </svg>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-450 dark:text-slate-500 shrink-0">
+                          <Folder size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-800 truncate">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-250 truncate">
                             {group.sourceFilename}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                            <span>{group.totalSessions} active session{group.totalSessions === 1 ? "" : "s"}</span>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            <span>
+                              {group.totalSessions} session{group.totalSessions === 1 ? "" : "s"}
+                            </span>
                             {headerDate && (
                               <>
                                 <span>•</span>
-                                <span className="flex items-center gap-1">
-                                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
+                                <span className="flex items-center gap-1 font-medium">
+                                  <Calendar size={11} />
                                   {headerDate}
                                 </span>
                               </>
@@ -606,101 +608,96 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           </div>
                         </div>
                       </div>
-                      <div className="p-1.5 rounded-lg bg-slate-50 text-slate-400 shrink-0 border border-slate-100">
-                        <svg 
-                          className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} 
-                          fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                        </svg>
+                      <div className="p-1 rounded bg-slate-50 dark:bg-slate-800 text-slate-450 border border-slate-100 dark:border-slate-800">
+                        {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                       </div>
                     </button>
 
                     {!isCollapsed && (
-                      <div className="border-t border-slate-100 bg-slate-50/40 p-3.5 space-y-2.5">
+                      <div className="border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/20 dark:bg-slate-950/20 p-3 space-y-2.5">
                         {group.sessions.map((s) => {
                           const dateStr = s.uploaded_at
                             ? new Date(s.uploaded_at + "Z").toLocaleString([], {
-                                month: "short", day: "numeric",
-                                hour: "2-digit", minute: "2-digit",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
                               })
                             : "";
                           const isLoading = resuming === s.session_id;
-                          const sessionType = s.is_owner ? "My File" : "Shared File";
-                          const sessionTypeClass = s.is_owner
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                            : "bg-blue-50 text-blue-700 border-blue-200";
-                          const ownerName = s.owner_name || "Unknown";
-                          const avatarLetter = ownerName.trim().charAt(0).toUpperCase() || "U";
-                          const hasWorkedOnSession = !s.is_owner && (
-                            Boolean(s.my_has_activity) ||
-                            Number(s.my_total_actions || 0) > 0 ||
-                            Number(s.my_graded_triples || 0) > 0
-                          );
-                          const roleHint = s.is_owner
-                            ? "Owner: Approve suggestions & manage structure."
-                            : hasWorkedOnSession
-                              ? "Collaborator: In progress grading sheet."
-                              : "Collaborator: Open to start grading.";
-                          const actionLabel = isLoading
-                            ? "Loading…"
-                            : s.is_owner
-                              ? "Open File"
-                              : hasWorkedOnSession
-                                ? "Continue"
-                                : "Open File";
-                          const avgBadge = s.total_unique_graders > 0
-                            ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"} · Avg ${s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"}/10`
-                            : null;
                           const isDeleting = deleting === s.session_id;
                           const isRecentUpload = recentUploadSessionId === s.session_id;
-                          const deleteLabel = isDeleting ? "Deleting" : "Delete";
+
+                          const sessionTypeClass = s.is_owner
+                            ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 border-emerald-100 dark:border-emerald-900/30"
+                            : "bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/30";
+
+                          const ownerName = s.owner_name || "Unknown";
+                          const avatarLetter = ownerName.trim().charAt(0).toUpperCase() || "U";
+                          const hasWorkedOnSession =
+                            !s.is_owner &&
+                            (Boolean(s.my_has_activity) ||
+                              Number(s.my_total_actions || 0) > 0 ||
+                              Number(s.my_graded_triples || 0) > 0);
+
+                          const roleHint = s.is_owner
+                            ? "Owner: Manage triples and approve/reject suggestions."
+                            : hasWorkedOnSession
+                            ? "Collaborator: Resuming in-progress sheet."
+                            : "Collaborator: Open to join grading activity.";
+
+                          const actionLabel = isLoading ? "Loading..." : s.is_owner ? "Open Session" : "Join Session";
+                          const deleteLabel = isDeleting ? "Deleting..." : "Delete";
+
+                          const avgBadge =
+                            s.total_unique_graders > 0
+                              ? `${s.total_unique_graders} grader${
+                                  s.total_unique_graders === 1 ? "" : "s"
+                                } · Avg ${
+                                  s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"
+                                }/10`
+                              : null;
 
                           return (
                             <div
                               key={s.session_id}
-                              className={[
-                                "flex flex-col sm:flex-row sm:items-center justify-between bg-white border rounded-2xl p-4 transition-all duration-300 gap-3",
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-900 border rounded-xl p-3.5 transition-all duration-200 gap-3 ${
                                 isRecentUpload
-                                  ? "border-emerald-300 ring-4 ring-emerald-500/10 bg-emerald-50/30"
-                                  : "border-slate-200/80 hover:border-indigo-300 hover:shadow-sm hover:shadow-indigo-50/30",
-                              ].join(" ")}
+                                  ? "border-emerald-500/40 ring-4 ring-emerald-500/5 bg-emerald-50/10 dark:bg-emerald-950/10"
+                                  : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                              }`}
                             >
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 space-y-1.5">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`text-[10px] font-bold border px-2 py-0.5 rounded-full uppercase tracking-wider ${sessionTypeClass}`}>
-                                    {sessionType}
+                                  <span className={`text-[9px] font-bold border px-2 py-0.5 rounded-full uppercase tracking-wider ${sessionTypeClass}`}>
+                                    {s.is_owner ? "Owner" : "Collaborator"}
                                   </span>
-                                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2 py-0.5 text-slate-600 font-bold text-[10px]">
-                                    <span className="w-4 h-4 rounded-full bg-slate-300 text-[9px] font-bold flex items-center justify-center text-slate-700 uppercase shrink-0">
+                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-0.5 text-slate-500 dark:text-slate-400 font-semibold text-[10px]">
+                                    <span className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[8px] font-bold flex items-center justify-center text-slate-750 dark:text-slate-350 uppercase shrink-0">
                                       {avatarLetter}
                                     </span>
                                     {ownerName}
                                   </span>
-                                  {isRecentUpload && s.is_owner && (
-                                    <span className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-100/80 px-2 py-0.5 text-emerald-800 font-bold text-[10px] uppercase tracking-wide">
-                                      Just uploaded
-                                    </span>
+                                </div>
+                                <div className="text-[10px] text-slate-450 dark:text-slate-500 flex items-center gap-2 flex-wrap">
+                                  <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-400">
+                                    <FileText size={12} />
+                                    {s.total_sentences} sentence{s.total_sentences === 1 ? "" : "s"}
+                                  </span>
+                                  {dateStr && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{dateStr}</span>
+                                    </>
                                   )}
                                 </div>
-                                <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  {s.total_sentences} sentence{s.total_sentences === 1 ? "" : "s"}
-                                  {dateStr && <> &bull; {dateStr}</>}
-                                </p>
-                                <p className="text-[11px] text-slate-500 mt-1.5 leading-normal flex items-start gap-1">
-                                  <svg className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
+                                <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal flex items-start gap-1">
+                                  <Info size={11} className="shrink-0 mt-0.5 text-slate-300 dark:text-slate-650" />
                                   {roleHint}
                                 </p>
                                 {avgBadge && (
-                                  <p className="text-[11px] text-emerald-700 mt-2 font-bold flex items-center gap-1">
-                                    <svg className="w-3.5 h-3.5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0110 21a3.745 3.745 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.746 3.746 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                                    </svg>
+                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-450 font-bold flex items-center gap-1">
+                                    <GraduationCap size={12} className="shrink-0 text-emerald-500" />
                                     {avgBadge}
                                   </p>
                                 )}
@@ -710,23 +707,19 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   <button
                                     onClick={() => handleDelete(s)}
                                     disabled={!!resuming || !!deleting}
-                                    className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-300 hover:text-red-800 active:scale-95 transition-all duration-200 disabled:opacity-50 whitespace-nowrap cursor-pointer inline-flex items-center gap-1"
+                                    className="p-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer border border-slate-100 dark:border-slate-800 hover:border-rose-200 dark:hover:border-rose-900"
+                                    title="Delete session"
                                   >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                    </svg>
-                                    {deleteLabel}
+                                    <Trash2 size={14} />
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleResume(s)}
                                   disabled={!!resuming || !!deleting}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-sm hover:shadow active:scale-95 transition-all duration-200 disabled:opacity-50 whitespace-nowrap cursor-pointer inline-flex items-center gap-1.5"
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm active:scale-95 transition-all disabled:opacity-55 whitespace-nowrap cursor-pointer flex items-center gap-1"
                                 >
                                   {actionLabel}
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                                  </svg>
+                                  <ExternalLink size={12} />
                                 </button>
                               </div>
                             </div>
@@ -738,21 +731,24 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                 );
               })}
               {groupedSessions.length === 0 && (
-                <div className="text-xs text-slate-500 bg-white border border-slate-200/80 rounded-2xl px-4 py-3 text-center shadow-sm">
-                  No sessions found in this category.
+                <div className="text-center py-6 text-xs text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/50 dark:border-slate-800/40 rounded-2xl">
+                  No sessions found in this view.
                 </div>
               )}
             </div>
             {resumeError && (
-              <p className="mt-2.5 text-xs font-semibold text-red-600 flex items-center gap-1">⚠ {resumeError}</p>
+              <p className="mt-2 text-xs font-semibold text-rose-600 flex items-center gap-1">
+                <AlertCircle size={14} /> {resumeError}
+              </p>
             )}
             {deleteError && (
-              <p className="mt-2.5 text-xs font-semibold text-red-600 flex items-center gap-1">⚠ {deleteError}</p>
+              <p className="mt-2 text-xs font-semibold text-rose-600 flex items-center gap-1">
+                <AlertCircle size={14} /> {deleteError}
+              </p>
             )}
           </div>
         )}
-
       </div>
-    </div>
+    </motion.div>
   );
 }

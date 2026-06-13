@@ -1,113 +1,119 @@
-// GradingForm.jsx — Main grading interface: one sentence at a time
-
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { saveSession, downloadSession, getAuthToken } from "../api";
 import TripleCard from "./TripleCard";
-import TripleSuggestions from "./TripleSuggestions";
 import TripleComments from "./TripleComments";
-import { saveSession, downloadSession, getAuthToken, addSuggestion, voteOnSuggestion, deleteSuggestion, editSuggestion, approveSuggestion, unapproveSuggestion, replyToComment, deleteCommentReply, replyToSuggestion, deleteSuggestionReply, markNotificationRead, markAllNotificationsRead } from "../api";
+import TripleSuggestions from "./TripleSuggestions";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Shield,
+  Save,
+  BarChart3,
+  Download,
+  Eye,
+  Activity,
+  ArrowLeft,
+  Bell,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  Search,
+  Filter,
+  CheckCircle2,
+  HelpCircle,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  AlertCircle,
+  MessageSquare,
+  Users,
+  Award,
+  BookOpen
+} from "lucide-react";
 
-const IDLE_AUTOSAVE_MS = 10 * 60 * 1000;
+// ── normalizers ────────────────────────────────────────────────────────────
 
-function normalizeMetricValue(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
-  if (numeric < 0 || numeric > 10) return null;
-  return Number.isInteger(numeric) ? numeric : Number(numeric.toFixed(2));
-}
-
-function normalizeMetricByUser(rawMetrics) {
-  if (!rawMetrics || typeof rawMetrics !== "object") return {};
+function normalizeMetricByUser(entry) {
+  if (!entry || typeof entry !== "object") return {};
   const normalized = {};
-  Object.entries(rawMetrics).forEach(([key, payload]) => {
-    if (!payload || typeof payload !== "object") return;
-    const value = normalizeMetricValue(payload.value);
-    if (value === null) return;
-    const userId = String(payload.user_id || key || "").trim();
-    if (!userId) return;
-    const userName = String(payload.user_name || userId).trim() || userId;
-    normalized[userId] = {
-      user_id: userId,
-      user_name: userName,
-      value,
-      updated_at: payload.updated_at,
-    };
+  Object.entries(entry).forEach(([key, val]) => {
+    if (val && typeof val === "object") {
+      normalized[key] = {
+        user_id: val.user_id ? String(val.user_id) : key,
+        user_name: val.user_name ? String(val.user_name) : "Unknown Grader",
+        value: val.value !== undefined && val.value !== null ? Number(val.value) : null,
+      };
+    } else {
+      normalized[key] = {
+        user_id: key,
+        user_name: "Unknown Grader",
+        value: val !== undefined && val !== null ? Number(val) : null,
+      };
+    }
   });
   return normalized;
 }
 
-function metricEntries(metricByUser) {
-  return Object.values(metricByUser || {})
-    .map((entry) => {
+function normalizeMetricValue(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function normalizeSentenceComments(comments, suggestionText) {
+  const normalized = [];
+  if (Array.isArray(comments)) {
+    comments.forEach((c) => {
+      if (c && typeof c === "object") {
+        normalized.push({
+          id: c.id ? String(c.id) : `cmt-${Math.random()}`,
+          author: c.author ? String(c.author) : "User",
+          user_id: c.user_id ? String(c.user_id) : "",
+          text: c.text ? String(c.text) : "",
+          created_at: c.created_at || new Date().toISOString(),
+          replies: Array.isArray(c.replies)
+            ? c.replies.map((r) => ({
+                id: r.id ? String(r.id) : `rpl-${Math.random()}`,
+                author: r.author ? String(r.author) : "User",
+                user_id: r.user_id ? String(r.user_id) : "",
+                text: r.text ? String(r.text) : "",
+                created_at: r.created_at || new Date().toISOString(),
+                read_by: Array.isArray(r.read_by) ? r.read_by.map(String) : [],
+              }))
+            : [],
+        });
+      }
+    });
+  }
+  if (suggestionText && typeof suggestionText === "string" && suggestionText.trim()) {
+    normalized.push({
+      id: `legacy-sug-${Date.now()}`,
+      author: "System Migration",
+      user_id: "",
+      text: `Legacy Suggestion Migration: "${suggestionText.trim()}"`,
+      created_at: new Date().toISOString(),
+      replies: [],
+    });
+  }
+  return normalized;
+}
+
+function metricEntries(metricsByUser) {
+  if (!metricsByUser || typeof metricsByUser !== "object") return [];
+  return Object.entries(metricsByUser)
+    .map(([userId, entry]) => {
       const value = normalizeMetricValue(entry?.value);
       if (value === null) return null;
       return {
-        userId: String(entry?.user_id || ""),
-        userName: String(entry?.user_name || "Unknown"),
+        userId,
+        userName: String(entry?.user_name || "Unknown Grader"),
         value,
       };
     })
     .filter(Boolean)
     .sort((a, b) => a.userName.localeCompare(b.userName));
-}
-
-function stableTextHash(input) {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash).toString(36);
-}
-
-function normalizeSentenceComments(rawComments, fallbackText = "") {
-  const normalized = [];
-  const seenIds = new Set();
-
-  if (Array.isArray(rawComments)) {
-    rawComments.forEach((comment, idx) => {
-      if (!comment || typeof comment !== "object") return;
-
-      const text = String(comment.text || comment.comment || "").trim();
-      if (!text) return;
-
-      const commentId = String(comment.id || `comment_${idx}_${stableTextHash(text)}`).trim();
-      if (!commentId || seenIds.has(commentId)) return;
-      seenIds.add(commentId);
-
-      const userId = String(comment.user_id || comment.author_user_id || "").trim();
-      const author = String(comment.author || comment.user_name || userId || "User").trim() || "User";
-
-      normalized.push({
-        id: commentId,
-        user_id: userId,
-        author,
-        text,
-        created_at: comment.created_at || comment.posted_at || null,
-      });
-    });
-  }
-
-  if (normalized.length === 0) {
-    const legacyText = String(fallbackText || "").trim();
-    if (legacyText) {
-      normalized.push({
-        id: `legacy_comment_${stableTextHash(legacyText)}`,
-        user_id: "",
-        author: "Legacy comment",
-        text: legacyText,
-        created_at: null,
-      });
-    }
-  }
-
-  return normalized.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
-}
-
-function createCommentId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `comment_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function formatCommentTimestamp(isoTime) {
@@ -206,7 +212,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   );
 
   const [currentIdx, setCurrentIdx]       = useState(0);
-  // When resuming a saved session, the session is already saved on the server
   const [savedSessionId, setSavedSessionId] = useState(resumed ? initialSessionId : null);
   const [savedAt, setSavedAt]             = useState(resumed ? new Date() : null);
   const [saving, setSaving]               = useState(false);
@@ -225,7 +230,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const savingRef                   = useRef(false);
   const latestPayloadRef            = useRef(null);
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Left sidebar & dark mode toggles
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarFilter, setSidebarFilter] = useState("all"); // "all" | "completed" | "pending"
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDark, setIsDark] = useState(false);
+
   const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
   const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
 
@@ -236,25 +246,41 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [pendingDownloadFormat, setPendingDownloadFormat] = useState(null);
   const notificationsRef = useRef(null);
 
-  // Close dropdowns on outside click and handle scroll collapse
+  // Initialize Dark Mode theme from localStorage/system
+  useEffect(() => {
+    const isDarkTheme =
+      localStorage.getItem("theme") === "dark" ||
+      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setIsDark(isDarkTheme);
+    if (isDarkTheme) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDark;
+    setIsDark(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
+
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e) => {
       if (dlRef.current && !dlRef.current.contains(e.target)) setDlOpen(false);
       if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
       if (notificationsRef.current && !notificationsRef.current.contains(e.target)) setNotificationsOpen(false);
     };
-    const handleScroll = () => {
-      if (window.scrollY > 80) {
-        setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
-      }
-    };
     document.addEventListener("mousedown", handler);
-    window.addEventListener("scroll", handleScroll);
     return () => {
       document.removeEventListener("mousedown", handler);
-      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
@@ -269,7 +295,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const paperMetrics = useMemo(() => {
     const totalSentences = sentences.length;
-    
     let totalGoldTriples = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
@@ -328,7 +353,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       });
     });
     
-    // Remove empty/falsy values
     uniqueUsers.delete("");
     uniqueUsers.delete(undefined);
     uniqueUsers.delete(null);
@@ -462,7 +486,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     if (!currentUserId) return list;
 
     sentences.forEach((sentence) => {
-      // 1. Sentence comments replies
       (sentence.sentence_comments || []).forEach((comment) => {
         (comment.replies || []).forEach((reply) => {
           const isOwn = reply.user_id === currentUserId;
@@ -483,7 +506,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         });
       });
 
-      // 2. Triple comments replies & suggestions & suggestion replies
       (sentence.triples || []).forEach((triple) => {
         (triple.triple_comments || []).forEach((comment) => {
           (comment.replies || []).forEach((reply) => {
@@ -506,31 +528,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         });
 
         (triple.suggestions || []).forEach((sug) => {
-          // Check suggestion itself
           const isOwnSug = sug.user_id === currentUserId;
-          const isReadSug = (sug.read_by || []).includes(currentUserId);
-          if (!isOwnSug && !isReadSug) {
-            list.push({
-              id: sug.id,
-              type: "suggestion",
-              title: `New suggestion from ${sug.author || "User"}`,
-              text: `Triple: ${sug.subject} → ${sug.predicate} → ${sug.object}`,
-              createdAt: sug.created_at,
-              sentenceId: sentence.id,
-              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
-              tripleId: triple.id,
-            });
-          }
-
-          // Check suggestion replies
           (sug.replies || []).forEach((reply) => {
             const isOwnReply = reply.user_id === currentUserId;
-            const isReadReply = (reply.read_by || []).includes(currentUserId);
-            if (!isOwnReply && !isReadReply) {
+            const isRead = (reply.read_by || []).includes(currentUserId);
+            if (isOwnSug && !isOwnReply && !isRead) {
               list.push({
                 id: reply.id,
                 type: "suggestion_reply",
-                title: `New reply from ${reply.author || "User"} on suggestion`,
+                title: `New reply on suggestion from ${reply.author || "User"}`,
                 text: reply.text,
                 createdAt: reply.created_at,
                 sentenceId: sentence.id,
@@ -544,137 +550,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       });
     });
 
-    // Sort notifications by date (newest first)
-    return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   }, [sentences, currentUserId]);
-
-  const handleNotificationClick = async (notif) => {
-    // Mark as read on the backend
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      await markNotificationRead(sessionId, notif.id);
-      
-      // Update local state to mark as read immediately
-      setSentences((prev) =>
-        prev.map((s) => {
-          if (s.id !== notif.sentenceId) return s;
-          
-          // Update sentence comments replies
-          const updatedComments = (s.sentence_comments || []).map((c) => {
-            const readBy = c.id === notif.id ? [...(c.read_by || []), currentUserId] : (c.read_by || []);
-            const updatedReplies = (c.replies || []).map((r) => ({
-              ...r,
-              read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
-            }));
-            return { ...c, read_by: readBy, replies: updatedReplies };
-          });
-
-          // Update triples (comments, replies, suggestions, replies)
-          const updatedTriples = (s.triples || []).map((t) => {
-            const updatedTripleComments = (t.triple_comments || []).map((c) => {
-              const readBy = c.id === notif.id ? [...(c.read_by || []), currentUserId] : (c.read_by || []);
-              const updatedReplies = (c.replies || []).map((r) => ({
-                ...r,
-                read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
-              }));
-              return { ...c, read_by: readBy, replies: updatedReplies };
-            });
-
-            const updatedSuggestions = (t.suggestions || []).map((sug) => {
-              const readBy = sug.id === notif.id ? [...(sug.read_by || []), currentUserId] : (sug.read_by || []);
-              const updatedReplies = (sug.replies || []).map((r) => ({
-                ...r,
-                read_by: r.id === notif.id ? [...(r.read_by || []), currentUserId] : (r.read_by || []),
-              }));
-              return { ...sug, read_by: readBy, replies: updatedReplies };
-            });
-
-            return { ...t, triple_comments: updatedTripleComments, suggestions: updatedSuggestions };
-          });
-
-          return { ...s, sentence_comments: updatedComments, triples: updatedTriples };
-        })
-      );
-    } catch (e) {
-      console.error("Failed to mark notification as read:", e);
-    }
-
-    // Navigate to the correct sentence
-    setCurrentIdx(notif.sentenceIdx);
-    setNotificationsOpen(false);
-
-    // Wait for the render update, then scroll and highlight
-    setTimeout(() => {
-      const targetId = notif.tripleId ? `triple-card-${notif.tripleId}` : `sentence-comment-box-${notif.sentenceId}`;
-      const element = document.getElementById(targetId);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        setHighlightedElementId(targetId);
-        setTimeout(() => {
-          setHighlightedElementId(null);
-        }, 3000);
-      }
-    }, 200);
-  };
-
-  const handleMarkAllNotificationsRead = async () => {
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      await markAllNotificationsRead(sessionId);
-
-      // Update all locally
-      setSentences((prev) =>
-        prev.map((s) => {
-          const updatedComments = (s.sentence_comments || []).map((c) => {
-            const readBy = (c.read_by || []).includes(currentUserId) ? c.read_by : [...(c.read_by || []), currentUserId];
-            const updatedReplies = (c.replies || []).map((r) => ({
-              ...r,
-              read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
-            }));
-            return { ...c, read_by: readBy, replies: updatedReplies };
-          });
-
-          const updatedTriples = (s.triples || []).map((t) => {
-            const updatedTripleComments = (t.triple_comments || []).map((c) => {
-              const readBy = (c.read_by || []).includes(currentUserId) ? c.read_by : [...(c.read_by || []), currentUserId];
-              const updatedReplies = (c.replies || []).map((r) => ({
-                ...r,
-                read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
-              }));
-              return { ...c, read_by: readBy, replies: updatedReplies };
-            });
-
-            const updatedSuggestions = (t.suggestions || []).map((sug) => {
-              const readBy = (sug.read_by || []).includes(currentUserId) ? sug.read_by : [...(sug.read_by || []), currentUserId];
-              const updatedReplies = (sug.replies || []).map((r) => ({
-                ...r,
-                read_by: (r.read_by || []).includes(currentUserId) ? r.read_by : [...(r.read_by || []), currentUserId],
-              }));
-              return { ...sug, read_by: readBy, replies: updatedReplies };
-            });
-
-            return { ...t, triple_comments: updatedTripleComments, suggestions: updatedSuggestions };
-          });
-
-          return { ...s, sentence_comments: updatedComments, triples: updatedTriples };
-        })
-      );
-      setNotificationsOpen(false);
-    } catch (e) {
-      console.error("Failed to mark all as read:", e);
-    }
-  };
-
-  // Compute live sentence grade for the current sentence
-  const sentenceGrade = useMemo(() => {
-    const activeTriples = (current.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
-    const grades = activeTriples
-      .map((t) => t.grade)
-      .filter((g) => g !== null && g !== undefined);
-    if (grades.length === 0) return null;
-    if (grades.length < activeTriples.length) return "partial";
-    return (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1);
-  }, [current]);
 
   // Overall grading progress across ALL sentences
   const gradingProgress = useMemo(() => {
@@ -708,995 +585,121 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
         Object.entries(gradesByUser).forEach(([key, payload]) => {
           if (payload?.grade === null || payload?.grade === undefined || payload?.grade === "") return;
-          const grade = Number(payload.grade);
-          if (!Number.isFinite(grade)) return;
+          const uId = String(payload.user_id || key);
+          const uName = String(payload.user_name || "Unknown Grader");
+          const val = Number(payload.grade);
 
-          const userId = String(payload?.user_id || key || "");
-          const userName = String(payload?.user_name || userId || "Unknown");
-          const current = rowsByUser.get(userId) || {
-            user_id: userId,
-            user_name: userName,
-            graded_triples: 0,
-            grade_sum: 0,
-            grade_count: 0,
-          };
+          totalGradeEntries++;
+          overallGradeSum += val;
 
-          current.graded_triples += 1;
-          current.grade_count += 1;
-          current.grade_sum += grade;
-          rowsByUser.set(userId, current);
-
-          totalGradeEntries += 1;
-          overallGradeSum += grade;
+          if (!rowsByUser.has(uId)) {
+            rowsByUser.set(uId, {
+              user_id: uId,
+              user_name: uName,
+              graded_triples: 0,
+              grade_sum: 0,
+            });
+          }
+          const existing = rowsByUser.get(uId);
+          existing.graded_triples += 1;
+          existing.grade_sum += val;
         });
       });
     });
 
-    const rows = Array.from(rowsByUser.values())
-      .map((row) => ({
-        ...row,
-        average_grade: row.grade_count > 0 ? Number((row.grade_sum / row.grade_count).toFixed(2)) : null,
-      }))
-      .sort((a, b) => {
-        if (b.graded_triples !== a.graded_triples) return b.graded_triples - a.graded_triples;
-        return String(a.user_name).localeCompare(String(b.user_name));
-      });
+    const rows = [...rowsByUser.values()].map((r) => ({
+      ...r,
+      average_grade: r.graded_triples > 0 ? Number((r.grade_sum / r.graded_triples).toFixed(2)) : null,
+    })).sort((a, b) => b.graded_triples - a.graded_triples);
+
+    const overallAverage = totalGradeEntries > 0 ? Number((overallGradeSum / totalGradeEntries).toFixed(2)) : null;
 
     return {
       rows,
-      totalUniqueGraders: rows.length,
-      totalGradeEntries,
-      overallAverage: totalGradeEntries > 0 ? Number((overallGradeSum / totalGradeEntries).toFixed(2)) : null,
+      overallAverage,
+      totalUniqueGraders: rowsByUser.size,
     };
   }, [sentences]);
 
-  const handleGradeChange = (tripleId, grade) => {
-    if (!canEditSession) return;
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) => {
-                if (t.id !== tripleId) return t;
-
-                if (!currentUserId) {
-                  return {
-                    ...t,
-                    grade: grade ?? null,
-                    author: grade === null || grade === undefined ? null : currentUserName,
-                  };
-                }
-
-                const nextGradesByUser = {
-                  ...(t.grades_by_user || {}),
-                };
-
-                if (grade === null || grade === undefined || grade === "") {
-                  delete nextGradesByUser[currentUserId];
-                } else {
-                  nextGradesByUser[currentUserId] = {
-                    user_id: currentUserId,
-                    user_name: currentUserName,
-                    grade,
-                    graded_at: new Date().toISOString(),
-                  };
-                }
-
-                const values = Object.values(nextGradesByUser)
-                  .filter((item) => item?.grade !== null && item?.grade !== undefined && item?.grade !== "")
-                  .map((item) => Number(item.grade))
-                  .filter((value) => Number.isFinite(value));
-
-                return {
-                  ...t,
-                  grade: grade ?? null,
-                  author: grade === null || grade === undefined ? null : currentUserName,
-                  grades_by_user: nextGradesByUser,
-                  grade_count: values.length,
-                  grade_average: values.length > 0 ? Number((values.reduce((acc, value) => acc + value, 0) / values.length).toFixed(2)) : null,
-                };
-              }),
-            }
-      )
-    );
-  };
-
-  const handleSentenceMetricChange = (field, value) => {
-    if (!canEditSession) return;
-    const isUndo = current[field] === value;
-    const normalizedValue = isUndo ? null : normalizeMetricValue(value);
-    const byUserField = field === "completeness" ? "completeness_by_user" : "external_relation_by_user";
-    const countField = field === "completeness" ? "completeness_count" : "external_relation_count";
-    const averageField = field === "completeness" ? "completeness_average" : "external_relation_average";
-
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              [field]: normalizedValue,
-              [byUserField]: (() => {
-                const currentMap = { ...(s[byUserField] || {}) };
-                if (!currentUserId) return currentMap;
-
-                if (normalizedValue === null) {
-                  delete currentMap[currentUserId];
-                } else {
-                  currentMap[currentUserId] = {
-                    user_id: currentUserId,
-                    user_name: currentUserName,
-                    value: normalizedValue,
-                    updated_at: new Date().toISOString(),
-                  };
-                }
-                return currentMap;
-              })(),
-              [countField]: (() => {
-                const currentMap = { ...(s[byUserField] || {}) };
-                if (currentUserId) {
-                  if (normalizedValue === null) {
-                    delete currentMap[currentUserId];
-                  } else {
-                    currentMap[currentUserId] = {
-                      user_id: currentUserId,
-                      user_name: currentUserName,
-                      value: normalizedValue,
-                      updated_at: new Date().toISOString(),
-                    };
-                  }
-                }
-
-                return Object.values(currentMap)
-                  .map((entry) => normalizeMetricValue(entry?.value))
-                  .filter((metricValue) => metricValue !== null).length;
-              })(),
-              [averageField]: (() => {
-                const currentMap = { ...(s[byUserField] || {}) };
-                if (currentUserId) {
-                  if (normalizedValue === null) {
-                    delete currentMap[currentUserId];
-                  } else {
-                    currentMap[currentUserId] = {
-                      user_id: currentUserId,
-                      user_name: currentUserName,
-                      value: normalizedValue,
-                      updated_at: new Date().toISOString(),
-                    };
-                  }
-                }
-
-                const values = Object.values(currentMap)
-                  .map((entry) => normalizeMetricValue(entry?.value))
-                  .filter((metricValue) => metricValue !== null);
-                return values.length > 0
-                  ? Number((values.reduce((acc, metricValue) => acc + metricValue, 0) / values.length).toFixed(2))
-                  : null;
-              })(),
-            }
-      )
-    );
-  };
-
-  const handleSuggestionChange = (value) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) => (i === currentIdx ? { ...s, suggestion: value } : s))
-    );
-  };
-
-  const handlePostSentenceComment = async () => {
-    const draft = String(current?.suggestion || "").trim();
-    if (!draft || !canEditSession || saving) return;
-
-    const postedAt = new Date().toISOString();
-    const newComment = {
-      id: createCommentId(),
-      user_id: String(currentUserId || "").trim(),
-      author: String(currentUserName || "User").trim() || "User",
-      text: draft,
-      created_at: postedAt,
+  // Auto-save logic
+  useEffect(() => {
+    latestPayloadRef.current = {
+      session_id: initialSessionId,
+      source_filename,
+      uploaded_at,
+      manual_mode: !!manual_mode,
+      total_sentences: sentences.length,
+      sentences: sentences.map((s) => ({
+        id: s.id,
+        text: s.text,
+        is_calibration: !!s.is_calibration,
+        completeness: s.completeness,
+        external_relation: s.external_relation,
+        completeness_by_user: s.completeness_by_user,
+        external_relation_by_user: s.external_relation_by_user,
+        sentence_comments: s.sentence_comments,
+        triples: s.triples.map((t) => ({
+          id: t.id,
+          subject: t.subject,
+          predicate: t.predicate,
+          object: t.object,
+          grade: t.grade,
+          author: t.author,
+          grades_by_user: t.grades_by_user,
+          is_new_suggestion: !!t.is_new_suggestion,
+          status: t.status || null,
+          suggested_by: t.suggested_by || null,
+          marked_for_removal: !!t.marked_for_removal,
+          removal_reason: t.removal_reason || "",
+          triple_comments: t.triple_comments || [],
+          suggestions: t.suggestions || [],
+        })),
+      })),
     };
-
-    const updatedSentences = sentences.map((sentence, index) => {
-      if (index !== currentIdx) return sentence;
-      const nextComments = normalizeSentenceComments([
-        ...(Array.isArray(sentence.sentence_comments) ? sentence.sentence_comments : []),
-        newComment,
-      ]);
-      return {
-        ...sentence,
-        suggestion: "",
-        sentence_comments: nextComments,
-        comment_count: nextComments.length,
-      };
-    });
-
-    hasUnsavedChangesRef.current = true;
-    setSentences(updatedSentences);
-
-    savingRef.current = true;
-    setSaving(true);
-    setSaveMsg("");
-    setSaveError("");
-    try {
-      const result = await saveSession(buildPayload(updatedSentences));
-      setSavedSessionId(result.session_id);
-      setSavedAt(new Date());
-      setSaveMsg("Comment posted.");
-      setTimeout(() => setSaveMsg(""), 3500);
-      hasUnsavedChangesRef.current = false;
-    } catch (e) {
-      setSaveError(
-        e?.response?.data?.detail || "Comment post failed. Try Save to persist your changes."
-      );
-      hasUnsavedChangesRef.current = true;
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  };
-
-  const handleAddSuggestion = async (tripleId, suggestionData) => {
-    if (!canSuggestTriples) {
-      throw new Error("You are not allowed to add triple suggestions in this session.");
-    }
-
-    // Ensure session is saved before adding suggestion
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      const result = await addSuggestion(
-        sessionId,
-        current.id,
-        tripleId,
-        suggestionData.subject,
-        suggestionData.predicate,
-        suggestionData.object,
-        suggestionData.reason
-      );
-      
-      // Update local state with the new suggestion
-      setSentences((prev) =>
-        prev.map((s, i) =>
-          i !== currentIdx
-            ? s
-            : {
-                ...s,
-                triples: s.triples.map((t) =>
-                  t.id === tripleId
-                    ? {
-                        ...t,
-                        suggestions: [
-                          ...(t.suggestions || []),
-                          {
-                            id: result?.suggestion_id || Math.random().toString(36).substr(2, 9),
-                            author: currentUserName,
-                            subject: suggestionData.subject,
-                            predicate: suggestionData.predicate,
-                            object: suggestionData.object,
-                            reason: suggestionData.reason || "",
-                            created_at: new Date().toISOString(),
-                            votes: {},
-                          },
-                        ],
-                      }
-                    : t
-                ),
-              }
-        )
-      );
-    } catch (err) {
-      console.error("Error adding suggestion:", err);
-      throw err;
-    }
-  };
-
-  const handleEditSuggestion = async (tripleId, suggestionId, suggestionData) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      await editSuggestion(
-        sessionId,
-        current.id,
-        tripleId,
-        suggestionId,
-        suggestionData.subject,
-        suggestionData.predicate,
-        suggestionData.object,
-        suggestionData.reason
-      );
-
-      setSentences((prev) =>
-        prev.map((s, i) =>
-          i !== currentIdx
-            ? s
-            : {
-                ...s,
-                triples: s.triples.map((t) =>
-                  t.id === tripleId
-                    ? {
-                        ...t,
-                        suggestions: (t.suggestions || []).map((sug) =>
-                          sug.id === suggestionId
-                            ? {
-                                ...sug,
-                                subject: suggestionData.subject,
-                                predicate: suggestionData.predicate,
-                                object: suggestionData.object,
-                                reason: suggestionData.reason || "",
-                              }
-                            : sug
-                        ),
-                      }
-                    : t
-                ),
-              }
-        )
-      );
-    } catch (err) {
-      console.error("Error editing suggestion:", err);
-      throw err;
-    }
-  };
-
-  const handleVoteSuggestion = async (tripleId, suggestionId, vote) => {
-    // Ensure session is saved before voting
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      const targetTriple = current.triples.find((t) => t.id === tripleId);
-      const targetSuggestion = targetTriple?.suggestions?.find((sug) => sug.id === suggestionId);
-      const existingVote = targetSuggestion?.votes?.[currentUserName] || null;
-      const nextVote = existingVote === vote ? null : vote;
-      await voteOnSuggestion(
-        sessionId,
-        current.id,
-        tripleId,
-        suggestionId,
-        nextVote
-      );
-      
-      // Update local state with the vote
-      setSentences((prev) =>
-        prev.map((s, i) =>
-          i !== currentIdx
-            ? s
-            : {
-                ...s,
-                triples: s.triples.map((t) =>
-                  t.id === tripleId
-                    ? {
-                        ...t,
-                        suggestions: t.suggestions.map((sug) =>
-                          sug.id === suggestionId
-                            ? {
-                                ...sug,
-                                votes: (() => {
-                                  const updatedVotes = { ...(sug.votes || {}) };
-                                  if (updatedVotes[currentUserName] === vote) {
-                                    delete updatedVotes[currentUserName];
-                                  } else {
-                                    updatedVotes[currentUserName] = vote;
-                                  }
-                                  return updatedVotes;
-                                })(),
-                              }
-                            : sug
-                        ),
-                      }
-                    : t
-                ),
-              }
-        )
-      );
-    } catch (err) {
-      console.error("Error voting on suggestion:", err);
-      throw err;
-    }
-  };
-
-  const handleDeleteSuggestion = async (tripleId, suggestionId) => {
-    // Ensure session is saved before deleting
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    try {
-      const sessionId = savedSessionId || initialSessionId;
-      await deleteSuggestion(
-        sessionId,
-        current.id,
-        tripleId,
-        suggestionId
-      );
-      
-      // Update local state by removing the suggestion
-      setSentences((prev) =>
-        prev.map((s, i) =>
-          i !== currentIdx
-            ? s
-            : {
-                ...s,
-                triples: s.triples.map((t) =>
-                  t.id === tripleId
-                    ? {
-                        ...t,
-                        suggestions: t.suggestions.filter((sug) => sug.id !== suggestionId),
-                      }
-                    : t
-                ),
-              }
-        )
-      );
-    } catch (err) {
-      console.error("Error deleting suggestion:", err);
-      throw err;
-    }
-  };
-
-  const handleToggleSuggestionApproval = async (tripleId, suggestionId, isApproved) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    const result = isApproved
-      ? await unapproveSuggestion(sessionId, current.id, tripleId, suggestionId)
-      : await approveSuggestion(sessionId, current.id, tripleId, suggestionId);
-
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id !== tripleId
-                  ? t
-                  : {
-                      ...t,
-                      subject: result?.triple?.subject ?? t.subject,
-                      predicate: result?.triple?.predicate ?? t.predicate,
-                      object: result?.triple?.object ?? t.object,
-                      author: result?.triple?.author ?? t.author,
-                      suggestions: (t.suggestions || []).map((sug) =>
-                        sug.id === suggestionId
-                          ? isApproved
-                            ? { ...sug, status: "pending", approved_by: undefined, approved_at: undefined }
-                            : { ...sug, status: "approved", approved_by: currentUser?.name || "Owner", approved_at: new Date().toISOString() }
-                          : sug
-                      ),
-                    }
-              ),
-            }
-      )
-    );
-  };
-
-  const handleAddTripleComment = async (tripleId, comment) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId
-                  ? {
-                      ...t,
-                      triple_comments: [...(t.triple_comments || []), comment],
-                    }
-                  : t
-              ),
-            }
-      )
-    );
-  };
-
-  const handleDeleteTripleComment = async (tripleId, commentId) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId
-                  ? {
-                      ...t,
-                      triple_comments: (t.triple_comments || []).filter(
-                        (c) => c.id !== commentId
-                      ),
-                    }
-                  : t
-              ),
-            }
-      )
-    );
-  };
-
-  const handleAddTripleCommentReply = async (tripleId, commentId, replyData) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await replyToComment(sessionId, current.id, tripleId, commentId, replyData.text);
-      if (result.ok && result.reply) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  triples: s.triples.map((t) =>
-                    t.id === tripleId
-                      ? {
-                          ...t,
-                          triple_comments: (t.triple_comments || []).map((c) =>
-                            c.id === commentId
-                              ? {
-                                  ...c,
-                                  replies: [...(c.replies || []), result.reply],
-                                }
-                              : c
-                          ),
-                        }
-                      : t
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error adding triple comment reply:", err);
-      alert("Failed to add reply: " + err.message);
-    }
-  };
-
-  const handleDeleteTripleCommentReply = async (tripleId, commentId, replyId) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await deleteCommentReply(sessionId, current.id, commentId, replyId, tripleId);
-      if (result.ok) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  triples: s.triples.map((t) =>
-                    t.id === tripleId
-                      ? {
-                          ...t,
-                          triple_comments: (t.triple_comments || []).map((c) =>
-                            c.id === commentId
-                              ? {
-                                  ...c,
-                                  replies: (c.replies || []).filter((r) => r.id !== replyId),
-                                }
-                              : c
-                          ),
-                        }
-                      : t
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error deleting triple comment reply:", err);
-      alert("Failed to delete reply: " + err.message);
-    }
-  };
-
-  const handleAddSentenceCommentReply = async (commentId, replyData) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await replyToComment(sessionId, current.id, null, commentId, replyData.text);
-      if (result.ok && result.reply) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  sentence_comments: (s.sentence_comments || []).map((c) =>
-                    c.id === commentId
-                      ? {
-                          ...c,
-                          replies: [...(c.replies || []), result.reply],
-                        }
-                      : c
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error adding sentence comment reply:", err);
-      alert("Failed to add reply: " + err.message);
-    }
-  };
-
-  const handleDeleteSentenceCommentReply = async (commentId, replyId) => {
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await deleteCommentReply(sessionId, current.id, commentId, replyId, null);
-      if (result.ok) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  sentence_comments: (s.sentence_comments || []).map((c) =>
-                    c.id === commentId
-                      ? {
-                          ...c,
-                          replies: (c.replies || []).filter((r) => r.id !== replyId),
-                        }
-                      : c
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error deleting sentence comment reply:", err);
-      alert("Failed to delete reply: " + err.message);
-    }
-  };
-
-  const handleAddSuggestionReply = async (suggestionId, text) => {
-    // Find tripleId for this suggestion
-    let foundTripleId = null;
-    for (const t of current.triples || []) {
-      if ((t.suggestions || []).some((sug) => sug.id === suggestionId)) {
-        foundTripleId = t.id;
-        break;
-      }
-    }
-    if (!foundTripleId) return;
-
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await replyToSuggestion(sessionId, current.id, foundTripleId, suggestionId, text);
-      if (result.ok && result.reply) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  triples: s.triples.map((t) =>
-                    t.id === foundTripleId
-                      ? {
-                          ...t,
-                          suggestions: (t.suggestions || []).map((sug) =>
-                            sug.id === suggestionId
-                              ? {
-                                  ...sug,
-                                  replies: [...(sug.replies || []), result.reply],
-                                }
-                              : sug
-                          ),
-                        }
-                      : t
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error adding suggestion reply:", err);
-      alert("Failed to add reply: " + err.message);
-    }
-  };
-
-  const handleDeleteSuggestionReply = async (suggestionId, replyId) => {
-    // Find tripleId for this suggestion
-    let foundTripleId = null;
-    for (const t of current.triples || []) {
-      if ((t.suggestions || []).some((sug) => sug.id === suggestionId)) {
-        foundTripleId = t.id;
-        break;
-      }
-    }
-    if (!foundTripleId) return;
-
-    if (!savedSessionId) {
-      await handleSave();
-    }
-    const sessionId = savedSessionId || initialSessionId;
-    try {
-      const result = await deleteSuggestionReply(sessionId, current.id, foundTripleId, suggestionId, replyId);
-      if (result.ok) {
-        setSentences((prev) =>
-          prev.map((s, i) =>
-            i !== currentIdx
-              ? s
-              : {
-                  ...s,
-                  triples: s.triples.map((t) =>
-                    t.id === foundTripleId
-                      ? {
-                          ...t,
-                          suggestions: (t.suggestions || []).map((sug) =>
-                            sug.id === suggestionId
-                              ? {
-                                  ...sug,
-                                  replies: (sug.replies || []).filter((r) => r.id !== replyId),
-                                }
-                              : sug
-                          ),
-                        }
-                      : t
-                  ),
-                }
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error deleting suggestion reply:", err);
-      alert("Failed to delete reply: " + err.message);
-    }
-  };
-
-  const handleMarkTripleForRemoval = async (tripleId, marked) => {
-    hasUnsavedChangesRef.current = true;
-    setSentences((prev) =>
-      prev.map((s, i) =>
-        i !== currentIdx
-          ? s
-          : {
-              ...s,
-              triples: s.triples.map((t) =>
-                t.id === tripleId
-                  ? {
-                      ...t,
-                      marked_for_removal: marked,
-                      removal_reason: marked ? "Not needed" : null,
-                    }
-                  : t
-              ),
-            }
-      )
-    );
-  };
-
-  const handleAddTripleAdjacent = (tripleId, direction) => {
-    if (!canSuggestTriples) return;
-    const newTriple = {
-      id: `new_triple_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      subject: "",
-      predicate: "",
-      object: "",
-      is_new_suggestion: true,
-      is_editing: true,
-      status: "pending",
-      suggested_by: currentUserName,
-      suggested_by_id: currentUserId,
-      grade: null,
-      grades_by_user: {},
-      suggestions: [],
-      triple_comments: []
-    };
-
-    setSentences((prev) =>
-      prev.map((s, i) => {
-        if (i !== currentIdx) return s;
-        const index = s.triples.findIndex((t) => t.id === tripleId);
-        if (index === -1) return s;
-        const newTriples = [...s.triples];
-        if (direction === "above") {
-          newTriples.splice(index, 0, newTriple);
-        } else {
-          newTriples.splice(index + 1, 0, newTriple);
-        }
-        return { ...s, triples: newTriples };
-      })
-    );
-    hasUnsavedChangesRef.current = true;
-  };
-
-  const handleRemoveSuggestedTriple = (tripleId) => {
-    if (!window.confirm("Are you sure you want to remove this suggested triple?")) return;
-    setSentences((prev) =>
-      prev.map((s, i) => {
-        if (i !== currentIdx) return s;
-        return {
-          ...s,
-          triples: s.triples.filter((t) => t.id !== tripleId)
-        };
-      })
-    );
-    hasUnsavedChangesRef.current = true;
-  };
-
-  const handleApproveSuggestedTriple = (tripleId) => {
-    setSentences((prev) =>
-      prev.map((s, i) => {
-        if (i !== currentIdx) return s;
-        return {
-          ...s,
-          triples: s.triples.map((t) =>
-            t.id === tripleId
-              ? {
-                  ...t,
-                  status: "approved",
-                  approved_by: currentUserName,
-                  approved_at: new Date().toISOString()
-                }
-              : t
-          )
-        };
-      })
-    );
-    hasUnsavedChangesRef.current = true;
-    setTimeout(() => handleSave(), 100);
-  };
-
-  const handleSaveSuggestedTriple = (tripleId, fields) => {
-    setSentences((prev) =>
-      prev.map((s, i) => {
-        if (i !== currentIdx) return s;
-        return {
-          ...s,
-          triples: s.triples.map((t) =>
-            t.id === tripleId
-              ? {
-                  ...t,
-                  ...fields,
-                  is_editing: false
-                }
-              : t
-          )
-        };
-      })
-    );
-    hasUnsavedChangesRef.current = true;
-  };
-
-  const handleSetTripleEditing = (tripleId, isEditing) => {
-    setSentences((prev) =>
-      prev.map((s, i) => {
-        if (i !== currentIdx) return s;
-        return {
-          ...s,
-          triples: s.triples.map((t) =>
-            t.id === tripleId
-              ? {
-                  ...t,
-                  is_editing: isEditing
-                }
-              : t
-          )
-        };
-      })
-    );
-  };
-
-  const buildPayload = (sentencesSource = sentences) => ({
-    session_id:      savedSessionId || initialSessionId,
-    source_filename: source_filename,
-    uploaded_at:     uploaded_at,
-    manual_mode:     !!manual_mode,
-    sentences: sentencesSource.map((s) => {
-      const grades = s.triples
-        .map((t) => t.grade)
-        .filter((g) => g != null);
-      const avg =
-        grades.length === s.triples.length && grades.length > 0
-          ? parseFloat(
-              (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(2)
-            )
-          : null;
-      const sentenceComments = normalizeSentenceComments(s.sentence_comments);
-      return {
-        ...s,
-        suggestion:
-          sentenceComments.length > 0
-            ? sentenceComments[sentenceComments.length - 1].text
-            : "",
-        sentence_comments: sentenceComments,
-        comment_count: sentenceComments.length,
-        sentence_grade: avg,
-        completeness: s.completeness ?? null,
-        external_relation: s.external_relation ?? null,
-        completeness_by_user: normalizeMetricByUser(s.completeness_by_user),
-        external_relation_by_user: normalizeMetricByUser(s.external_relation_by_user),
-        triples: s.triples.map((t) => {
-          const cleaned = { ...t };
-          delete cleaned.completeness;
-          delete cleaned.relation;
-          delete cleaned.grade_count;
-          delete cleaned.grade_average;
-          return cleaned;
-        }),
-      };
-    }),
-  });
+  }, [sentences, initialSessionId, source_filename, uploaded_at, manual_mode]);
 
   useEffect(() => {
-    latestPayloadRef.current = buildPayload();
-  }, [savedSessionId, initialSessionId, source_filename, uploaded_at, sentences]);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-  useEffect(() => {
-    savingRef.current = saving;
-  }, [saving]);
-
-  useEffect(() => {
-    const autosaveIfIdle = async () => {
-      if (savingRef.current || !hasUnsavedChangesRef.current) return;
-
+    idleTimerRef.current = setTimeout(async () => {
+      if (!hasUnsavedChangesRef.current || savingRef.current) return;
       savingRef.current = true;
       setSaving(true);
       setSaveError("");
       try {
-        const result = await saveSession(latestPayloadRef.current);
+        const payload = latestPayloadRef.current;
+        const result = await saveSession(payload);
         setSavedSessionId(result.session_id);
         setSavedAt(new Date());
-        setSaveMsg("Autosaved after 10 minutes idle.");
-        setTimeout(() => setSaveMsg(""), 3500);
+        setSaveMsg("Changes auto-saved");
+        setTimeout(() => setSaveMsg(""), 3000);
         hasUnsavedChangesRef.current = false;
       } catch (e) {
-        setSaveError(
-          e?.response?.data?.detail || "Autosave failed. Is the backend running?"
-        );
+        setSaveError("Auto-save failed. Connection issues?");
       } finally {
         savingRef.current = false;
         setSaving(false);
       }
-    };
-
-    const resetIdleTimer = () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => {
-        void autosaveIfIdle();
-      }, IDLE_AUTOSAVE_MS);
-    };
-
-    const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
-    events.forEach((evt) => window.addEventListener(evt, resetIdleTimer, { passive: true }));
-    resetIdleTimer();
+    }, 6000);
 
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      events.forEach((evt) => window.removeEventListener(evt, resetIdleTimer));
     };
-  }, []);
+  }, [sentences]);
+
+  const markChanged = () => {
+    hasUnsavedChangesRef.current = true;
+  };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
-    setSaveMsg("");
     setSaveError("");
+    setSaveMsg("");
     try {
-      const result = await saveSession(buildPayload());
+      const payload = latestPayloadRef.current;
+      const result = await saveSession(payload);
       setSavedSessionId(result.session_id);
       setSavedAt(new Date());
       setSaveMsg("Session saved successfully!");
@@ -1713,11 +716,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const DL_FORMATS = [
-    { value: "pdf",   label: "PDF",   icon: "📄" },
-    { value: "word",  label: "Word",  icon: "📝" },
-    { value: "excel", label: "Excel", icon: "📊" },
-    { value: "csv",   label: "CSV",   icon: "⊞" },
-    { value: "json",  label: "JSON",  icon: "{}" },
+    { value: "pdf",   label: "PDF Cover & Report",   icon: "📄" },
+    { value: "word",  label: "Word Document",  icon: "📝" },
+    { value: "excel", label: "Excel Spreadsheet", icon: "📊" },
+    { value: "csv",   label: "CSV Sheet",   icon: "⊞" },
+    { value: "json",  label: "JSON Output",  icon: "{}" },
   ];
 
   const handleDownload = async (fmt) => {
@@ -1725,7 +728,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     setDlOpen(false);
     setDlError("");
     if (!savedSessionId) {
-      setDlError("Save the session first.");
+      setDlError("Please save the session first.");
       return;
     }
 
@@ -1749,16 +752,669 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }
   };
 
-  const gradeColor =
-    sentenceGrade === null
-      ? "text-slate-400"
-      : sentenceGrade === "partial"
-      ? "text-amber-600"
-      : parseFloat(sentenceGrade) >= 7
-      ? "text-green-700"
-      : parseFloat(sentenceGrade) >= 4
-      ? "text-amber-600"
-      : "text-red-600";
+  const handleNotificationClick = async (notif) => {
+    setNotificationsOpen(false);
+    setCurrentIdx(notif.sentenceIdx);
+
+    setTimeout(() => {
+      const elementId = notif.tripleId ? `triple-card-${notif.tripleId}` : `sentence-card-comments`;
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedElementId(elementId);
+        setTimeout(() => setHighlightedElementId(null), 3000);
+      }
+    }, 300);
+
+    try {
+      const token = getAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const payload = latestPayloadRef.current;
+
+      const nextSentences = payload.sentences.map((s) => {
+        if (s.id !== notif.sentenceId) return s;
+
+        const nextComments = (s.sentence_comments || []).map((c) => {
+          if (c.id === notif.commentId) {
+            const nextReplies = (c.replies || []).map((r) => {
+              if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
+                return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+              }
+              return r;
+            });
+            return { ...c, replies: nextReplies };
+          }
+          return c;
+        });
+
+        const nextTriples = (s.triples || []).map((t) => {
+          if (t.id === notif.tripleId) {
+            const nextComments = (t.triple_comments || []).map((c) => {
+              if (c.id === notif.commentId) {
+                const nextReplies = (c.replies || []).map((r) => {
+                  if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
+                    return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+                  }
+                  return r;
+                });
+                return { ...c, replies: nextReplies };
+              }
+              return c;
+            });
+
+            const nextSuggestions = (t.suggestions || []).map((sug) => {
+              if (sug.id === notif.suggestionId) {
+                const nextReplies = (sug.replies || []).map((r) => {
+                  if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
+                    return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+                  }
+                  return r;
+                });
+                return { ...sug, replies: nextReplies };
+              }
+              return sug;
+            });
+
+            return { ...t, triple_comments: nextComments, suggestions: nextSuggestions };
+          }
+          return t;
+        });
+
+        return { ...s, sentence_comments: nextComments, triples: nextTriples };
+      });
+
+      setSentences((prev) =>
+        prev.map((s) => {
+          const match = nextSentences.find((ns) => ns.id === s.id);
+          return match ? { ...s, sentence_comments: match.sentence_comments, triples: match.triples } : s;
+        })
+      );
+
+      const nextPayload = { ...payload, sentences: nextSentences };
+      await saveSession(nextPayload);
+    } catch (err) {}
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotificationsOpen(false);
+    if (notifications.length === 0) return;
+
+    try {
+      const payload = latestPayloadRef.current;
+      const nextSentences = payload.sentences.map((s) => {
+        const nextComments = (s.sentence_comments || []).map((c) => {
+          const nextReplies = (c.replies || []).map((r) => {
+            if (!(r.read_by || []).includes(currentUserId)) {
+              return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+            }
+            return r;
+          });
+          return { ...c, replies: nextReplies };
+        });
+
+        const nextTriples = (s.triples || []).map((t) => {
+          const nextComments = (t.triple_comments || []).map((c) => {
+            const nextReplies = (c.replies || []).map((r) => {
+              if (!(r.read_by || []).includes(currentUserId)) {
+                return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+              }
+              return r;
+            });
+            return { ...c, replies: nextReplies };
+          });
+
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            const nextReplies = (sug.replies || []).map((r) => {
+              if (!(r.read_by || []).includes(currentUserId)) {
+                return { ...r, read_by: [...(r.read_by || []), currentUserId] };
+              }
+              return r;
+            });
+            return { ...sug, replies: nextReplies };
+          });
+
+          return { ...t, triple_comments: nextComments, suggestions: nextSuggestions };
+        });
+
+        return { ...s, sentence_comments: nextComments, triples: nextTriples };
+      });
+
+      setSentences((prev) =>
+        prev.map((s) => {
+          const match = nextSentences.find((ns) => ns.id === s.id);
+          return match ? { ...s, sentence_comments: match.sentence_comments, triples: match.triples } : s;
+        })
+      );
+
+      const nextPayload = { ...payload, sentences: nextSentences };
+      await saveSession(nextPayload);
+    } catch (err) {}
+  };
+
+  const handleSentenceCompletenessChange = (val) => {
+    if (!canEditSession) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const entry = {
+          user_id: currentUserId,
+          user_name: currentUserName,
+          value: val,
+        };
+        const updatedCompletenessByUser = {
+          ...(s.completeness_by_user || {}),
+          [currentUserId]: entry,
+        };
+        const completenessValues = Object.values(updatedCompletenessByUser)
+          .map((e) => normalizeMetricValue(e?.value))
+          .filter((v) => v !== null);
+
+        return {
+          ...s,
+          completeness_by_user: updatedCompletenessByUser,
+          completeness: val,
+          completeness_count: completenessValues.length,
+          completeness_average:
+            completenessValues.length > 0
+              ? Number((completenessValues.reduce((a, b) => a + b, 0) / completenessValues.length).toFixed(2))
+              : null,
+        };
+      })
+    );
+  };
+
+  const handleSentenceExternalRelationChange = (val) => {
+    if (!canEditSession) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const entry = {
+          user_id: currentUserId,
+          user_name: currentUserName,
+          value: val,
+        };
+        const updatedExternalRelationByUser = {
+          ...(s.external_relation_by_user || {}),
+          [currentUserId]: entry,
+        };
+        const externalRelationValues = Object.values(updatedExternalRelationByUser)
+          .map((e) => normalizeMetricValue(e?.value))
+          .filter((v) => v !== null);
+
+        return {
+          ...s,
+          external_relation_by_user: updatedExternalRelationByUser,
+          external_relation: val,
+          external_relation_count: externalRelationValues.length,
+          external_relation_average:
+            externalRelationValues.length > 0
+              ? Number((externalRelationValues.reduce((a, b) => a + b, 0) / externalRelationValues.length).toFixed(2))
+              : null,
+        };
+      })
+    );
+  };
+
+  // Comments / Replies / Suggestions Actions
+  const handleSentenceCommentAdd = (newComment) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const nextComments = [...(s.sentence_comments || []), newComment];
+        return {
+          ...s,
+          sentence_comments: nextComments,
+          comment_count: nextComments.length,
+        };
+      })
+    );
+  };
+
+  const handleDeleteSentenceComment = (commentId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const nextComments = (s.sentence_comments || []).filter((c) => c.id !== commentId);
+        return {
+          ...s,
+          sentence_comments: nextComments,
+          comment_count: nextComments.length,
+        };
+      })
+    );
+  };
+
+  const handleAddSentenceCommentReply = (commentId, newReply) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const nextComments = (s.sentence_comments || []).map((c) => {
+          if (c.id !== commentId) return c;
+          return { ...c, replies: [...(c.replies || []), newReply] };
+        });
+        return { ...s, sentence_comments: nextComments };
+      })
+    );
+  };
+
+  const handleDeleteSentenceCommentReply = (commentId, replyId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const nextComments = (s.sentence_comments || []).map((c) => {
+          if (c.id !== commentId) return c;
+          return { ...c, replies: (c.replies || []).filter((r) => r.id !== replyId) };
+        });
+        return { ...s, sentence_comments: nextComments };
+      })
+    );
+  };
+
+  const onTripleGradeChange = (tripleId, val) => {
+    if (!canEditSession) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+
+          const updatedGradesByUser = {
+            ...(t.grades_by_user || {}),
+            [currentUserId]: {
+              user_id: currentUserId,
+              user_name: currentUserName,
+              grade: val,
+            },
+          };
+
+          const gradeValues = Object.values(updatedGradesByUser)
+            .map((g) => normalizeMetricValue(g?.grade))
+            .filter((v) => v !== null);
+
+          return {
+            ...t,
+            grade: val,
+            grades_by_user: updatedGradesByUser,
+            grade_count: gradeValues.length,
+            grade_average:
+              gradeValues.length > 0
+                ? Number((gradeValues.reduce((a, b) => a + b, 0) / gradeValues.length).toFixed(2))
+                : null,
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onMarkForRemoval = (tripleId, isMarked) => {
+    if (!canSuggestTriples) return;
+    markChanged();
+    const reason = isMarked ? window.prompt("Reason for removal (optional):") || "Not needed" : "";
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            marked_for_removal: isMarked,
+            removal_reason: reason,
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onAddTripleAdjacent = (tripleId, position) => {
+    if (!canSuggestTriples) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const index = s.triples.findIndex((t) => t.id === tripleId);
+        if (index === -1) return s;
+
+        const newTripleId = `suggested-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const newTriple = {
+          id: newTripleId,
+          subject: "",
+          predicate: "",
+          object: "",
+          grade: null,
+          author: currentUserName,
+          grades_by_user: {},
+          is_new_suggestion: true,
+          status: "pending",
+          suggested_by: currentUserName,
+          marked_for_removal: false,
+          removal_reason: "",
+          triple_comments: [],
+          suggestions: [],
+          is_editing: true,
+        };
+
+        const nextTriples = [...s.triples];
+        if (position === "above") {
+          nextTriples.splice(index, 0, newTriple);
+        } else {
+          nextTriples.splice(index + 1, 0, newTriple);
+        }
+
+        return { ...s, triples: nextTriples };
+      })
+    );
+  };
+
+  const onRemoveSuggestedTriple = (tripleId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
+      })
+    );
+  };
+
+  const onApproveSuggestedTriple = (tripleId) => {
+    if (!canApproveSuggestions) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return { ...t, status: "approved" };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onSaveSuggestedTriple = (tripleId, payload) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            subject: payload.subject,
+            predicate: payload.predicate,
+            object: payload.object,
+            is_editing: false,
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onSetTripleEditing = (tripleId, isEditing) => {
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return { ...t, is_editing: isEditing };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onAddTripleComment = (tripleId, newComment) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            triple_comments: [...(t.triple_comments || []), newComment],
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onDeleteTripleComment = (tripleId, commentId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            triple_comments: (t.triple_comments || []).filter((c) => c.id !== commentId),
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onAddTripleReply = (tripleId, commentId, newReply) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextComments = (t.triple_comments || []).map((c) => {
+            if (c.id !== commentId) return c;
+            return { ...c, replies: [...(c.replies || []), newReply] };
+          });
+          return { ...t, triple_comments: nextComments };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onDeleteTripleReply = (tripleId, commentId, replyId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextComments = (t.triple_comments || []).map((c) => {
+            if (c.id !== commentId) return c;
+            return { ...c, replies: (c.replies || []).filter((r) => r.id !== replyId) };
+          });
+          return { ...t, triple_comments: nextComments };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onAddSuggestion = (tripleId, payload) => {
+    if (!canSuggestTriples) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+
+          const newSuggestionId = `sug-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const newSuggestion = {
+            id: newSuggestionId,
+            author: currentUserName,
+            user_id: currentUserId,
+            subject: payload.subject,
+            predicate: payload.predicate,
+            object: payload.object,
+            reason: payload.reason || "",
+            status: "pending",
+            votes: {},
+            replies: [],
+            created_at: new Date().toISOString(),
+          };
+
+          return {
+            ...t,
+            suggestions: [...(t.suggestions || []), newSuggestion],
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onEditSuggestion = (tripleId, sugId, payload) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            if (sug.id !== sugId) return sug;
+            return {
+              ...sug,
+              subject: payload.subject,
+              predicate: payload.predicate,
+              object: payload.object,
+              reason: payload.reason || "",
+            };
+          });
+          return { ...t, suggestions: nextSuggestions };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onVoteSuggestion = (tripleId, sugId, voteType) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            if (sug.id !== sugId) return sug;
+            const updatedVotes = {
+              ...(sug.votes || {}),
+              [displayUserNameVote(sug)]: voteType,
+            };
+            return { ...sug, votes: updatedVotes };
+          });
+          return { ...t, suggestions: nextSuggestions };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const displayUserNameVote = (sug) => {
+    return currentUserName || currentUser?.name || "";
+  };
+
+  const onDeleteSuggestion = (tripleId, sugId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            suggestions: (t.suggestions || []).filter((sug) => sug.id !== sugId),
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onApproveSuggestion = (tripleId, sugId, isCurrentlyApproved) => {
+    if (!canApproveSuggestions) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            if (sug.id !== sugId) return sug;
+            return {
+              ...sug,
+              status: isCurrentlyApproved ? "pending" : "approved",
+              approved_by: isCurrentlyApproved ? null : currentUserName,
+            };
+          });
+          return { ...t, suggestions: nextSuggestions };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onAddSuggestionReply = (tripleId, sugId, replyText) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            if (sug.id !== sugId) return sug;
+            const newReply = {
+              id: `rpl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              author: currentUserName,
+              user_id: currentUserId,
+              text: replyText,
+              created_at: new Date().toISOString(),
+              read_by: [],
+            };
+            return {
+              ...sug,
+              replies: [...(sug.replies || []), newReply],
+            };
+          });
+          return { ...t, suggestions: nextSuggestions };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onDeleteSuggestionReply = (tripleId, sugId, replyId) => {
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          const nextSuggestions = (t.suggestions || []).map((sug) => {
+            if (sug.id !== sugId) return sug;
+            return {
+              ...sug,
+              replies: (sug.replies || []).filter((r) => r.id !== replyId),
+            };
+          });
+          return { ...t, suggestions: nextSuggestions };
+        });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
 
   const previewHref = useMemo(() => {
     if (!savedSessionId) return undefined;
@@ -1767,96 +1423,181 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}`;
   }, [savedSessionId]);
 
+  const sentenceGrade = useMemo(() => {
+    if (!current) return null;
+    const activeTriples = (current.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+    const grades = activeTriples
+      .map((t) => t.grade)
+      .filter((g) => g !== null && g !== undefined);
+    if (grades.length === 0) return null;
+    if (grades.length < activeTriples.length) return "partial";
+    return (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1);
+  }, [current]);
+
+  const gradeColor =
+    sentenceGrade === null
+      ? "text-slate-400 dark:text-slate-650"
+      : sentenceGrade === "partial"
+      ? "text-amber-600 dark:text-amber-450"
+      : parseFloat(sentenceGrade) >= 7
+      ? "text-indigo-650 dark:text-indigo-400"
+      : parseFloat(sentenceGrade) >= 4
+      ? "text-amber-600 dark:text-amber-450"
+      : "text-rose-600 dark:text-rose-455";
+
+  // Sidebar search and filters
+  const filteredSentences = useMemo(() => {
+    return sentences
+      .map((s, originalIndex) => ({ ...s, originalIndex }))
+      .filter((s) => {
+        // Query filter
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchText = (s.text || "").toLowerCase().includes(q);
+          const matchTriples = (s.triples || []).some(
+            (t) =>
+              (t.subject || "").toLowerCase().includes(q) ||
+              (t.predicate || "").toLowerCase().includes(q) ||
+              (t.object || "").toLowerCase().includes(q)
+          );
+          if (!matchText && !matchTriples) return false;
+        }
+
+        // Status filter
+        const activeTriples = (s.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+        const gradedCount = activeTriples.filter((t) => t.grade !== null && t.grade !== undefined).length;
+        const allGraded = activeTriples.length > 0 && gradedCount === activeTriples.length;
+
+        if (sidebarFilter === "completed") {
+          return allGraded;
+        }
+        if (sidebarFilter === "pending") {
+          return !allGraded;
+        }
+
+        return true;
+      });
+  }, [sentences, searchQuery, sidebarFilter]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
+      
+      {/* ── TOP HEADER BAR ────────────────────────────────────────────────── */}
+      <header className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 h-[60px] flex items-center px-4 justify-between gap-3 select-none">
+        
+        {/* Title, version & collapse sidebar trigger */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer hidden md:flex"
+            title={sidebarOpen ? "Hide Sentences List" : "Show Sentences List"}
+          >
+            <Menu size={16} />
+          </button>
 
-      {/* ── Top bar ────────────────────────────────────────────────────── */}
-      <div className="bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm fixed top-0 left-0 right-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-
-          {/* Logo + filename */}
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="text-blue-700 text-xl font-bold select-none shrink-0">◈</div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs sm:text-sm font-semibold text-slate-700 leading-tight flex items-center gap-1.5 min-w-0">
-                <span className="truncate">Ontology Triple Grader</span>
-                <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">v2.0</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
+              <Shield size={16} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                <span className="truncate">Ontology Grader</span>
+                <span className="bg-indigo-55 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 text-[9px] px-1.5 py-0.5 rounded-lg font-bold tracking-wider uppercase shrink-0">v2.0</span>
               </div>
-              <div className="text-xs text-slate-400 truncate max-w-[120px] sm:max-w-[240px]">{source_filename}</div>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[120px] sm:max-w-[200px]">{source_filename}</p>
             </div>
           </div>
+        </div>
 
-          {/* Progress bar — hidden on small screens */}
-          <div className="hidden lg:flex items-center gap-2 shrink-0">
-            <span className="text-xs text-slate-500">
-              {gradingProgress.graded}/{gradingProgress.total}
-            </span>
-            <div className="w-28 bg-slate-200 rounded-full h-2 overflow-hidden">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
-            </div>
-            <span className="text-xs font-semibold text-blue-700">{gradingProgress.pct}%</span>
+        {/* Global Progress Bar (visible on md screens up) */}
+        <div className="hidden lg:flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-850 px-3 py-1.5 rounded-xl">
+          <div className="flex flex-col text-right">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider leading-none">Overall Progress</span>
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mt-1">{gradingProgress.graded} / {gradingProgress.total} Triples</span>
           </div>
-
-          {/* ── Save button + last-saved stamp ── */}
-          <div className="flex items-center gap-2 shrink-0">
-            {savedAt && (
-              <div className="hidden sm:flex flex-col items-end">
-                <span className="text-xs text-slate-400 leading-tight">Last saved</span>
-                <span className="text-xs font-medium text-slate-500 leading-tight tabular-nums">
-                  {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                </span>
-              </div>
-            )}
-            <div className="flex flex-col items-end">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 shadow-sm whitespace-nowrap cursor-pointer"
-              >
-                {saving ? "Saving…" : <><span className="hidden sm:inline">💾 Save</span><span className="sm:hidden">💾</span></>}
-              </button>
-              {saveMsg && <span className="text-xs text-emerald-600 mt-0.5 max-w-32 text-right leading-tight">{saveMsg}</span>}
-              {saveError && <span className="text-xs text-red-500 mt-0.5 max-w-28 text-right leading-tight">{saveError}</span>}
-            </div>
+          <div className="w-20 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
+            <div className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${gradingProgress.pct}%` }} />
           </div>
+          <span className="text-sm font-extrabold text-indigo-650 dark:text-indigo-400 tabular-nums">{gradingProgress.pct}%</span>
+        </div>
 
-          {/* ── Notification Bell Icon 🔔 ── */}
-          <div className="relative shrink-0" ref={notificationsRef}>
+        {/* Action Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          
+          {/* Theme Mode Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-550 dark:text-slate-400 cursor-pointer shadow-sm active:scale-95 transition-all"
+            title="Toggle Light/Dark Theme"
+          >
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
+          {/* Save Action */}
+          <div className="relative flex items-center">
             <button
-              onClick={() => setNotificationsOpen(prev => !prev)}
-              className={[
-                "flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition-all relative cursor-pointer active:scale-95 shadow-sm",
-                notifications.length > 0 ? "border-red-200 text-red-600 font-bold" : ""
-              ].join(" ")}
-              title="Notifications"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-55 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Save worksheet"
             >
-              <span className="text-sm">🔔</span>
-              {notifications.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none scale-95 animate-pulse">
-                  {notifications.length}
-                </span>
-              )}
+              <Save size={14} />
+              <span className="hidden sm:inline">Save</span>
+            </button>
+            {saveMsg && (
+              <span className="absolute right-0 top-full mt-2 bg-slate-800 text-white border border-slate-700 px-2 py-1 rounded-lg text-[10px] font-semibold shadow-lg whitespace-nowrap z-50">
+                {saveMsg}
+              </span>
+            )}
+            {saveError && (
+              <span className="absolute right-0 top-full mt-2 bg-rose-50 dark:bg-rose-950/90 text-rose-800 dark:text-rose-350 border border-rose-250 dark:border-rose-900/40 px-2.5 py-1 rounded-lg text-[10px] font-semibold shadow-lg whitespace-nowrap z-50">
+                {saveError}
+              </span>
+            )}
+          </div>
+
+          {/* Notifications Trigger */}
+          <div className="relative" ref={notificationsRef}>
+            <button
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className={`p-2 rounded-xl border bg-white/80 dark:bg-slate-900/80 text-slate-550 dark:text-slate-400 cursor-pointer shadow-sm active:scale-95 transition-all ${
+                notifications.length > 0
+                  ? "border-rose-250 dark:border-rose-900/60 bg-rose-50/20"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+              title="Grading Notifications"
+            >
+              <div className="relative">
+                <Bell size={15} />
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-rose-600 text-white rounded-full text-[8px] font-bold flex items-center justify-center shadow-sm">
+                    {notifications.length}
+                  </span>
+                )}
+              </div>
             </button>
 
-            {/* Notification Dropdown Panel */}
+            {/* Notifications panel overlay */}
             {notificationsOpen && (
-              <div className="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl py-2 w-80 z-50 overflow-hidden flex flex-col max-h-[420px]">
-                <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Notifications</span>
+              <div className="absolute right-0 top-full mt-2 w-80 glass-dropdown rounded-2xl shadow-xl py-1 z-50 flex flex-col max-h-[360px]">
+                <div className="px-4 py-2.5 border-b border-slate-150 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-450 dark:text-slate-500">
+                    Notifications ({notifications.length})
+                  </span>
                   {notifications.length > 0 && (
                     <button
                       onClick={handleMarkAllNotificationsRead}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold border-0 bg-transparent cursor-pointer"
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer border-0 bg-transparent"
                     >
                       Mark all read
                     </button>
                   )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-[300px]">
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-850">
                   {notifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-xs text-slate-400">
-                      <div className="text-2xl mb-1">✨</div>
+                    <div className="px-4 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                      <div className="text-xl mb-1">✨</div>
                       You are all caught up!
                     </div>
                   ) : (
@@ -1864,21 +1605,21 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       <div
                         key={notif.id}
                         onClick={() => handleNotificationClick(notif)}
-                        className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer text-left space-y-1"
+                        className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors cursor-pointer text-left space-y-1"
                       >
                         <div className="flex justify-between items-start gap-1">
-                          <span className="text-xs font-bold text-slate-700 leading-snug">{notif.title}</span>
-                          <span className="text-[9px] text-slate-400 whitespace-nowrap tabular-nums mt-0.5">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-350 leading-snug">{notif.title}</span>
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 whitespace-nowrap mt-0.5 font-mono">
                             {formatCommentTimestamp(notif.createdAt)}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed break-words">{notif.text}</p>
-                        <div className="text-[9px] font-semibold text-blue-600 flex items-center gap-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed break-words">{notif.text}</p>
+                        <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                           <span>Sentence #{notif.sentenceId}</span>
                           {notif.tripleId && (
                             <>
-                              <span>•</span>
-                              <span>Triple comment/suggestion</span>
+                              <span>&bull;</span>
+                              <span>Triple</span>
                             </>
                           )}
                         </div>
@@ -1890,132 +1631,127 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             )}
           </div>
 
-          {/* ── Paper Quality & Process Indicators Button ── */}
+          {/* Paper Quality indicators */}
           <button
             onClick={() => setShowPaperMetricsModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-300 active:scale-95 transition-all shadow-sm whitespace-nowrap cursor-pointer shrink-0"
-            title="View Paper Quality & Process Indicators"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+            title="View Paper Quality Metrics"
           >
-            📊 <span className="hidden sm:inline">Indicators</span>
+            <BarChart3 size={14} />
+            <span className="hidden md:inline">Indicators</span>
           </button>
 
-          {/* ── Download split button ── */}
-          <div className="relative shrink-0" ref={dlRef}>
-            <div className="flex rounded-lg overflow-hidden shadow-sm border border-green-600 bg-green-600">
-              {/* Main: download in selected format */}
+          {/* Download Split Dropdown Button */}
+          <div className="relative shrink-0 flex" ref={dlRef}>
+            <div className="flex rounded-xl overflow-hidden shadow-sm border border-emerald-600 dark:border-emerald-700 bg-emerald-600 dark:bg-emerald-700">
               <button
                 onClick={() => handleDownload()}
                 disabled={downloading || !savedSessionId}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white hover:bg-green-700 active:scale-95 transition-all disabled:opacity-40 whitespace-nowrap cursor-pointer"
+                className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
               >
-                {downloading ? "…" : <><span className="hidden sm:inline">⬇ Download</span><span className="sm:hidden">⬇</span></>}
+                {downloading ? "..." : (
+                  <>
+                    <Download size={14} />
+                    <span className="hidden md:inline">Download</span>
+                  </>
+                )}
               </button>
-              {/* Chevron: open format picker */}
               <button
                 onClick={() => setDlOpen((o) => !o)}
                 disabled={downloading}
-                className="px-2 py-1.5 text-xs font-bold bg-green-600 text-white hover:bg-green-700 border-l border-green-500 transition-all disabled:opacity-40 cursor-pointer"
-                aria-label="Choose download format"
+                className="px-2 py-2 text-xs font-bold text-white hover:bg-emerald-700 dark:hover:bg-emerald-800 border-l border-emerald-550 dark:border-emerald-650 transition-all disabled:opacity-40 cursor-pointer"
+                aria-label="Choose format"
               >
-                {dlOpen ? "▲" : "▼"}
+                {dlOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
             </div>
 
-            {/* Dropdown */}
             {dlOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-36 z-50">
+              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
                 {DL_FORMATS.map((f) => (
                   <button
                     key={f.value}
-                    onClick={() => { setDlFmt(f.value); setDlOpen(false); }}
-                    className={[
-                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer",
+                    onClick={() => { setDlFmt(f.value); setDlOpen(false); handleDownload(f.value); }}
+                    className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
                       f.value === dlFmt
-                        ? "bg-green-50 text-green-700 font-semibold"
-                        : "text-slate-700 hover:bg-slate-50",
-                    ].join(" ")}
+                        ? "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-bold"
+                        : "text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850"
+                    }`}
                   >
-                    <span>{f.icon}</span>
-                    {f.label}
-                    {f.value === dlFmt && <span className="ml-auto text-green-500 text-xs">✔</span>}
+                    <span className="text-sm shrink-0">{f.icon}</span>
+                    <span>{f.label}</span>
+                    {f.value === dlFmt && <span className="ml-auto text-indigo-650 text-xs">✔</span>}
                   </button>
                 ))}
               </div>
             )}
-
-            {dlError && (
-              <p className="absolute right-0 top-full mt-8 text-xs text-red-500 whitespace-nowrap bg-white border border-red-200 rounded-lg px-2 py-1 shadow">
-                {dlError}
-              </p>
-            )}
           </div>
 
-          {/* ── View Online ── */}
+          {/* View Report tab */}
           <a
             href={previewHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
-            className={[
-              "hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+            className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
               savedSessionId
-                ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50"
-                : "border-slate-200 text-slate-300 cursor-not-allowed",
-            ].join(" ")}
-            title={savedSessionId ? "Preview graded report in a new tab" : "Save the session first"}
+                ? "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 hover:border-indigo-400 hover:bg-indigo-50/30"
+                : "border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
+            }`}
+            title={savedSessionId ? "Preview report in a new tab" : "Save changes first"}
           >
-            👁 View
+            <Eye size={14} />
+            <span>View</span>
           </a>
 
-          {/* ── Evaluate button ── */}
+          {/* Run Evaluate */}
           {onEvaluate && (
             <button
               onClick={() => onEvaluate(savedSessionId, source_filename)}
               disabled={!savedSessionId}
-              className={[
-                "hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 whitespace-nowrap",
+              className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
                 savedSessionId
-                  ? "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-500"
-                  : "border-slate-200 text-slate-300 cursor-not-allowed",
-              ].join(" ")}
-              title={savedSessionId ? "Run OpenIE evaluation" : "Save the session first"}
+                  ? "border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 text-purple-750 dark:text-purple-400 hover:bg-purple-100/50"
+                  : "border-slate-250 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
+              }`}
+              title={savedSessionId ? "Run Stanza OpenIE evaluation match checks" : "Save changes first"}
             >
-              🔬 Evaluate
+              <Activity size={14} />
+              <span>Evaluate</span>
             </button>
           )}
 
-          {/* Back to Dashboard */}
+          {/* Dashboard Back Link */}
           <button
             onClick={onReset}
-            className="hidden lg:flex text-xs text-slate-500 hover:text-blue-700 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 shrink-0 whitespace-nowrap items-center gap-1 cursor-pointer"
+            className="hidden lg:inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all"
           >
-            ← Dashboard
+            <ArrowLeft size={13} />
+            <span>Dashboard</span>
           </button>
 
-          {/* ── More actions dropdown button (visible on screens below lg) ── */}
+          {/* Small screens actions overflow toggle */}
           <div className="relative shrink-0 lg:hidden" ref={moreRef}>
             <button
-              onClick={() => setMoreOpen((o) => !o)}
-              className="flex items-center justify-center p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 active:scale-95 transition-all text-xs font-semibold gap-1 cursor-pointer"
-              title="More Actions"
+              onClick={() => setMoreOpen(!moreOpen)}
+              className="flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-sm text-xs font-bold"
             >
-              <span>•••</span>
+              <Menu size={15} />
             </button>
             {moreOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-40 z-50">
+              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
                 <a
                   href={previewHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={!savedSessionId ? (e) => e.preventDefault() : undefined}
-                  className={[
-                    "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors",
+                  className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors ${
                     savedSessionId
-                      ? "text-slate-700 hover:bg-slate-50"
-                      : "text-slate-300 cursor-not-allowed",
-                  ].join(" ")}
+                      ? "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850"
+                      : "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                  }`}
                 >
-                  <span>👁</span> View Online
+                  <Eye size={13} /> View Online
                 </a>
                 {onEvaluate && (
                   <button
@@ -2024,796 +1760,861 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       setMoreOpen(false);
                     }}
                     disabled={!savedSessionId}
-                    className={[
-                      "w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer",
+                    className={`w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
                       savedSessionId
-                        ? "text-purple-700 hover:bg-purple-50"
-                        : "text-slate-300 cursor-not-allowed",
-                    ].join(" ")}
+                        ? "text-purple-750 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-slate-850"
+                        : "text-slate-350 dark:text-slate-650 cursor-not-allowed"
+                    }`}
                   >
-                    <span>🔬</span> Evaluate
+                    <Activity size={13} /> Evaluate Stanza
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setShowPaperMetricsModal(true);
-                    setMoreOpen(false);
-                  }}
-                  className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <span>📊</span> Indicators
-                </button>
-                <div className="border-t border-slate-100 my-1"></div>
                 <button
                   onClick={() => {
                     onReset();
                     setMoreOpen(false);
                   }}
-                  className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full text-left flex items-center gap-2.5 px-4.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors cursor-pointer"
                 >
-                  <span>←</span> Dashboard
+                  <ArrowLeft size={13} /> Back to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── SPLIT TWO-COLUMN WORKSPACE AREA ────────────────────────────────── */}
+      <div className="flex-1 flex overflow-hidden pt-[60px] h-[calc(100vh-60px)]">
+        
+        {/* LEFT COLLAPSIBLE SIDEBAR */}
+        <AnimatePresence initial={false}>
+          {sidebarOpen && (
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 w-[320px] shrink-0 flex flex-col overflow-hidden h-full z-10"
+            >
+              {/* Sidebar Header & Filters */}
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 space-y-3 shrink-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen size={14} />
+                    <span>Sentences List</span>
+                  </h2>
+                  <span className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-850">
+                    {filteredSentences.length} of {total}
+                  </span>
+                </div>
+
+                {/* Search Field */}
+                <div className="relative flex items-center">
+                  <Search size={13} className="absolute left-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search sentences or triples..."
+                    className="w-full text-xs pl-8.5 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 p-1 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Sidebar Filter Selector */}
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[10px] font-bold">
+                  {["all", "completed", "pending"].map((filterOpt) => (
+                    <button
+                      key={filterOpt}
+                      onClick={() => setSidebarFilter(filterOpt)}
+                      className={`flex-1 py-1.5 rounded-md transition-all cursor-pointer ${
+                        sidebarFilter === filterOpt
+                          ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : "Pending"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Scrollable Sentence List */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                {filteredSentences.map((s) => {
+                  const isSelected = s.originalIndex === currentIdx;
+                  
+                  // Progress metrics calculations for item card
+                  const activeT = (s.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+                  const gradedT = activeT.filter((t) => t.grade !== null && t.grade !== undefined).length;
+                  const allGraded = activeT.length > 0 && gradedT === activeT.length;
+                  const noneGraded = gradedT === 0;
+
+                  // Badges color code
+                  const completenessBadge = allGraded
+                    ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 border border-emerald-150 dark:border-emerald-900/30"
+                    : noneGraded
+                    ? "bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-850"
+                    : "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-450 border border-amber-150 dark:border-amber-900/30";
+
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setCurrentIdx(s.originalIndex)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
+                        isSelected
+                          ? "bg-indigo-50/65 dark:bg-indigo-950/25 border-indigo-300 dark:border-indigo-850 shadow-sm"
+                          : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                          Sentence #{s.id}
+                        </span>
+                        
+                        <div className="flex items-center gap-1.5">
+                          {s.comment_count > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-650 dark:text-indigo-400">
+                              <MessageSquare size={10} />
+                              {s.comment_count}
+                            </span>
+                          )}
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${completenessBadge}`}>
+                            {gradedT}/{activeT.length} Graded
+                          </span>
+                        </div>
+                      </div>
+                      <p className={`text-xs leading-relaxed line-clamp-2 ${
+                        isSelected ? "text-slate-850 dark:text-slate-200 font-medium" : "text-slate-550 dark:text-slate-400"
+                      }`}>
+                        {s.text}
+                      </p>
+                    </button>
+                  );
+                })}
+
+                {filteredSentences.length === 0 && (
+                  <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-600">
+                    No matching sentences found.
+                  </div>
+                )}
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* RIGHT MAIN PANEL */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 h-full bg-slate-50 dark:bg-slate-950/30">
+          
+          {/* Graders Collaborators Banner Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="space-y-1">
+                <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users size={14} />
+                  <span>Workspace Grading Activity</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                  Graders can score, comment, and suggest. Owner reserves authorization to approve new triple suggestions.
+                </p>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-850">
+                <span className="text-slate-700 dark:text-slate-200">{graderSummary.totalUniqueGraders}</span> Active Graders
+                <span className="mx-2 text-slate-200 dark:text-slate-800">|</span>
+                Avg Score: <span className="text-indigo-600 dark:text-indigo-400">{graderSummary.overallAverage != null ? graderSummary.overallAverage.toFixed(2) : "—"}/10</span>
+              </div>
+            </div>
+
+            {graderSummary.rows.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {graderSummary.rows.map((row) => {
+                  const isMe = row.user_id === currentUserId;
+                  const letter = row.user_name.trim().charAt(0).toUpperCase() || "G";
+                  return (
+                    <span
+                      key={row.user_id}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                        isMe
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-900/50 dark:text-indigo-300"
+                          : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-850 dark:text-slate-350"
+                      }`}
+                    >
+                      <span className="w-4.5 h-4.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[9px] font-bold flex items-center justify-center text-slate-700 dark:text-slate-300 uppercase shrink-0">
+                        {letter}
+                      </span>
+                      <span>{row.user_name}{isMe ? " (you)" : ""}</span>
+                      <span className="text-slate-300 dark:text-slate-805">&bull;</span>
+                      <span className="text-[10px] opacity-75">{row.graded_triples} Triples Graded</span>
+                      <span className="text-slate-300 dark:text-slate-805">&bull;</span>
+                      <span className="font-bold">{row.average_grade != null ? row.average_grade.toFixed(2) : "—"}/10</span>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic">No grading entries recorded yet.</p>
+            )}
+          </div>
+
+          {/* Active Sentence Workspace Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-xl">
+                  {currentIdx + 1} / {total}
+                </span>
+                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  Active Sentence
+                </span>
+              </div>
+
+              {/* Status & completeness summary badges */}
+              <div className="flex items-center gap-2">
+                {current.completeness_average !== null && (
+                  <span className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border border-indigo-150 dark:border-indigo-900/30 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider">
+                    Completeness: {Number(current.completeness_average).toFixed(1)}/10
+                  </span>
+                )}
+                {current.external_relation_average !== null && (
+                  <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 border border-emerald-150 dark:border-emerald-900/30 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider">
+                    Relation: {Number(current.external_relation_average).toFixed(1)}/10
+                  </span>
+                )}
+
+                <div className={`text-right font-bold ${gradeColor}`}>
+                  {sentenceGrade === null ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 px-2 py-1 rounded-xl">
+                      Ungraded
+                    </span>
+                  ) : sentenceGrade === "partial" ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900/50 px-2 py-1 rounded-xl text-amber-800 dark:text-amber-400">
+                      Incomplete
+                    </span>
+                  ) : (
+                    <span className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-455">
+                      Avg Grade: {sentenceGrade}/10
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sentence Blockquote text */}
+            <blockquote className="text-sm sm:text-base text-slate-800 dark:text-slate-100 font-semibold leading-relaxed border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-r-2xl border border-slate-200/55 dark:border-slate-850">
+              {current.text}
+            </blockquote>
+
+            {/* Metric inputs (Completeness & Relation sliders) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+              
+              {/* Completeness Input */}
+              <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 rounded-2xl p-4.5 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                      1. Sentence Completeness
+                    </h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      How completely does the extracted triple set capture the original sentence semantics?
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                    {current.completeness !== null ? `${current.completeness}/10` : "—"}
+                  </span>
+                </div>
+
+                {/* Score rating row */}
+                <div className="flex flex-wrap items-center gap-1">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                    <button
+                      key={scoreVal}
+                      onClick={() => handleSentenceCompletenessChange(scoreVal)}
+                      disabled={!canEditSession}
+                      className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                        current.completeness === scoreVal
+                          ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
+                          : "bg-white dark:bg-slate-950 text-slate-650 dark:text-slate-405 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                      } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                    >
+                      {scoreVal}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Averages list */}
+                {completenessMetricEntries.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-850 pt-3">
+                    {completenessMetricEntries.map((entry) => {
+                      const isMe = currentUserId && entry.userId === currentUserId;
+                      return (
+                        <span
+                          key={`c-${entry.userId}`}
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                            isMe
+                              ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-750 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
+                              : "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-850"
+                          }`}
+                        >
+                          <span>{entry.userName}</span>
+                          {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                          <span className="opacity-40">&bull;</span>
+                          <span className="font-bold">{entry.value}/10</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* External Relation Input */}
+              <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 rounded-2xl p-4.5 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                      2. External Relation mapping
+                    </h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      Does the predicate match schema properties and domain guidelines accurately?
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                    {current.external_relation !== null ? `${current.external_relation}/10` : "—"}
+                  </span>
+                </div>
+
+                {/* Score rating row */}
+                <div className="flex flex-wrap items-center gap-1">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                    <button
+                      key={scoreVal}
+                      onClick={() => handleSentenceExternalRelationChange(scoreVal)}
+                      disabled={!canEditSession}
+                      className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                        current.external_relation === scoreVal
+                          ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
+                          : "bg-white dark:bg-slate-950 text-slate-650 dark:text-slate-405 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                      } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                    >
+                      {scoreVal}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Averages list */}
+                {externalRelationMetricEntries.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 dark:border-slate-850 pt-3">
+                    {externalRelationMetricEntries.map((entry) => {
+                      const isMe = currentUserId && entry.userId === currentUserId;
+                      return (
+                        <span
+                          key={`r-${entry.userId}`}
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
+                            isMe
+                              ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-755 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
+                              : "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-855"
+                          }`}
+                        >
+                          <span>{entry.userName}</span>
+                          {isMe && <span className="text-[9px] opacity-75">(you)</span>}
+                          <span className="opacity-40">&bull;</span>
+                          <span className="font-bold">{entry.value}/10</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Bottom arrow buttons navigator (remains on mobile/no sidebar) */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                disabled={currentIdx === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+              >
+                &larr; Previous Sentence
+              </button>
+
+              <button
+                onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
+                disabled={currentIdx === total - 1}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+              >
+                Next Sentence &rarr;
+              </button>
+            </div>
+          </div>
+
+          {/* Triples List Card Panel */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Award size={14} />
+                <span>Triples Workspace ({current.triples.length})</span>
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              {current.triples.map((t) => {
+                const isHighlighted = highlightedElementId === `triple-card-${t.id}`;
+                return (
+                  <div
+                    key={t.id}
+                    id={`triple-card-${t.id}`}
+                    className={`transition-all duration-300 ${
+                      isHighlighted
+                        ? "ring-4 ring-rose-500/25 scale-[1.01]"
+                        : ""
+                    }`}
+                  >
+                    <TripleCard
+                      triple={t}
+                      grade={
+                        t.grades_by_user?.[currentUserId]?.grade !== undefined
+                          ? t.grades_by_user[currentUserId].grade
+                          : null
+                      }
+                      author={t.author || uploadData.owner_name}
+                      gradesByUser={t.grades_by_user}
+                      currentUserId={currentUserId}
+                      readOnly={!canEditSession}
+                      canSuggest={canSuggestTriples}
+                      canApprove={canApproveSuggestions}
+                      onChange={(nextVal) => onTripleGradeChange(t.id, nextVal)}
+                      onMarkForRemoval={onMarkForRemoval}
+                      onAddTripleAdjacent={onAddTripleAdjacent}
+                      onRemoveSuggestedTriple={onRemoveSuggestedTriple}
+                      onApproveSuggestedTriple={onApproveSuggestedTriple}
+                      onSaveSuggestedTriple={onSaveSuggestedTriple}
+                      onSetTripleEditing={onSetTripleEditing}
+                    />
+
+                    {/* Suggestions Drawer section */}
+                    <TripleSuggestions
+                      triple={t}
+                      canSuggest={canSuggestTriples}
+                      canApprove={canApproveSuggestions}
+                      currentUserName={currentUserName}
+                      currentUser={currentUser}
+                      onAddSuggestion={(payload) => onAddSuggestion(t.id, payload)}
+                      onEditSuggestion={(sugId, payload) => onEditSuggestion(t.id, sugId, payload)}
+                      onVoteSuggestion={(sugId, voteType) => onVoteSuggestion(t.id, sugId, voteType)}
+                      onDeleteSuggestion={(sugId) => onDeleteSuggestion(t.id, sugId)}
+                      onApproveSuggestion={(sugId, isApproved) => onApproveSuggestion(t.id, sugId, isApproved)}
+                      onAddSuggestionReply={(sugId, text) => onAddSuggestionReply(t.id, sugId, text)}
+                      onDeleteSuggestionReply={(sugId, replyId) => onDeleteSuggestionReply(t.id, sugId, replyId)}
+                    />
+
+                    {/* Comments section */}
+                    <TripleComments
+                      tripleId={t.id}
+                      comments={t.triple_comments}
+                      currentUserId={currentUserId}
+                      currentUserName={currentUserName}
+                      readOnly={!canSuggestTriples}
+                      onAddComment={(payload) => onAddTripleComment(t.id, payload)}
+                      onDeleteComment={(commentId) => onDeleteTripleComment(t.id, commentId)}
+                      onAddReply={(commentId, payload) => onAddTripleReply(t.id, commentId, payload)}
+                      onDeleteReply={(commentId, replyId) => onDeleteTripleReply(t.id, commentId, replyId)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sentence Comments Box section */}
+          <div
+            id="sentence-card-comments"
+            className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-all duration-300 ${
+              highlightedElementId === "sentence-card-comments"
+                ? "ring-4 ring-rose-500/25 scale-[1.01]"
+                : ""
+            }`}
+          >
+            <div className="border-b border-slate-100 dark:border-slate-800/80 pb-3 flex items-center gap-2 select-none">
+              <MessageSquare size={16} className="text-slate-450 dark:text-slate-500" />
+              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Sentence Discussion / Method Decisions
+              </h2>
+            </div>
+
+            {currentSentenceComments.length > 0 ? (
+              <div className="space-y-4">
+                {currentSentenceComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 text-xs space-y-3"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">
+                          <span className="text-slate-700 dark:text-slate-300">{comment.author}</span>
+                          <span>&bull;</span>
+                          <span>{formatCommentTimestamp(comment.created_at)}</span>
+                        </div>
+                        <p className="text-slate-650 dark:text-slate-350 mt-1 break-words leading-relaxed text-[11px] sm:text-xs">
+                          {comment.text}
+                        </p>
+                      </div>
+                      {canEditSession && comment.user_id === currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Remove this comment?")) {
+                              handleDeleteSentenceComment(comment.id);
+                            }
+                          }}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Delete comment"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sentence comments replies list */}
+                    {comment.replies && comment.replies.length > 0 && (
+                      <div className="pl-4 border-l-2 border-indigo-150 dark:border-indigo-900 space-y-2.5">
+                        {comment.replies.map((reply) => (
+                          <div
+                            key={reply.id}
+                            className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 leading-relaxed text-[11px]"
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-550 font-bold select-none">
+                                  <span className="text-slate-700 dark:text-slate-300 font-bold">{reply.author}</span>
+                                  <span>&bull;</span>
+                                  <span>{formatCommentTimestamp(reply.created_at)}</span>
+                                </div>
+                                <p className="text-slate-650 dark:text-slate-350 mt-0.5 break-words">{reply.text}</p>
+                              </div>
+                              {canEditSession && reply.user_id === currentUserId && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm("Remove this reply?")) {
+                                      handleDeleteSentenceCommentReply(comment.id, reply.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-605 transition-colors cursor-pointer"
+                                  title="Delete reply"
+                                >
+                                  <X size={11} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Sentence Comment Reply Field */}
+                    {!readOnly && (
+                      <div className="pt-1 select-none">
+                        {replyingToSentenceCommentId === comment.id ? (
+                          <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 p-2.5 rounded-xl">
+                            <textarea
+                              value={sentenceCommentReplyText}
+                              onChange={(e) => setSentenceCommentReplyText(e.target.value)}
+                              placeholder="Write a reply..."
+                              rows={1}
+                              className="w-full text-xs border border-slate-205 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white"
+                            />
+                            <div className="flex gap-1.5 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyingToSentenceCommentId(null);
+                                  setSentenceCommentReplyText("");
+                                }}
+                                className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const text = sentenceCommentReplyText.trim();
+                                  if (!text) return;
+                                  const newReply = {
+                                    id: `rpl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                    author: currentUserName,
+                                    user_id: currentUserId,
+                                    text,
+                                    created_at: new Date().toISOString(),
+                                    read_by: [],
+                                  };
+                                  handleAddSentenceCommentReply(comment.id, newReply);
+                                  setReplyingToSentenceCommentId(null);
+                                  setSentenceCommentReplyText("");
+                                }}
+                                className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-650 hover:bg-indigo-700 text-white font-bold cursor-pointer"
+                              >
+                                Reply
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingToSentenceCommentId(comment.id);
+                              setSentenceCommentReplyText("");
+                            }}
+                            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic">No discussion posts created for this sentence.</p>
+            )}
+
+            {/* Sentence comment entry */}
+            {!readOnly && (
+              <div className="pt-2 select-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const txt = window.prompt("Add a comment / method decision for this sentence:");
+                    if (txt && txt.trim()) {
+                      const newComment = {
+                        id: `cmt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                        author: currentUserName,
+                        user_id: currentUserId,
+                        text: txt.trim(),
+                        created_at: new Date().toISOString(),
+                        replies: [],
+                      };
+                      handleSentenceCommentAdd(newComment);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/20 text-indigo-750 dark:text-indigo-400 border border-indigo-150 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shadow-sm cursor-pointer"
+                >
+                  + Add Sentence Comment
                 </button>
               </div>
             )}
           </div>
 
-        </div>
-
-        {/* Inline status bar on small screens */}
-        <div className="lg:hidden px-4 pb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 shrink-0">
-              {gradingProgress.graded}/{gradingProgress.total}
-            </span>
-            <div className="flex-1 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${gradingProgress.pct}%` }} />
-            </div>
-            <span className="text-xs text-blue-700 font-semibold shrink-0">{gradingProgress.pct}%</span>
-          </div>
-        </div>
+          <div className="h-6" />
+        </main>
       </div>
 
-      {/* ── Main content ───────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 pb-8 space-y-6 pt-24">
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-700">Shared Grading Activity</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Collaborators can grade, suggest, and vote. Owner can vote and approve suggestions.
-              </p>
-            </div>
-            <div className="text-xs text-slate-600">
-              <span className="font-semibold text-slate-700">{graderSummary.totalUniqueGraders}</span> grader{graderSummary.totalUniqueGraders === 1 ? "" : "s"}
-              <span className="mx-1 text-slate-300">|</span>
-              Avg. Grade <span className="font-semibold text-blue-700">{graderSummary.overallAverage != null ? graderSummary.overallAverage.toFixed(2) : "—"}</span>
-            </div>
-          </div>
-          {graderSummary.rows.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {graderSummary.rows.map((row) => {
-                const isMe = row.user_id === currentUserId;
-                return (
-                  <span
-                    key={row.user_id}
-                    className={[
-                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
-                      isMe
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "bg-slate-50 border-slate-200 text-slate-700",
-                    ].join(" ")}
-                  >
-                    <span className="font-semibold">{row.user_name}{isMe ? " (you)" : ""}</span>
-                    <span className="text-slate-400">•</span>
-                    <span>{row.graded_triples} triple{row.graded_triples === 1 ? "" : "s"}</span>
-                    <span className="text-slate-400">•</span>
-                    <span>{row.average_grade != null ? row.average_grade.toFixed(2) : "—"}/10</span>
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-slate-500">No grades yet.</p>
-          )}
-        </div>
-
-        {/* Sentence card */}
-        <div className={`bg-white shadow-md border border-slate-200 sticky top-[88px] lg:top-[60px] z-20 transition-all duration-300 ${isCollapsed ? 'p-3 rounded-xl' : 'p-6 rounded-2xl'}`}>
-          {isCollapsed ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">
-                    {currentIdx + 1} / {total}
-                  </span>
-                  <span className="text-sm text-slate-500 font-medium">Sentence</span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Sentence metrics summary badges */}
-                  {current.completeness !== null && current.completeness !== undefined && (
-                    <span className="bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px] font-bold text-green-700">
-                      Comp: {current.completeness}/10
-                    </span>
-                  )}
-                  {current.external_relation !== null && current.external_relation !== undefined && (
-                    <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700">
-                      Rel: {current.external_relation}/10
-                    </span>
-                  )}
-
-                  {/* Grade state */}
-                  <div className={`text-right ${gradeColor}`}>
-                    {sentenceGrade === null ? (
-                      <span className="text-xs italic text-slate-400">
-                        No triples graded
-                      </span>
-                    ) : sentenceGrade === "partial" ? (
-                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                        Grading incomplete
-                      </span>
-                    ) : (
-                      <span className="bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold text-blue-700">
-                        Grade: {sentenceGrade}/10 avg
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Navigation Controls */}
-                  <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-                    <button
-                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                      disabled={currentIdx === 0}
-                      className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                      title="Previous Sentence"
-                    >
-                      ◀
-                    </button>
-                    <button
-                      onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
-                      disabled={currentIdx === total - 1}
-                      className="p-1 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                      title="Next Sentence"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sentence text */}
-              <blockquote className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed border-l-4 border-blue-300 pl-3 bg-blue-50/40 py-1.5 pr-2 rounded-r-lg">
-                {current.text}
-              </blockquote>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    {currentIdx + 1} / {total}
-                  </span>
-                  <span className="text-sm text-slate-500 font-medium">Sentence</span>
-                </div>
-
-                {/* Grade badge */}
-                <div className={`text-right ${gradeColor}`}>
-                  {sentenceGrade === null ? (
-                    <span className="text-xs italic text-slate-400">
-                      No triples graded
-                    </span>
-                  ) : sentenceGrade === "partial" ? (
-                    <span className="text-xs font-semibold">Grading incomplete</span>
-                  ) : (
-                    <div className="flex flex-col items-end">
-                      <span className="text-2xl font-bold leading-none">
-                        {sentenceGrade}
-                      </span>
-                      <span className="text-xs">/ 10 avg</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sentence text */}
-              <blockquote className="text-base text-slate-800 font-medium leading-relaxed border-l-4 border-blue-300 pl-4 bg-blue-50/40 py-2 pr-2 rounded-r-xl">
-                {current.text}
-              </blockquote>
-
-              <div className="mt-5 border-t border-slate-100 pt-4 space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Sentence-level Metrics
-                </h3>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">Completeness (0-10)</span>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                      <button
-                        key={`comp-${n}`}
-                        onClick={() => handleSentenceMetricChange("completeness", n)}
-                        disabled={!canEditSession}
-                        className={[
-                          "w-6 h-6 rounded text-xs font-semibold border transition-all",
-                          "focus:outline-none focus:ring-2 focus:ring-green-400",
-                          current.completeness === n
-                            ? "bg-green-600 text-white border-green-600 scale-110 shadow"
-                            : "bg-white text-slate-600 border-slate-300 hover:bg-green-50 hover:border-green-400",
-                          !canEditSession ? "opacity-70 cursor-not-allowed" : "",
-                        ].join(" ")}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  {current.completeness !== null && current.completeness !== undefined ? (
-                    <span className="ml-1 text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                      {current.completeness}/10
-                    </span>
-                  ) : (
-                    <span className="ml-1 text-xs text-slate-400 italic">not set</span>
-                  )}
-
-                  {current.completeness_average !== null && current.completeness_average !== undefined && (
-                    <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                      Avg. {Number(current.completeness_average).toFixed(2)} ({current.completeness_count || 0})
-                    </span>
-                  )}
-
-                  {completenessMetricEntries.length > 0 && (
-                    <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
-                      {completenessMetricEntries.map((entry) => {
-                        const isMe = currentUserId && entry.userId === currentUserId;
-                        return (
-                          <span
-                            key={`comp-${entry.userId}`}
-                            className={[
-                              "text-xs font-medium border px-2 py-1 rounded-full",
-                              isMe
-                                ? "bg-green-100 text-green-800 border-green-300"
-                                : "bg-slate-100 text-slate-700 border-slate-300",
-                            ].join(" ")}
-                          >
-                            {entry.userName}
-                            {isMe ? " (you)" : ""}
-                            : {entry.value}/10
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-semibold text-slate-500 w-40 shrink-0">External Relation (0-10)</span>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                      <button
-                        key={`rel-${n}`}
-                        onClick={() => handleSentenceMetricChange("external_relation", n)}
-                        disabled={!canEditSession}
-                        className={[
-                          "w-6 h-6 rounded text-xs font-semibold border transition-all",
-                          "focus:outline-none focus:ring-2 focus:ring-indigo-400",
-                          current.external_relation === n
-                            ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow"
-                            : "bg-white text-slate-600 border-slate-300 hover:bg-indigo-50 hover:border-indigo-400",
-                          !canEditSession ? "opacity-70 cursor-not-allowed" : "",
-                        ].join(" ")}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  {current.external_relation !== null && current.external_relation !== undefined ? (
-                    <span className="ml-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                      {current.external_relation}/10
-                    </span>
-                  ) : (
-                    <span className="ml-1 text-xs text-slate-400 italic">not set</span>
-                  )}
-
-                  {current.external_relation_average !== null && current.external_relation_average !== undefined && (
-                    <span className="ml-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                      Avg. {Number(current.external_relation_average).toFixed(2)} ({current.external_relation_count || 0})
-                    </span>
-                  )}
-
-                  {externalRelationMetricEntries.length > 0 && (
-                    <div className="w-full sm:pl-[10.4rem] flex flex-wrap gap-1.5 mt-1">
-                      {externalRelationMetricEntries.map((entry) => {
-                        const isMe = currentUserId && entry.userId === currentUserId;
-                        return (
-                          <span
-                            key={`rel-${entry.userId}`}
-                            className={[
-                              "text-xs font-medium border px-2 py-1 rounded-full",
-                              isMe
-                                ? "bg-indigo-100 text-indigo-800 border-indigo-300"
-                                : "bg-slate-100 text-slate-700 border-slate-300",
-                            ].join(" ")}
-                          >
-                            {entry.userName}
-                            {isMe ? " (you)" : ""}
-                            : {entry.value}/10
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Navigation arrows */}
-              <div className="flex items-center justify-between mt-5">
-                <button
-                  onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                  disabled={currentIdx === 0}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  ← Previous
-                </button>
-
-                {/* Dot navigator */}
-                <div className="hidden sm:flex gap-1 flex-wrap justify-center max-w-xs">
-                  {sentences.map((s, i) => {
-                    const allGraded = s.triples.every((t) => t.grade !== null);
-                    const anyGraded = s.triples.some((t) => t.grade !== null);
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => setCurrentIdx(i)}
-                        title={`Sentence ${i + 1}`}
-                        className={[
-                          "w-3 h-3 rounded-full transition-all",
-                          i === currentIdx
-                            ? "bg-blue-700 scale-125"
-                            : allGraded
-                            ? "bg-green-500"
-                            : anyGraded
-                            ? "bg-amber-400"
-                            : "bg-slate-300 hover:bg-slate-400",
-                        ].join(" ")}
-                      />
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() =>
-                    setCurrentIdx((i) => Math.min(total - 1, i + 1))
-                  }
-                  disabled={currentIdx === total - 1}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  Next →
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Triples */}
-        <div>
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
-            Triples ({current.triples.length})
-          </h2>
-          <div className="space-y-4">
-            {current.triples.map((triple, idx) => {
-              const htmlId = `triple-card-${triple.id}`;
-              const isHighlighted = highlightedElementId === htmlId;
-              return (
-                <div
-                  key={triple.id}
-                  id={htmlId}
-                  className={[
-                    "bg-white rounded-xl shadow-md border overflow-hidden transition-all duration-500",
-                    isHighlighted ? "ring-4 ring-amber-400 border-amber-400 scale-[1.01] shadow-lg" : "border-slate-200"
-                  ].join(" ")}
-                >
-                  {/* Triple number pill */}
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-1.5 flex items-center gap-2">
-                    <span className="text-white text-[11px] font-bold uppercase tracking-wider">
-                      Triple {idx + 1}
-                    </span>
-                    {triple.grade_average !== null && triple.grade_average !== undefined && (
-                      <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        Avg. Grade: {Number(triple.grade_average).toFixed(2)}/10
-                      </span>
-                    )}
-                  </div>
-                  <TripleCard
-                    triple={triple}
-                    grade={triple.grade}
-                    author={triple.author}
-                    gradesByUser={triple.grades_by_user}
-                    currentUserId={currentUserId}
-                    readOnly={!canEditSession}
-                    canSuggest={canSuggestTriples}
-                    canApprove={canApproveSuggestions}
-                    onChange={(grade) => handleGradeChange(triple.id, grade)}
-                    onAddTripleComment={(tripleId, comment) => handleAddTripleComment(tripleId, comment)}
-                    onDeleteTripleComment={(tripleId, commentId) => handleDeleteTripleComment(tripleId, commentId)}
-                    onMarkForRemoval={(tripleId, marked) => handleMarkTripleForRemoval(tripleId, marked)}
-                    onAddTripleAdjacent={(tripleId, direction) => handleAddTripleAdjacent(tripleId, direction)}
-                    onRemoveSuggestedTriple={(tripleId) => handleRemoveSuggestedTriple(tripleId)}
-                    onApproveSuggestedTriple={(tripleId) => handleApproveSuggestedTriple(tripleId)}
-                    onSaveSuggestedTriple={(tripleId, fields) => handleSaveSuggestedTriple(tripleId, fields)}
-                    onSetTripleEditing={(tripleId, isEditing) => handleSetTripleEditing(tripleId, isEditing)}
-                  />
-                  {(!triple.is_new_suggestion || triple.status === "approved") && (
-                    <TripleSuggestions
-                      triple={triple}
-                      currentUser={currentUser}
-                      canSuggest={canSuggestTriples}
-                      canApprove={canApproveSuggestions}
-                      onAddSuggestion={(data) => handleAddSuggestion(triple.id, data)}
-                      onEditSuggestion={(suggestionId, data) => handleEditSuggestion(triple.id, suggestionId, data)}
-                      onVoteSuggestion={(suggestionId, vote) => handleVoteSuggestion(triple.id, suggestionId, vote)}
-                      onDeleteSuggestion={(suggestionId) => handleDeleteSuggestion(triple.id, suggestionId)}
-                      onApproveSuggestion={(suggestionId, isApproved) => handleToggleSuggestionApproval(triple.id, suggestionId, isApproved)}
-                      onAddSuggestionReply={handleAddSuggestionReply}
-                      onDeleteSuggestionReply={handleDeleteSuggestionReply}
-                    />
-                  )}
-                  <TripleComments
-                    tripleId={triple.id}
-                    comments={triple?.triple_comments || []}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    readOnly={!canEditSession}
-                    onAddComment={(comment) => handleAddTripleComment(triple.id, comment)}
-                    onDeleteComment={(commentId) => handleDeleteTripleComment(triple.id, commentId)}
-                    onAddReply={(commentId, reply) => handleAddTripleCommentReply(triple.id, commentId, reply)}
-                    onDeleteReply={(commentId, replyId) => handleDeleteTripleCommentReply(triple.id, commentId, replyId)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Suggestion */}
-        <div
-          id={`sentence-comment-box-${current.id}`}
-          className={[
-            "bg-white rounded-2xl shadow-sm border p-5 transition-all duration-500",
-            highlightedElementId === `sentence-comment-box-${current.id}`
-              ? "ring-4 ring-amber-400 border-amber-400 scale-[1.01] shadow-lg"
-              : "border-slate-200"
-          ].join(" ")}
-        >
-          <label className="block text-sm font-semibold text-slate-600 mb-2">
-            Suggestion / Comment for this Sentence
-          </label>
-          <textarea
-            value={current.suggestion}
-            onChange={(e) => handleSuggestionChange(e.target.value)}
-            rows={3}
-            disabled={!canEditSession}
-            placeholder="Add any suggestions or notes about the quality, accuracy or completeness of the triples for this sentence…"
-            className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
-          />
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <button
-              onClick={handlePostSentenceComment}
-              disabled={!canEditSession || saving || !(current.suggestion || "").trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? "Posting..." : "Post Comment"}
-            </button>
-            <span className="text-xs text-slate-500">
-              Posts immediately with your name and is visible to collaborators.
-            </span>
-          </div>
-          {currentSentenceComments.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {currentSentenceComments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                >
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="font-semibold text-slate-700">{comment.author || "User"}</span>
-                    <span className="text-slate-300">•</span>
-                    <span>{formatCommentTimestamp(comment.created_at)}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap break-words">
-                    {comment.text}
-                  </p>
-
-                  {/* Sentence Comment Reply actions */}
-                  {canEditSession && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyingToSentenceCommentId(replyingToSentenceCommentId === comment.id ? null : comment.id);
-                          setSentenceCommentReplyText("");
-                        }}
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                      >
-                        Reply
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Nested Sentence Comment Reply Form */}
-                  {canEditSession && replyingToSentenceCommentId === comment.id && (
-                    <div className="pl-3 border-l-2 border-blue-200 mt-2 space-y-1.5">
-                      <textarea
-                        value={sentenceCommentReplyText}
-                        onChange={(e) => setSentenceCommentReplyText(e.target.value)}
-                        placeholder="Write a reply…"
-                        rows={1}
-                        className="w-full text-xs border border-slate-200 rounded p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 focus:border-blue-400 placeholder:text-slate-300"
-                      />
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const text = String(sentenceCommentReplyText || "").trim();
-                            if (!text) return;
-                            const newReply = {
-                              id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-                              author: currentUserName || "User",
-                              user_id: currentUserId || "",
-                              text,
-                              created_at: new Date().toISOString(),
-                            };
-                            await handleAddSentenceCommentReply(comment.id, newReply);
-                            setSentenceCommentReplyText("");
-                            setReplyingToSentenceCommentId(null);
-                          }}
-                          disabled={!sentenceCommentReplyText.trim()}
-                          className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium cursor-pointer"
-                        >
-                          Reply
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyingToSentenceCommentId(null);
-                            setSentenceCommentReplyText("");
-                          }}
-                          className="text-[10px] px-2 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-medium cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Nested Sentence Comment Replies List */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="pl-3 border-l-2 border-blue-200 mt-2 space-y-2">
-                      {comment.replies.map((reply) => (
-                        <div key={reply.id} className="bg-white border border-slate-100 rounded p-2 text-[11px] leading-relaxed">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500">
-                                <span className="font-semibold text-slate-700">{reply.author || "User"}</span>
-                                <span>•</span>
-                                <span>{formatCommentTimestamp(reply.created_at)}</span>
-                              </div>
-                              <p className="text-slate-600 mt-0.5 break-words">{reply.text}</p>
-                            </div>
-                            {canEditSession && reply.user_id === currentUserId && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm("Remove this reply?")) {
-                                    handleDeleteSentenceCommentReply(comment.id, reply.id);
-                                  }
-                                }}
-                                className="flex-shrink-0 px-1 text-slate-400 hover:text-red-600 transition-colors text-[10px] cursor-pointer"
-                                title="Delete reply"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-slate-400 italic">No comments yet for this sentence.</p>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            Shared mode: collaborators grade, suggest, and vote; owner votes and approves.
-          </p>
-        </div>
-
-        {/* ── Paper Quality & Process Indicators Modal ── */}
+      {/* ── PAPER QUALITY & PROCESS INDICATORS MODAL ── */}
+      <AnimatePresence>
         {showPaperMetricsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            {/* Backdrop blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-sm transition-opacity"
               onClick={() => setShowPaperMetricsModal(false)}
             />
             
-            {/* Modal Content */}
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full max-h-[85vh] flex flex-col relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-                <div className="flex items-center gap-2 text-left">
-                  <span className="text-xl">📊</span>
+            {/* Modal Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[85vh] flex flex-col relative overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/25 shrink-0">
+                <div className="flex items-center gap-2.5 text-left select-none">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
+                    <BarChart3 size={16} />
+                  </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-800">Paper Quality & Process Indicators</h3>
-                    <p className="text-[11px] text-slate-500">Live statistics mapped to the scientific paper evaluation criteria</p>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">Paper Quality &amp; Process Indicators</h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Live statistics aligned with the scientific paper evaluation criteria</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowPaperMetricsModal(false)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors font-bold cursor-pointer border-0 bg-transparent"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border-0 bg-transparent"
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
 
-              {/* Content Body */}
+              {/* Modal Body */}
               <div className="p-6 overflow-y-auto space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                  {/* Metric cards */}
-                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Source Sentences</span>
-                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.totalSentences}</p>
-                    </div>
-                    <span className="text-slate-300 text-2xl font-light">📝</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+                  
+                  {/* Summary metric cards */}
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-850">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Source Sentences</span>
+                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.totalSentences}</p>
                   </div>
 
-                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Final Gold Triples</span>
-                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.totalGoldTriples}</p>
-                    </div>
-                    <span className="text-slate-300 text-2xl font-light">✨</span>
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Final Gold Triples</span>
+                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.totalGoldTriples}</p>
                   </div>
 
-                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Avg Triples / Sentence</span>
-                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.avgTriplesPerSentence}</p>
-                    </div>
-                    <span className="text-slate-300 text-2xl font-light">📊</span>
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Avg Triples / Sent</span>
+                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.avgTriplesPerSentence}</p>
                   </div>
 
-                  <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Annotators & Reviewers</span>
-                      <p className="text-2xl font-extrabold text-slate-800 mt-1">{paperMetrics.numUsers}</p>
-                    </div>
-                    <span className="text-slate-300 text-2xl font-light">👥</span>
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Total Graders</span>
+                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.numUsers}</p>
                   </div>
                 </div>
 
-                {/* Detail Table */}
-                <div className="border border-slate-150 rounded-xl overflow-hidden shadow-sm bg-white mt-4">
+                {/* Metric breakdown Table */}
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-150 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                        <th className="px-4 py-3">Quality & Process Indicator Metric</th>
+                      <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-500 font-bold uppercase tracking-wider text-[9px]">
+                        <th className="px-4 py-3">Quality &amp; Process Indicator Metric</th>
                         <th className="px-4 py-3 text-right">Value</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Percentage of sentences in calibration phase</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.calibrationPct}%</td>
+                        <td className="px-4 py-3 font-semibold text-left">Percentage of sentences in calibration phase</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.calibrationPct}%</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Pilot-stage triple overlap / Approximate F1</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.evalF1}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Pilot-stage triple overlap / Approximate F1</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.evalF1}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Reviewer agreement on candidate-triple decisions</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.agreementPct}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Reviewer agreement on candidate-triple decisions</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.agreementPct}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Triples accepted without change</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
-                          {paperMetrics.acceptedWithoutChange} <span className="text-slate-400 font-normal">({paperMetrics.acceptedPct}%)</span>
+                        <td className="px-4 py-3 font-semibold text-left">Triples accepted without change</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">
+                          {paperMetrics.acceptedWithoutChange} <span className="text-slate-400 dark:text-slate-500 font-normal text-[10px] ml-1">({paperMetrics.acceptedPct}%)</span>
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Triples modified after review</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
-                          {paperMetrics.modifiedAfterReview} <span className="text-slate-400 font-normal">({paperMetrics.modifiedPct}%)</span>
+                        <td className="px-4 py-3 font-semibold text-left">Triples modified after review</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">
+                          {paperMetrics.modifiedAfterReview} <span className="text-slate-400 dark:text-slate-500 font-normal text-[10px] ml-1">({paperMetrics.modifiedPct}%)</span>
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Rejected triples</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.rejectedTriples}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Rejected triples</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.rejectedTriples}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Missing triples suggested & added after adjudication</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.missingTriplesAdded}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Missing triples suggested &amp; added after adjudication</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.missingTriplesAdded}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Method-level adjudication cases <span className="text-slate-400 font-normal text-[10px]">(general comments)</span></td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.methodAdjudicationCount}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Method-level adjudication cases <span className="text-slate-400 dark:text-slate-500 font-normal text-[10px]">(general comments)</span></td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.methodAdjudicationCount}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Triple-level adjudication cases <span className="text-slate-400 font-normal text-[10px]">(triple comments/replies)</span></td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.tripleAdjudicationCount}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Triple-level adjudication cases <span className="text-slate-400 dark:text-slate-500 font-normal text-[10px]">(triple comments/replies)</span></td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.tripleAdjudicationCount}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-left">Guideline updates or documented method decisions</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{paperMetrics.numGuidelineUpdates}</td>
+                        <td className="px-4 py-3 font-semibold text-left">Guideline updates or documented method decisions</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.numGuidelineUpdates}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {/* Extra note / help */}
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-start gap-2.5 mt-2 text-left">
-                  <span className="text-blue-600 mt-0.5 text-sm">ℹ</span>
-                  <p className="text-[11px] leading-relaxed text-blue-800">
-                    <strong>How Adjudications are Determined:</strong> As requested, sentence-level adjudication events are tracked via general comments on the sentence (which discuss overall method and guidelines). Triple-level adjudication events are tracked via comments and discussion replies on individual triples and candidate suggestions. These metrics are dynamically calculated in real-time and will be rendered on the cover sheet when exporting a PDF report.
+                {/* Explain note */}
+                <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-3.5 flex items-start gap-2.5 mt-2 text-left">
+                  <AlertCircle size={15} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                  <p className="text-[10px] leading-relaxed text-indigo-805 dark:text-indigo-350">
+                    <strong>Adjudication Calculations Note:</strong> Sentence-level general comments represents method adjudications discussing guidelines. Individual triple comments &amp; suggestion replies represents triple-level adjudications. These are calculated in real-time and appended to the cover sheet on PDF download.
                   </p>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/30 border-t border-slate-105 dark:border-slate-800/80 flex justify-end shrink-0">
                 <button
                   onClick={() => setShowPaperMetricsModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl hover:bg-slate-55 active:scale-95 transition-all cursor-pointer"
                 >
-                  Close View
+                  Close Metrics
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
-        {/* ── Download Warning Modal ── */}
+      {/* ── INCOMPLETE DOWNLOAD WARNING MODAL ── */}
+      <AnimatePresence>
         {showDownloadWarningModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            {/* Backdrop blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-sm transition-opacity"
               onClick={() => {
                 setShowDownloadWarningModal(false);
                 setPendingDownloadFormat(null);
               }}
             />
             
-            {/* Modal Content */}
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full relative overflow-hidden"
+            >
               <div className="p-6">
-                <div className="flex items-center gap-3 text-amber-600">
-                  <span className="text-2xl text-left">⚠️</span>
-                  <h3 className="text-base font-bold text-slate-800">Incomplete Grading Session</h3>
+                <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-500 select-none">
+                  <AlertTriangle size={20} />
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">Grading Session Incomplete</h3>
                 </div>
                 
-                <p className="mt-3 text-xs text-slate-600 leading-relaxed text-left">
-                  This document is currently only <strong className="text-slate-800 font-bold">{gradingProgress.pct}%</strong> graded (<strong className="text-slate-800 font-semibold">{gradingProgress.graded}</strong> of <strong className="text-slate-800 font-semibold">{gradingProgress.total}</strong> active triples have been graded).
+                <p className="mt-3 text-xs text-slate-650 dark:text-slate-350 leading-relaxed text-left">
+                  This worksheet is currently only <strong className="text-slate-800 dark:text-white font-bold">{gradingProgress.pct}%</strong> graded (<strong className="text-slate-850 dark:text-slate-200 font-bold">{gradingProgress.graded}</strong> of <strong className="text-slate-850 dark:text-slate-200 font-bold">{gradingProgress.total}</strong> active triples scored).
                 </p>
 
-                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-left">
-                  <span className="text-amber-700 text-xs">⚠️</span>
-                  <p className="text-[10px] leading-normal text-amber-800">
-                    Downloading the report before completing the grading process will lead to incomplete or inaccurate quality and process statistics in the exported files.
+                <div className="mt-3.5 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30 rounded-xl p-3 flex items-start gap-2.5 text-left">
+                  <AlertCircle size={14} className="text-amber-600 dark:text-amber-450 shrink-0 mt-0.5" />
+                  <p className="text-[10px] leading-normal text-amber-800 dark:text-amber-400">
+                    Downloading the report prior to 100% grading completion will generate incomplete statistics and process indicators in the exported file output.
                   </p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800/80 flex justify-end gap-2">
                 <button
                   onClick={() => {
                     setShowDownloadWarningModal(false);
                     setPendingDownloadFormat(null);
                   }}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl hover:bg-slate-55 active:scale-95 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2824,17 +2625,16 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     setPendingDownloadFormat(null);
                     await executeDownload(format);
                   }}
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg active:scale-95 transition-all cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl active:scale-95 transition-all cursor-pointer"
                 >
                   Download Anyway
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
-        <div className="h-8" />
-      </div>
     </div>
   );
 }

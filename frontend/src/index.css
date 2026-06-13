@@ -1,1 +1,56 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-50: #f5f7ff;
+  --color-brand-100: #ebf0ff;
+  --color-brand-500: #4f46e5;
+  --color-brand-600: #3f37c9;
+  --color-brand-700: #302bb0;
+}
+
+@layer base {
+  body {
+    @apply antialiased text-slate-900 bg-slate-50 transition-colors duration-300;
+  }
+  
+  body.dark {
+    @apply text-slate-100 bg-slate-950;
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-300;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-slate-800;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-700;
+  }
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  @apply bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80;
+}
+
+.glass-dropdown {
+  @apply bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg border border-slate-200/50 dark:border-slate-800/50 shadow-2xl;
+}
