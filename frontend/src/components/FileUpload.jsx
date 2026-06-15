@@ -126,15 +126,15 @@ function _validateJsonUpload(payload) {
 
 export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual, recentUploadSessionId }) {
   const [dragging, setDragging] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [startMode, setStartMode] = useState("file");
   const [manualFilename, setManualFilename] = useState("manual-entry");
   const [manualFormat, setManualFormat] = useState("csv");
 
-  const [sessions, setSessions]       = useState([]);
-  const [resuming, setResuming]       = useState(null);
-  const [deleting, setDeleting]       = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [resuming, setResuming] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [resumeError, setResumeError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
@@ -150,7 +150,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
         );
         setSessions(sorted);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -176,13 +176,18 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     const sessionId = sessionMeta?.session_id;
     if (!sessionId) return;
 
+    console.log('[FileUpload] handleResume called for session:', sessionId);
     setResumeError("");
     setResuming(sessionId);
     try {
       const session = await loadSession(sessionId);
+      console.log('[FileUpload] loadSession succeeded:', session?.session_id, 'sentences:', session?.sentences?.length);
       onLoadSession(session);
     } catch (e) {
-      setResumeError(e?.response?.data?.detail || "Failed to load session.");
+      const errMsg = e?.response?.data?.detail || e?.message || "Failed to load session.";
+      console.error('[FileUpload] loadSession error:', e);
+      setResumeError(errMsg);
+      alert(`Error loading session: ${errMsg}`);
     } finally {
       setResuming(null);
     }
@@ -319,16 +324,14 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => setStartMode("file")}
-            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${
-              startMode === "file"
+            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${startMode === "file"
                 ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-sm ring-2 ring-indigo-500/10"
                 : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400"
-            }`}
+              }`}
           >
             <div
-              className={`p-2 rounded-xl transition-colors duration-200 ${
-                startMode === "file" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-              }`}
+              className={`p-2 rounded-xl transition-colors duration-200 ${startMode === "file" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                }`}
             >
               <UploadCloud size={18} />
             </div>
@@ -344,16 +347,14 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
 
           <button
             onClick={() => setStartMode("manual")}
-            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${
-              startMode === "manual"
+            className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${startMode === "manual"
                 ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-sm ring-2 ring-indigo-500/10"
                 : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400"
-            }`}
+              }`}
           >
             <div
-              className={`p-2 rounded-xl transition-colors duration-200 ${
-                startMode === "manual" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-              }`}
+              className={`p-2 rounded-xl transition-colors duration-200 ${startMode === "manual" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                }`}
             >
               <Edit size={18} />
             </div>
@@ -411,11 +412,10 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
               }}
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
-              className={`group flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 bg-white dark:bg-slate-900 ${
-                dragging
+              className={`group flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 bg-white dark:bg-slate-900 ${dragging
                   ? "border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-md"
                   : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
-              }`}
+                }`}
             >
               {loading ? (
                 <div className="flex flex-col items-center gap-3">
@@ -551,11 +551,10 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                   <button
                     key={filterOpt}
                     onClick={() => setSessionFilter(filterOpt)}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-200 cursor-pointer ${
-                      sessionFilter === filterOpt
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-200 cursor-pointer ${sessionFilter === filterOpt
                         ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    }`}
+                      }`}
                   >
                     {filterOpt === "all" ? "All" : filterOpt === "mine" ? "My Files" : "Others"}
                   </button>
@@ -567,11 +566,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
               {groupedSessions.map((group) => {
                 const headerDate = group.latestUploadedAt
                   ? new Date(group.latestUploadedAt + "Z").toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
                   : "";
                 const isCollapsed = !!collapsedSourceGroups[group.sourceKey];
 
@@ -618,11 +617,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                         {group.sessions.map((s) => {
                           const dateStr = s.uploaded_at
                             ? new Date(s.uploaded_at + "Z").toLocaleString([], {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
                             : "";
                           const isLoading = resuming === s.session_id;
                           const isDeleting = deleting === s.session_id;
@@ -643,29 +642,26 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           const roleHint = s.is_owner
                             ? "Owner: Manage triples and approve/reject suggestions."
                             : hasWorkedOnSession
-                            ? "Collaborator: Resuming in-progress sheet."
-                            : "Collaborator: Open to join grading activity.";
+                              ? "Collaborator: Resuming in-progress sheet."
+                              : "Collaborator: Open to join grading activity.";
 
                           const actionLabel = isLoading ? "Loading..." : s.is_owner ? "Open Session" : "Join Session";
                           const deleteLabel = isDeleting ? "Deleting..." : "Delete";
 
                           const avgBadge =
                             s.total_unique_graders > 0
-                              ? `${s.total_unique_graders} grader${
-                                  s.total_unique_graders === 1 ? "" : "s"
-                                } · Avg ${
-                                  s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"
-                                }/10`
+                              ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"
+                              } · Avg ${s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"
+                              }/10`
                               : null;
 
                           return (
                             <div
                               key={s.session_id}
-                              className={`flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-900 border rounded-xl p-3.5 transition-all duration-200 gap-3 ${
-                                isRecentUpload
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-900 border rounded-xl p-3.5 transition-all duration-200 gap-3 ${isRecentUpload
                                   ? "border-emerald-500/40 ring-4 ring-emerald-500/5 bg-emerald-50/10 dark:bg-emerald-950/10"
                                   : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-                              }`}
+                                }`}
                             >
                               <div className="min-w-0 flex-1 space-y-1.5">
                                 <div className="flex items-center gap-2 flex-wrap">

@@ -132,7 +132,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const {
     session_id: initialSessionId,
     source_filename,
-    sentences: initialSentences,
+    sentences: initialSentences = [],
     uploaded_at,
     manual_mode,
     resumed,
@@ -171,14 +171,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         completeness:
           normalizeMetricValue(s.completeness) ??
           normalizeMetricValue(
-            s.triples.find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness
+            (s.triples || []).find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness
           ) ??
           null,
         external_relation:
           normalizeMetricValue(s.external_relation) ??
           normalizeMetricValue(s.relation) ??
           normalizeMetricValue(
-            s.triples.find((t) => t.relation !== null && t.relation !== undefined)?.relation
+            (s.triples || []).find((t) => t.relation !== null && t.relation !== undefined)?.relation
           ) ??
           null,
         completeness_by_user: completenessByUser,
@@ -199,7 +199,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           (externalRelationValues.length > 0
             ? Number((externalRelationValues.reduce((acc, value) => acc + value, 0) / externalRelationValues.length).toFixed(2))
             : null),
-        triples: s.triples.map((t) => ({
+        triples: (s.triples || []).map((t) => ({
           ...t,
           grade: t.grade ?? null,
           author: t.author || null,
@@ -237,6 +237,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [searchQuery, setSearchQuery] = useState("");
   const [isDark, setIsDark] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showSentenceMetrics, setShowSentenceMetrics] = useState(false);
   const mainRef = useRef(null);
 
   useEffect(() => {
@@ -1528,6 +1529,28 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         return true;
       });
   }, [sentences, searchQuery, sidebarFilter]);
+
+  if (sentences.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950/40 flex flex-col items-center justify-center p-8">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-center space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+            <AlertCircle size={24} />
+          </div>
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">No sentences found</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-450">
+            This session does not contain any sentences to grade.
+          </p>
+          <button
+            onClick={onReset}
+            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950/40 flex flex-col transition-colors duration-300">

@@ -1,11 +1,63 @@
 // App.jsx -- Root component
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import FileUpload from "./components/FileUpload";
 import ReviewStep from "./components/ReviewStep";
 import GradingForm from "./components/GradingForm";
 import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
 import { getAuthToken, logoutUser, meUser, saveSession } from "./api";
+
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null, errorInfo: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Caught an error:', error, errorInfo);
+    this.setState({ errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 max-w-2xl mx-auto my-12 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-2xl shadow-sm space-y-4">
+          <h2 className="text-lg font-bold text-rose-700 dark:text-rose-400">Something went wrong rendering the Grading Workspace.</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+            {this.state.error && this.state.error.toString()}
+          </p>
+          {this.state.errorInfo && (
+            <details className="text-xs bg-slate-900 text-slate-100 p-4 rounded-xl font-mono overflow-auto max-h-96">
+              <summary className="cursor-pointer font-semibold mb-2 select-none">Stack trace</summary>
+              <pre className="whitespace-pre-wrap">{this.state.error?.stack || ''}</pre>
+              <pre className="mt-2 text-slate-400 whitespace-pre-wrap">{this.state.errorInfo?.componentStack || ''}</pre>
+            </details>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
+            >
+              Reload Page
+            </button>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null, errorInfo: null });
+                if (this.props.onReset) this.props.onReset();
+              }}
+              className="px-4 py-2 border border-slate-350 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function createManualSessionSeed(options = {}) {
   const randomId =
@@ -30,9 +82,9 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   // uploadData  : raw parse result from /api/upload (sentence_groups)
   // gradingData : loaded/resumed grading session payload
-  const [uploadData, setUploadData]     = useState(null);
-  const [gradingData, setGradingData]   = useState(null);
-  const [evalSession, setEvalSession]   = useState(null); // { sessionId, sourceFilename }
+  const [uploadData, setUploadData] = useState(null);
+  const [gradingData, setGradingData] = useState(null);
+  const [evalSession, setEvalSession] = useState(null); // { sessionId, sourceFilename }
   const [recentUploadSessionId, setRecentUploadSessionId] = useState(null);
 
   useEffect(() => {
@@ -45,6 +97,16 @@ export default function App() {
       .then((me) => setUser(me))
       .catch(() => setUser(null))
       .finally(() => setAuthLoading(false));
+  }, []);
+
+  // Listen for token expiry — force user to re-login
+  useEffect(() => {
+    const onAuthLogout = () => {
+      setUser(null);
+      handleReset();
+    };
+    window.addEventListener('auth:logout', onAuthLogout);
+    return () => window.removeEventListener('auth:logout', onAuthLogout);
   }, []);
 
   const handleUploadSuccess = (data) => {
@@ -67,9 +129,62 @@ export default function App() {
     setEvalSession(null);
   };
 
+  // Convert a loaded session into a grading-ready shape.
+  // The API can return sessions in two forms:
+  //   - Full saved sessions: have a `sentences` array
+  //   - Draft/upload sessions: have `sentence_groups` (before first /api/save)
+  // We normalize both into the `sentences` shape that GradingForm expects.
+  function normalizeSessionForGrading(session) {
+    if (!session || typeof session !== 'object') return null;
+    // Already has sentences array — use as-is
+    if (Array.isArray(session.sentences) && session.sentences.length > 0) {
+      return session;
+    }
+    // Has sentence_groups (draft format) — flatten to sentences
+    if (Array.isArray(session.sentence_groups)) {
+      const sentences = [];
+      let sentenceId = 1;
+      for (const group of session.sentence_groups) {
+        const versions = group.versions || [];
+        const selectedVersion = versions.find(
+          (v) => v.version_id === group.selected_version_id
+        ) || versions[0];
+        if (!selectedVersion) continue;
+        const triples = (selectedVersion.triples || []).map((t, idx) => ({
+          id: t.id || `${sentenceId}_${idx + 1}`,
+          subject: t.subject || '',
+          predicate: t.predicate || '',
+          object: t.object || '',
+          grade: null,
+        }));
+        if (!triples.length) continue;
+        sentences.push({
+          id: sentenceId++,
+          text: group.sentence_text || selectedVersion.sentence_candidate || '(no sentence text)',
+          suggestion: '',
+          sentence_comments: [],
+          comment_count: 0,
+          sentence_grade: null,
+          completeness: null,
+          external_relation: null,
+          triples,
+        });
+      }
+      return { ...session, sentences };
+    }
+    // Fallback: empty sentences so GradingForm can still render
+    return { ...session, sentences: [] };
+  }
+
   // Resume a previously saved session — skip upload + review entirely
   const handleLoadSession = (session) => {
-    setGradingData({ ...session, resumed: true });
+    console.log('[App] handleLoadSession called, session_id:', session?.session_id, 'sentences:', session?.sentences?.length, 'sentence_groups:', session?.sentence_groups?.length);
+    const normalized = normalizeSessionForGrading(session);
+    if (!normalized) {
+      console.error('[App] handleLoadSession: null/invalid session data');
+      return;
+    }
+    setGradingData({ ...normalized, resumed: true });
     setUploadData(null);
   };
 
@@ -107,6 +222,7 @@ export default function App() {
   }
 
   const workspaceView = (() => {
+    // No active session/upload → show landing/file-upload page
     if (!uploadData && !gradingData) {
       return (
         <FileUpload
@@ -118,6 +234,7 @@ export default function App() {
       );
     }
 
+    // Fresh upload awaiting review
     if (uploadData && !gradingData) {
       return (
         <ReviewStep
@@ -128,6 +245,7 @@ export default function App() {
       );
     }
 
+    // Evaluation panel overlay
     if (evalSession) {
       return (
         <EvaluationPanel
@@ -138,17 +256,25 @@ export default function App() {
       );
     }
 
-    if (uploadData && !gradingData) {
+    // Resumed session → grading workspace
+    if (gradingData) {
+      console.log('[App] Rendering GradingForm with gradingData:', gradingData?.session_id);
       return (
-        <ReviewStep
-          uploadData={uploadData}
-          onConfirm={handleReviewConfirm}
-          onReset={handleReset}
-        />
+        <ErrorBoundary onReset={handleReset}>
+          <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} onEvaluate={handleOpenEval} />
+        </ErrorBoundary>
       );
     }
 
-    return <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} onEvaluate={handleOpenEval} />;
+    // Fallback
+    return (
+      <FileUpload
+        onUploadSuccess={handleUploadSuccess}
+        onLoadSession={handleLoadSession}
+        onStartManual={handleStartManual}
+        recentUploadSessionId={recentUploadSessionId}
+      />
+    );
   })();
 
   const firstName = (user?.name || "").trim().split(/\s+/)[0] || "";

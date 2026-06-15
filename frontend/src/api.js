@@ -34,6 +34,8 @@ API.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 401) {
       setAuthToken(null);
+      // Dispatch a global event so App can redirect to login immediately
+      window.dispatchEvent(new CustomEvent('auth:logout'));
     }
     return Promise.reject(error);
   }
