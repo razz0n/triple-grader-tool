@@ -327,7 +327,7 @@ export default function TripleCard({
                   key={n}
                   onClick={() => onChange(grade === n ? null : n)}
                   disabled={readOnly}
-                  className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                  className={`grade-button w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
                     grade === n
                       ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
                       : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"

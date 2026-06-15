@@ -313,6 +313,35 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }
   }, [currentIdx]);
 
+  // Auto-scroll to first ungraded triple on sentence change if in "pending" tab
+  useEffect(() => {
+    if (sidebarFilter === "pending" && current) {
+      const timer = setTimeout(() => {
+        const activeTriples = (current.triples || []).filter((t) => {
+          const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+          if (!isActive) return false;
+          const userGrade = t.grades_by_user?.[currentUserId]?.grade;
+          return userGrade === undefined || userGrade === null;
+        });
+        if (activeTriples.length > 0) {
+          const firstUngraded = activeTriples[0];
+          const elementId = `triple-card-${firstUngraded.id}`;
+          const el = document.getElementById(elementId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            setHighlightedElementId(elementId);
+            setTimeout(() => setHighlightedElementId(null), 2050);
+            setTimeout(() => {
+              const btn = el.querySelector(".grade-button");
+              if (btn) btn.focus();
+            }, 300);
+          }
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIdx, sidebarFilter, currentUserId, current]);
+
   const total   = sentences.length;
   const current = sentences[currentIdx];
   const completenessMetricEntries = metricEntries(current?.completeness_by_user);
@@ -1103,6 +1132,44 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         return { ...s, triples: updatedTriples };
       })
     );
+
+    // Auto-scroll to the next ungraded triple in the same sentence
+    setTimeout(() => {
+      if (!current) return;
+      const activeTriples = (current.triples || []).filter((t) => {
+        const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+        return isActive;
+      });
+      const currentIndexInActive = activeTriples.findIndex((t) => t.id === tripleId);
+      if (currentIndexInActive !== -1) {
+        // Look for the next ungraded triple after the current one
+        let nextUngraded = activeTriples.slice(currentIndexInActive + 1).find((t) => {
+          const userGrade = t.grades_by_user?.[currentUserId]?.grade;
+          return userGrade === undefined || userGrade === null;
+        });
+        // If not found after, wrap around and check from the beginning
+        if (!nextUngraded) {
+          nextUngraded = activeTriples.slice(0, currentIndexInActive).find((t) => {
+            const userGrade = t.grades_by_user?.[currentUserId]?.grade;
+            return userGrade === undefined || userGrade === null;
+          });
+        }
+        
+        if (nextUngraded) {
+          const nextElementId = `triple-card-${nextUngraded.id}`;
+          const el = document.getElementById(nextElementId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            setHighlightedElementId(nextElementId);
+            setTimeout(() => setHighlightedElementId(null), 2050);
+            setTimeout(() => {
+              const btn = el.querySelector(".grade-button");
+              if (btn) btn.focus();
+            }, 300);
+          }
+        }
+      }
+    }, 100);
   };
 
   const onMarkForRemoval = (tripleId, isMarked) => {
