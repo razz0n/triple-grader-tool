@@ -1553,7 +1553,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950/40 flex flex-col transition-colors duration-300">
+    <div className="h-full overflow-hidden bg-slate-100 dark:bg-slate-950/40 flex flex-col transition-colors duration-300">
       <header className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 h-[60px] flex items-center px-4 justify-between gap-3 select-none">
         
         {/* Title, version & collapse sidebar trigger + Dashboard Link */}
@@ -1951,8 +1951,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       onClick={() => setCurrentIdx(s.originalIndex)}
                       className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
                         isSelected
-                          ? "bg-indigo-50/65 dark:bg-indigo-950/25 border-indigo-300 dark:border-indigo-850 border-l-4 border-l-indigo-600 dark:border-l-indigo-500 shadow-sm"
-                          : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 border-l-4 border-l-transparent"
+                          ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-405 dark:border-indigo-800 border-l-4 border-l-indigo-600 dark:border-l-indigo-500 shadow-sm font-medium"
+                          : "bg-slate-50/40 dark:bg-slate-900/30 border-slate-200/60 dark:border-slate-800/60 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 border-l-4 border-l-transparent"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -2274,7 +2274,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             </div>
 
             <div className="space-y-4">
-              {current.triples.map((t) => {
+              {current.triples.map((t, idx) => {
                 const isHighlighted = highlightedElementId === `triple-card-${t.id}`;
                 return (
                   <div
@@ -2287,6 +2287,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     }`}
                   >
                     <TripleCard
+                      index={idx}
                       triple={t}
                       grade={
                         t.grades_by_user?.[currentUserId]?.grade !== undefined

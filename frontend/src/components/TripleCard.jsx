@@ -32,6 +32,7 @@ export default function TripleCard({
   onApproveSuggestedTriple,
   onSaveSuggestedTriple,
   onSetTripleEditing,
+  index,
 }) {
   const { subject, predicate, object } = triple;
 
@@ -147,15 +148,20 @@ export default function TripleCard({
   }
 
   const borderLeftColor = triple?.marked_for_removal
-    ? "border-l-rose-500 dark:border-l-rose-600 bg-rose-50/10 dark:bg-rose-950/5"
+    ? "border-l-rose-500 dark:border-l-rose-600 bg-rose-50/40 dark:bg-rose-950/20"
     : isNewPending
-    ? "border-l-amber-500 dark:border-l-amber-600 bg-amber-50/10 dark:bg-amber-950/5 border-dashed"
+    ? "border-l-amber-500 dark:border-l-amber-600 bg-amber-50/40 dark:bg-amber-950/20 border-dashed"
     : isNewApproved
-    ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/10 dark:bg-emerald-950/5"
-    : "border-l-indigo-600 dark:border-l-indigo-500 bg-white dark:bg-slate-900";
+    ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20"
+    : "border-l-indigo-600 dark:border-l-indigo-500 bg-slate-50/80 dark:bg-slate-900/50";
 
   return (
-    <div className={`border border-slate-200 dark:border-slate-800 rounded-2xl border-l-4 p-5 transition-all duration-200 hover:shadow-sm ${borderLeftColor}`}>
+    <div className={`border border-slate-200/80 dark:border-slate-800 rounded-2xl border-l-4 p-5 transition-all duration-200 hover:shadow-sm ${borderLeftColor}`}>
+      {index !== undefined && (
+        <div className="flex items-center justify-between mb-3.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
+          <span>Triple #{index + 1}</span>
+        </div>
+      )}
       
       {/* Removal Request alert */}
       {triple?.marked_for_removal && (
