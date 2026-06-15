@@ -266,6 +266,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false);
   const [pendingDownloadFormat, setPendingDownloadFormat] = useState(null);
   const notificationsRef = useRef(null);
+  const total   = sentences.length;
+  const current = sentences[currentIdx];
+  const completenessMetricEntries = metricEntries(current?.completeness_by_user);
+  const externalRelationMetricEntries = metricEntries(current?.external_relation_by_user);
 
   // Initialize Dark Mode theme from localStorage/system
   useEffect(() => {
@@ -342,10 +346,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }
   }, [currentIdx, sidebarFilter, currentUserId, current]);
 
-  const total   = sentences.length;
-  const current = sentences[currentIdx];
-  const completenessMetricEntries = metricEntries(current?.completeness_by_user);
-  const externalRelationMetricEntries = metricEntries(current?.external_relation_by_user);
   const currentSentenceComments = useMemo(
     () => normalizeSentenceComments(current?.sentence_comments),
     [current?.sentence_comments]
