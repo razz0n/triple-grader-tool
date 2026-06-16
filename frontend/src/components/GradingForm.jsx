@@ -1216,6 +1216,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
     // Auto-scroll to the next ungraded triple in the same sentence
     setTimeout(() => {
+      if (val === null || val === undefined) return;
       if (!current) return;
       const activeTriples = (current.triples || []).filter((t) => {
         const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
