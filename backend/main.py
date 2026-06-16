@@ -484,11 +484,8 @@ def _normalize_sentence_comments(
             legacy_user_id = str(fallback_user_id or "").strip()
             legacy_hash = hashlib.sha1(legacy_text.encode("utf-8")).hexdigest()[:10]
             
-            legacy_read_by_raw = payload.get("read_by") or [] if isinstance(payload, dict) else []
-            if not isinstance(legacy_read_by_raw, list):
-                legacy_read_by_raw = [legacy_read_by_raw] if legacy_read_by_raw else []
-            legacy_read_by = list(set([str(uid).strip() for uid in legacy_read_by_raw if uid]))
-            if legacy_user_id and legacy_user_id not in legacy_read_by:
+            legacy_read_by: list[str] = []
+            if legacy_user_id:
                 legacy_read_by.append(legacy_user_id)
 
             normalized.append({

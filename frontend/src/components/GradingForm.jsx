@@ -73,6 +73,7 @@ function normalizeSentenceComments(comments, suggestionText) {
           user_id: c.user_id ? String(c.user_id) : "",
           text: c.text ? String(c.text) : "",
           created_at: c.created_at || new Date().toISOString(),
+          read_by: Array.isArray(c.read_by) ? c.read_by.map(String) : [],
           replies: Array.isArray(c.replies)
             ? c.replies.map((r) => ({
                 id: r.id ? String(r.id) : `rpl-${Math.random()}`,
@@ -567,6 +568,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
     sentences.forEach((sentence) => {
       (sentence.sentence_comments || []).forEach((comment) => {
+        const isOwnC = comment.user_id === currentUserId;
+        const isReadC = (comment.read_by || []).includes(currentUserId);
+        if (!isOwnC && !isReadC) {
+          list.push({
+            id: comment.id,
+            type: "sentence_comment",
+            title: `New comment from ${comment.author || "User"}`,
+            text: comment.text,
+            createdAt: comment.created_at,
+            sentenceId: sentence.id,
+            sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+            tripleId: null,
+            commentId: comment.id,
+          });
+        }
+
         (comment.replies || []).forEach((reply) => {
           const isOwn = reply.user_id === currentUserId;
           const isRead = (reply.read_by || []).includes(currentUserId);
@@ -588,6 +605,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
       (sentence.triples || []).forEach((triple) => {
         (triple.triple_comments || []).forEach((comment) => {
+          const isOwnC = comment.user_id === currentUserId;
+          const isReadC = (comment.read_by || []).includes(currentUserId);
+          if (!isOwnC && !isReadC) {
+            list.push({
+              id: comment.id,
+              type: "triple_comment",
+              title: `New comment from ${comment.author || "User"} on triple`,
+              text: comment.text,
+              createdAt: comment.created_at,
+              sentenceId: sentence.id,
+              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+              tripleId: triple.id,
+              commentId: comment.id,
+            });
+          }
+
           (comment.replies || []).forEach((reply) => {
             const isOwn = reply.user_id === currentUserId;
             const isRead = (reply.read_by || []).includes(currentUserId);
@@ -609,6 +642,21 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
         (triple.suggestions || []).forEach((sug) => {
           const isOwnSug = sug.user_id === currentUserId;
+          const isReadSug = (sug.read_by || []).includes(currentUserId);
+          if (!isOwnSug && !isReadSug) {
+            list.push({
+              id: sug.id,
+              type: "triple_suggestion",
+              title: `New suggestion from ${sug.author || "User"}`,
+              text: `Proposed triple: (${sug.subject || ""}, ${sug.predicate || ""}, ${sug.object || ""})`,
+              createdAt: sug.created_at,
+              sentenceId: sentence.id,
+              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+              tripleId: triple.id,
+              suggestionId: sug.id,
+            });
+          }
+
           (sug.replies || []).forEach((reply) => {
             const isOwnReply = reply.user_id === currentUserId;
             const isRead = (reply.read_by || []).includes(currentUserId);
@@ -855,6 +903,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         if (s.id !== notif.sentenceId) return s;
 
         const nextComments = (s.sentence_comments || []).map((c) => {
+          if (notif.type === "sentence_comment" && c.id === notif.id) {
+            if (!(c.read_by || []).includes(currentUserId)) {
+              return { ...c, read_by: [...(c.read_by || []), currentUserId] };
+            }
+          }
           if (c.id === notif.commentId) {
             const nextReplies = (c.replies || []).map((r) => {
               if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
@@ -870,6 +923,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         const nextTriples = (s.triples || []).map((t) => {
           if (t.id === notif.tripleId) {
             const nextComments = (t.triple_comments || []).map((c) => {
+              if (notif.type === "triple_comment" && c.id === notif.id) {
+                if (!(c.read_by || []).includes(currentUserId)) {
+                  return { ...c, read_by: [...(c.read_by || []), currentUserId] };
+                }
+              }
               if (c.id === notif.commentId) {
                 const nextReplies = (c.replies || []).map((r) => {
                   if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
@@ -883,6 +941,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             });
 
             const nextSuggestions = (t.suggestions || []).map((sug) => {
+              if (notif.type === "triple_suggestion" && sug.id === notif.id) {
+                if (!(sug.read_by || []).includes(currentUserId)) {
+                  return { ...sug, read_by: [...(sug.read_by || []), currentUserId] };
+                }
+              }
               if (sug.id === notif.suggestionId) {
                 const nextReplies = (sug.replies || []).map((r) => {
                   if (r.id === notif.id && !(r.read_by || []).includes(currentUserId)) {
@@ -923,34 +986,52 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       const payload = latestPayloadRef.current;
       const nextSentences = payload.sentences.map((s) => {
         const nextComments = (s.sentence_comments || []).map((c) => {
-          const nextReplies = (c.replies || []).map((r) => {
+          let updatedC = c;
+          const isOwn = c.user_id === currentUserId;
+          const isRead = (c.read_by || []).includes(currentUserId);
+          if (!isOwn && !isRead) {
+            updatedC = { ...c, read_by: [...(c.read_by || []), currentUserId] };
+          }
+          const nextReplies = (updatedC.replies || []).map((r) => {
             if (!(r.read_by || []).includes(currentUserId)) {
               return { ...r, read_by: [...(r.read_by || []), currentUserId] };
             }
             return r;
           });
-          return { ...c, replies: nextReplies };
+          return { ...updatedC, replies: nextReplies };
         });
 
         const nextTriples = (s.triples || []).map((t) => {
           const nextComments = (t.triple_comments || []).map((c) => {
-            const nextReplies = (c.replies || []).map((r) => {
+            let updatedC = c;
+            const isOwn = c.user_id === currentUserId;
+            const isRead = (c.read_by || []).includes(currentUserId);
+            if (!isOwn && !isRead) {
+              updatedC = { ...c, read_by: [...(c.read_by || []), currentUserId] };
+            }
+            const nextReplies = (updatedC.replies || []).map((r) => {
               if (!(r.read_by || []).includes(currentUserId)) {
                 return { ...r, read_by: [...(r.read_by || []), currentUserId] };
               }
               return r;
             });
-            return { ...c, replies: nextReplies };
+            return { ...updatedC, replies: nextReplies };
           });
 
           const nextSuggestions = (t.suggestions || []).map((sug) => {
-            const nextReplies = (sug.replies || []).map((r) => {
+            let updatedSug = sug;
+            const isOwn = sug.user_id === currentUserId;
+            const isRead = (sug.read_by || []).includes(currentUserId);
+            if (!isOwn && !isRead) {
+              updatedSug = { ...sug, read_by: [...(sug.read_by || []), currentUserId] };
+            }
+            const nextReplies = (updatedSug.replies || []).map((r) => {
               if (!(r.read_by || []).includes(currentUserId)) {
                 return { ...r, read_by: [...(r.read_by || []), currentUserId] };
               }
               return r;
             });
-            return { ...sug, replies: nextReplies };
+            return { ...updatedSug, replies: nextReplies };
           });
 
           return { ...t, triple_comments: nextComments, suggestions: nextSuggestions };

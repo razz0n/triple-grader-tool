@@ -284,17 +284,17 @@ export default function App() {
   const isDashboard = !uploadData && !gradingData && !evalSession;
 
   return (
-    <div className={isDashboard ? "min-h-screen bg-slate-50" : "h-screen overflow-hidden bg-slate-50"}>
+    <div className={isDashboard ? "min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300" : "h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300"}>
       {isDashboard && (
-        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+        <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
           <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
-            <p className="text-xs sm:text-sm text-slate-600">
-              Welcome, <span className="font-semibold text-slate-800">{greetingName}</span>
-              {usernameTag && <span className="ml-2 text-slate-400">({usernameTag})</span>}
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              Welcome, <span className="font-semibold text-slate-800 dark:text-white">{greetingName}</span>
+              {usernameTag && <span className="ml-2 text-slate-400 dark:text-slate-550">({usernameTag})</span>}
             </p>
             <button
               onClick={handleLogout}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-350 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Logout
             </button>

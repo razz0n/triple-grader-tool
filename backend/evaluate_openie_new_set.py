@@ -415,16 +415,25 @@ def run_corenlp_openie(sentence_by_id: Dict[str, str]) -> List[Triple]:
     return dedupe_triples([t for t in predictions if t.subject and t.predicate and t.object])
 
 
+_STANZA_NLP = None
+
+
+def _get_stanza_nlp():
+    global _STANZA_NLP
+    if _STANZA_NLP is None:
+        import stanza
+        stanza.download("en", processors="tokenize,pos,lemma,depparse", verbose=False)
+        _STANZA_NLP = stanza.Pipeline("en", processors="tokenize,pos,lemma,depparse", verbose=False)
+    return _STANZA_NLP
+
+
 def run_stanza_dependency_baseline(sentence_by_id: Dict[str, str]) -> List[Triple]:
     """
     Dependency-based triple extraction baseline using stanza.
     Handles standard SVO, copular constructions, passive voice,
     and complement/adverbial fallbacks to maximise recall.
     """
-    import stanza
-
-    stanza.download("en", processors="tokenize,pos,lemma,depparse", verbose=False)
-    nlp = stanza.Pipeline("en", processors="tokenize,pos,lemma,depparse", verbose=False)
+    nlp = _get_stanza_nlp()
 
     subj_rels = {"nsubj", "nsubj:pass", "csubj", "csubj:pass", "nsubjpass", "csubjpass"}
     obj_rels = {"obj", "iobj", "obl", "xcomp", "ccomp", "dobj", "attr"}
