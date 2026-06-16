@@ -40,10 +40,10 @@ function createEmptyManualGroup(nextGroupId) {
 
 function Badge({ color, children }) {
   const colors = {
-    blue:   "bg-indigo-55 bg-indigo-50/70 border border-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-900/50 dark:text-indigo-300",
-    green:  "bg-emerald-55 bg-emerald-50/70 border border-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-300",
-    purple: "bg-purple-55 bg-purple-50/70 border border-purple-100 text-purple-700 dark:bg-purple-950/40 dark:border-purple-900/50 dark:text-purple-300",
-    gray:   "bg-slate-100 border border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-350",
+    blue:   "bg-indigo-50/70 border border-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-900/50 dark:text-indigo-300",
+    green:  "bg-emerald-50/70 border border-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-300",
+    purple: "bg-purple-50/70 border border-purple-100 text-purple-700 dark:bg-purple-950/40 dark:border-purple-900/50 dark:text-purple-300",
+    gray:   "bg-slate-100 border border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold tracking-wide ${colors[color] ?? colors.gray}`}>
@@ -114,21 +114,21 @@ function TripleRow({ triple, included, onToggle, onSaveEdit, onDelete }) {
                 value={draft.subject}
                 onChange={(e) => setDraft((prev) => ({ ...prev, subject: e.target.value }))}
                 placeholder="Subject"
-                className="w-full text-xs border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+                className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
               />
               <input
                 type="text"
                 value={draft.predicate}
                 onChange={(e) => setDraft((prev) => ({ ...prev, predicate: e.target.value }))}
                 placeholder="Predicate"
-                className="w-full text-xs border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+                className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
               />
               <input
                 type="text"
                 value={draft.object}
                 onChange={(e) => setDraft((prev) => ({ ...prev, object: e.target.value }))}
                 placeholder="Object"
-                className="w-full text-xs border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+                className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
               />
             </div>
           ) : (
@@ -452,7 +452,7 @@ function GroupCard({
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                         group.selectedVersionId === v.version_id
                           ? "bg-indigo-600 text-white border-indigo-650 shadow-sm"
-                          : "bg-white dark:bg-slate-900 text-slate-650 dark:text-slate-300 border-slate-250 dark:border-slate-800 hover:border-indigo-400"
+                          : "bg-white dark:bg-slate-900 text-slate-650 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-400"
                       }`}
                     >
                       {v.version_label}
@@ -739,7 +739,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         <div className="flex items-center gap-2.5 justify-end">
           <button
             onClick={onReset}
-            className="inline-flex items-center gap-1 text-xs font-bold text-slate-550 dark:text-slate-300 hover:text-slate-850 dark:hover:text-white border border-slate-250 dark:border-slate-800 rounded-xl px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-all"
+            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-all"
           >
             <ArrowLeft size={13} /> {isManualMode ? "Back" : "Re-upload File"}
           </button>
@@ -805,7 +805,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
         {/* Structured Instructions Panel */}
         <div className="bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 rounded-2xl p-5 mb-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-6 h-6 rounded-xl bg-indigo-55 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+            <div className="inline-flex items-center justify-center w-6 h-6 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
               <HelpCircle size={15} />
             </div>
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">How to Prepare Your Worksheet</h3>
@@ -823,7 +823,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
                 <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 dark:bg-indigo-500 text-white text-[9px] font-bold shrink-0">
                   {step.num}
                 </span>
-                <p className="text-[10px] sm:text-xs text-slate-550 dark:text-slate-400 leading-normal">{step.text}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 leading-normal">{step.text}</p>
               </div>
             ))}
           </div>

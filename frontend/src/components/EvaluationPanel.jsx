@@ -176,7 +176,7 @@ function TriplesDetail({ perSentence, title }) {
               <span className="text-slate-600 dark:text-slate-300 truncate max-w-sm font-semibold" title={row.sentence_text}>
                 {row.sentence_text}
               </span>
-              <span className="ml-auto shrink-0 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 px-2 py-0.5 rounded border border-slate-150 dark:border-slate-850">
+              <span className="ml-auto shrink-0 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
                 {row.gold_triples?.length ?? 0} Gold &bull; {row.pred_triples?.length ?? 0} Pred
               </span>
             </summary>
@@ -368,7 +368,7 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
 
         {/* Toggle options bar */}
         <div className="flex items-center gap-3 flex-wrap justify-end">
-          <div className="flex items-center gap-1.5 shrink-0 bg-slate-100/80 dark:bg-slate-855 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/40">
+          <div className="flex items-center gap-1.5 shrink-0 bg-slate-100/80 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/40">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1.5 select-none">Match:</span>
             {["soft", "exact"].map((m) => (
               <button
@@ -385,7 +385,7 @@ export default function EvaluationPanel({ sessionId, sourceFilename, onBack }) {
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 bg-slate-100/80 dark:bg-slate-855 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/40">
+          <div className="flex items-center gap-1.5 shrink-0 bg-slate-100/80 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/40">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1.5 select-none">Gold:</span>
             {[
               { value: "graded_only", label: "Graded" },

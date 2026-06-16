@@ -250,7 +250,7 @@ export default function TripleSuggestions({
                 value={formData.subject}
                 onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
                 placeholder="Subject"
-                className="w-full border border-slate-250 dark:border-slate-850 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
               />
               <input
                 type="text"
@@ -258,7 +258,7 @@ export default function TripleSuggestions({
                 value={formData.predicate}
                 onChange={(e) => setFormData((prev) => ({ ...prev, predicate: e.target.value }))}
                 placeholder="Predicate"
-                className="w-full border border-slate-250 dark:border-slate-855 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-955 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
               />
               <input
                 type="text"
@@ -266,13 +266,13 @@ export default function TripleSuggestions({
                 value={formData.object}
                 onChange={(e) => setFormData((prev) => ({ ...prev, object: e.target.value }))}
                 placeholder="Object"
-                className="w-full border border-slate-250 dark:border-slate-855 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-955 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
               />
               <textarea
                 value={formData.reason}
                 onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
                 placeholder="Reason or discussion context (optional)"
-                className="w-full border border-slate-250 dark:border-slate-855 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-955 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-700 focus:border-transparent transition-all h-16 resize-none dark:text-white leading-normal"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-700 focus:border-transparent transition-all h-16 resize-none dark:text-white leading-normal"
               />
             </div>
             <div className="flex gap-2 justify-end pt-1">
@@ -281,7 +281,7 @@ export default function TripleSuggestions({
                   setFormData({ subject: "", predicate: "", object: "", reason: "" });
                   setShowForm(false);
                 }}
-                className="px-3.5 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-700 dark:text-slate-350 rounded-xl hover:bg-slate-55 transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -338,7 +338,7 @@ export default function TripleSuggestions({
                             onClick={() => onApproveSuggestion?.(sug.id, sug.status === "approved")}
                             className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-colors cursor-pointer active:scale-95 ${
                               sug.status === "approved"
-                                ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-250 dark:border-slate-750 hover:bg-slate-200"
+                                ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
                                 : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30 hover:bg-emerald-100"
                             }`}
                           >
@@ -373,38 +373,38 @@ export default function TripleSuggestions({
                         value={editFormData.subject}
                         onChange={(e) => setEditFormData((prev) => ({ ...prev, subject: e.target.value }))}
                         placeholder="Subject"
-                        className="w-full border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+                        className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                       />
                       <input
                         type="text"
                         value={editFormData.predicate}
                         onChange={(e) => setEditFormData((prev) => ({ ...prev, predicate: e.target.value }))}
                         placeholder="Predicate"
-                        className="w-full border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white"
+                        className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                       />
                       <input
                         type="text"
                         value={editFormData.object}
                         onChange={(e) => setEditFormData((prev) => ({ ...prev, object: e.target.value }))}
                         placeholder="Object"
-                        className="w-full border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white"
+                        className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                       />
                       <textarea
                         value={editFormData.reason}
                         onChange={(e) => setEditFormData((prev) => ({ ...prev, reason: e.target.value }))}
                         placeholder="Reason (optional)"
-                        className="w-full border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 h-12 resize-none dark:text-white"
+                        className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 h-12 resize-none dark:text-white"
                       />
                       <div className="flex gap-1.5 justify-end">
                         <button
                           onClick={cancelEditSuggestion}
-                          className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-50 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-55 transition-colors cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => saveEditSuggestion(sug.id)}
-                          className="px-2.5 py-1 text-xs bg-indigo-650 hover:bg-indigo-700 text-white rounded font-bold transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold transition-colors cursor-pointer"
                         >
                           Save Changes
                         </button>
@@ -413,15 +413,15 @@ export default function TripleSuggestions({
                   ) : (
                     <>
                       <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100/35 font-bold">
+                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100/30 font-bold">
                           {sug.subject}
                         </span>
-                        <ChevronRight size={10} className="text-slate-350" />
-                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-450 border border-emerald-100/35 font-bold">
+                        <ChevronRight size={10} className="text-slate-400" />
+                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-100/30 font-bold">
                           {sug.predicate}
                         </span>
-                        <ChevronRight size={10} className="text-slate-350" />
-                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border border-purple-100/35 font-bold">
+                        <ChevronRight size={10} className="text-slate-400" />
+                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border border-purple-100/30 font-bold">
                           {sug.object}
                         </span>
                       </div>
@@ -446,10 +446,10 @@ export default function TripleSuggestions({
                       disabled={!canVote}
                       className={`inline-flex items-center gap-1 px-2.5 py-1 border rounded-lg transition-all text-[11px] font-bold cursor-pointer ${
                         !canVote
-                          ? "bg-slate-50 dark:bg-slate-950 text-slate-350 dark:text-slate-650 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+                          ? "bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed"
                           : currentUserVote === "yes"
-                          ? "bg-emerald-600 border-emerald-650 text-white shadow-sm"
-                          : "bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30 hover:bg-emerald-100/60"
+                          ? "bg-emerald-600 border-emerald-700 text-white shadow-sm"
+                          : "bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-900/30 hover:bg-emerald-100/60"
                       }`}
                     >
                       <ThumbsUp size={11} /> {countVotes(sug.votes, "yes")}
@@ -459,10 +459,10 @@ export default function TripleSuggestions({
                       disabled={!canVote}
                       className={`inline-flex items-center gap-1 px-2.5 py-1 border rounded-lg transition-all text-[11px] font-bold cursor-pointer ${
                         !canVote
-                          ? "bg-slate-50 dark:bg-slate-950 text-slate-350 dark:text-slate-650 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+                          ? "bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed"
                           : currentUserVote === "no"
-                          ? "bg-rose-600 border-rose-650 text-white shadow-sm"
-                          : "bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-455 border-rose-200 dark:border-rose-900/30 hover:bg-rose-100/60"
+                          ? "bg-rose-600 border-rose-700 text-white shadow-sm"
+                          : "bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-455 border-rose-200/60 dark:border-rose-900/30 hover:bg-rose-100/60"
                       }`}
                     >
                       <ThumbsDown size={11} /> {countVotes(sug.votes, "no")}
@@ -471,8 +471,8 @@ export default function TripleSuggestions({
                       onClick={() => toggleDiscussion(sug.id)}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all text-[11px] font-bold cursor-pointer ${
                         expandedDiscussionIds[sug.id]
-                          ? "bg-indigo-600 border-indigo-650 text-white shadow-sm"
-                          : "bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-750 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/35 hover:bg-indigo-100/60"
+                          ? "bg-indigo-600 border-indigo-700 text-white shadow-sm"
+                          : "bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/30 hover:bg-indigo-100/60"
                       }`}
                     >
                       <MessageSquare size={11} /> Discuss ({sug.replies?.length || 0})
@@ -488,10 +488,10 @@ export default function TripleSuggestions({
                           disabled={!canVote}
                           className={`w-5 h-5 border rounded text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${
                             !canVote
-                              ? "bg-slate-50 dark:bg-slate-950 text-slate-300 dark:text-slate-650 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+                              ? "bg-slate-50 dark:bg-slate-950 text-slate-300 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed"
                               : currentUserVote === grade
-                              ? "bg-indigo-600 border-indigo-650 text-white"
-                              : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-250 dark:border-slate-850 hover:bg-indigo-50"
+                              ? "bg-indigo-600 border-indigo-600 text-white"
+                              : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50"
                           }`}
                           title={canVote ? `Vote score ${grade}` : "Cannot vote on your own suggestion"}
                         >
@@ -501,7 +501,7 @@ export default function TripleSuggestions({
                     </div>
 
                     {gradeAverage !== null && (
-                      <span className="ml-auto text-[10px] font-bold text-indigo-700 dark:text-indigo-455 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded-lg select-none">
+                      <span className="ml-auto text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded-lg select-none">
                         Avg {gradeAverage} ({gradeVotes.length})
                       </span>
                     )}
@@ -509,7 +509,7 @@ export default function TripleSuggestions({
 
                   {/* Discussion replies drawer */}
                   {expandedDiscussionIds[sug.id] && (
-                    <div className="mt-4 pl-3.5 border-l-2 border-indigo-250 dark:border-indigo-900 space-y-2.5">
+                    <div className="mt-4 pl-3.5 border-l-2 border-indigo-300 dark:border-indigo-900 space-y-2.5">
                       {sug.replies && sug.replies.length > 0 && (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                           {sug.replies.map((reply) => {
@@ -526,7 +526,7 @@ export default function TripleSuggestions({
                                       <span>&bull;</span>
                                       <span>{formatCommentTimestamp(reply.created_at)}</span>
                                     </div>
-                                    <p className="text-slate-650 dark:text-slate-350 mt-0.5 break-words">
+                                    <p className="text-slate-600 dark:text-slate-300 mt-0.5 break-words">
                                       {reply.text}
                                     </p>
                                   </div>
@@ -555,7 +555,7 @@ export default function TripleSuggestions({
                           }
                           placeholder="Reply to this discussion thread..."
                           rows={1}
-                          className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white"
+                          className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                         />
                         <div className="flex gap-1.5 justify-end">
                           <button
@@ -567,7 +567,7 @@ export default function TripleSuggestions({
                           <button
                             onClick={() => handlePostSuggestionReply(sug.id)}
                             disabled={!(discussionDrafts[sug.id] || "").trim()}
-                            className="text-[10px] px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-755 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer shadow-sm"
+                            className="text-[10px] px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer shadow-sm"
                           >
                             Post Reply
                           </button>

@@ -265,7 +265,7 @@ export default function TripleComments({
                 onChange={(e) => setFormData(e.target.value)}
                 placeholder="Add a comment about this triple annotation..."
                 rows={2}
-                className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white leading-normal h-16"
+                className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white leading-normal h-16"
               />
               <div className="flex gap-2 justify-end">
                 <button

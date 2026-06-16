@@ -519,7 +519,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                       sourceFormat: manualFormat,
                     });
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-550 text-white shadow-sm transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   Start Builder
                   <ExternalLink size={14} />
@@ -588,7 +588,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           <Folder size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-250 truncate">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white truncate">
                             {group.sourceFilename}
                           </p>
                           <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">

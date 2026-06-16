@@ -105,7 +105,7 @@ export default function TripleCard({
               value={sub}
               onChange={(e) => setSub(e.target.value)}
               placeholder="Subject"
-              className="w-full border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+              className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
             />
           </div>
           <div>
@@ -115,7 +115,7 @@ export default function TripleCard({
               value={pred}
               onChange={(e) => setPred(e.target.value)}
               placeholder="Predicate"
-              className="w-full border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+              className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
             />
           </div>
           <div>
@@ -125,14 +125,14 @@ export default function TripleCard({
               value={obj}
               onChange={(e) => setObj(e.target.value)}
               placeholder="Object"
-              className="w-full border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+              className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
             />
           </div>
         </div>
         <div className="flex gap-2 justify-end pt-1">
           <button
             onClick={handleCancelClick}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-250 dark:border-slate-750 hover:bg-slate-55 transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -214,7 +214,7 @@ export default function TripleCard({
 
       {/* Suggested Approved Alert */}
       {isNewApproved && (
-        <div className="mb-3 px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/30 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-450 flex items-center justify-between gap-3">
+        <div className="mb-3 px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center justify-between gap-3">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 size={16} className="text-emerald-600" />
             Approved Suggestion &bull; Added by {triple.suggested_by || "Grader"}
@@ -223,7 +223,7 @@ export default function TripleCard({
             <button
               type="button"
               onClick={() => onRemoveSuggestedTriple?.(triple.id)}
-              className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-750 text-white text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
             >
               <Trash2 size={11} /> Remove
             </button>
@@ -240,7 +240,7 @@ export default function TripleCard({
           className={`inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
             canSuggest
               ? "bg-indigo-50 border-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-900/50 dark:text-indigo-300 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/70 cursor-pointer"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed"
           }`}
           title="Copy subject to suggestion box"
         >
@@ -255,7 +255,7 @@ export default function TripleCard({
           className={`inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
             canSuggest
               ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-300 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/70 cursor-pointer"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed"
           }`}
           title="Copy predicate to suggestion box"
         >
@@ -270,7 +270,7 @@ export default function TripleCard({
           className={`inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
             canSuggest
               ? "bg-purple-50 border-purple-100 text-purple-700 dark:bg-purple-950/40 dark:border-purple-900/50 dark:text-purple-300 hover:bg-purple-100/80 dark:hover:bg-purple-900/70 cursor-pointer"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-850 cursor-not-allowed"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed"
           }`}
           title="Copy object to suggestion box"
         >
@@ -282,7 +282,7 @@ export default function TripleCard({
             <button
               type="button"
               onClick={() => onAddTripleAdjacent?.(triple.id, "above")}
-              className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-850 hover:border-slate-300 bg-slate-50 dark:bg-slate-850 hover:bg-slate-100/80 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-350 text-[10px] rounded-lg font-bold transition-all cursor-pointer"
+              className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] rounded-lg font-bold transition-all cursor-pointer"
               title="Insert a new empty triple above this"
             >
               + Add Above
@@ -290,7 +290,7 @@ export default function TripleCard({
             <button
               type="button"
               onClick={() => onAddTripleAdjacent?.(triple.id, "below")}
-              className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-850 hover:border-slate-300 bg-slate-50 dark:bg-slate-850 hover:bg-slate-100/80 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-350 text-[10px] rounded-lg font-bold transition-all cursor-pointer"
+              className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] rounded-lg font-bold transition-all cursor-pointer"
               title="Insert a new empty triple below this"
             >
               + Add Below
@@ -329,8 +329,8 @@ export default function TripleCard({
                   disabled={readOnly}
                   className={`grade-button w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
                     grade === n
-                      ? "bg-indigo-600 border-indigo-650 text-white scale-110 shadow-sm"
-                      : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-250 dark:border-slate-850 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                      ? "bg-indigo-600 border-indigo-600 text-white scale-110 shadow-sm"
+                      : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                   } ${readOnly ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {n}
@@ -396,7 +396,7 @@ export default function TripleCard({
             className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg font-bold border transition-colors cursor-pointer ${
               triple?.marked_for_removal
                 ? "bg-rose-50 dark:bg-rose-950/20 text-rose-700 border-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30"
-                : "bg-slate-50 dark:bg-slate-850 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-455 border-slate-200 dark:border-slate-800 hover:border-rose-250 dark:hover:border-rose-900"
+                : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 border-slate-200 dark:border-slate-700 hover:border-rose-250 dark:hover:bg-rose-900"
             }`}
             title={triple?.marked_for_removal ? "Cancel deletion flag" : "Request deletion of this triple"}
           >

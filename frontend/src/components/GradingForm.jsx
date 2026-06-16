@@ -1845,8 +1845,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               disabled={!savedSessionId}
               className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
                 savedSessionId
-                  ? "border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 text-purple-750 dark:text-purple-400 hover:bg-purple-100/50"
-                  : "border-slate-250 dark:border-slate-800 text-slate-300 dark:text-slate-650 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
+                  ? "border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100/50"
+                  : "border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 cursor-not-allowed"
               }`}
               title={savedSessionId ? "Run Stanza OpenIE evaluation match checks" : "Save changes first"}
             >
@@ -1889,7 +1889,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             {/* Notifications panel overlay */}
             {notificationsOpen && (
               <div className="absolute right-0 top-full mt-2 w-80 glass-dropdown rounded-2xl shadow-xl py-1 z-50 flex flex-col max-h-[360px]">
-                <div className="px-4 py-2.5 border-b border-slate-150 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
+                <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-450 dark:text-slate-500">
                     Notifications ({notifications.length})
                   </span>
@@ -2177,12 +2177,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
                 {/* Status & completeness summary badges */}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 mr-2 border-r border-slate-150 dark:border-slate-800 pr-2">
+                  <div className="flex items-center gap-1 mr-2 border-r border-slate-200 dark:border-slate-800 pr-2">
                     <button
                       type="button"
                       onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
                       disabled={currentIdx === 0}
-                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-955 dark:hover:bg-slate-850 disabled:opacity-40 cursor-pointer text-slate-500"
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer text-slate-550 dark:text-slate-400"
                       title="Previous Sentence"
                     >
                       <ChevronLeft size={14} />
@@ -2191,7 +2191,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       type="button"
                       onClick={() => setCurrentIdx((i) => Math.min(total - 1, i + 1))}
                       disabled={currentIdx === total - 1}
-                      className="p-1 rounded bg-slate-50 hover:bg-slate-150 dark:bg-slate-955 dark:hover:bg-slate-850 disabled:opacity-40 cursor-pointer text-slate-500"
+                      className="p-1 rounded bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer text-slate-550 dark:text-slate-400"
                       title="Next Sentence"
                     >
                       <ChevronRight size={14} />
@@ -2228,7 +2228,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               </div>
 
               {/* Sentence Blockquote text */}
-              <blockquote className="border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-955/40 rounded-r-2xl border border-slate-200/50 dark:border-slate-800 p-3.5 font-semibold leading-relaxed text-sm sm:text-base">
+              <blockquote className="border-l-4 border-indigo-500 pl-4 bg-slate-50 dark:bg-slate-900/50 rounded-r-2xl border border-slate-200/50 dark:border-slate-800 p-3.5 font-semibold leading-relaxed text-sm sm:text-base text-slate-800 dark:text-slate-100">
                 {current.text}
               </blockquote>
 
@@ -2279,8 +2279,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                               key={`c-${entry.userId}`}
                               className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
                                 isMe
-                                  ? "bg-indigo-50 dark:bg-indigo-955 text-indigo-755 dark:text-indigo-400 border-indigo-250 dark:border-indigo-900"
-                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                                  ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900"
+                                  : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                               }`}
                             >
                               <span>{entry.userName}</span>
@@ -2320,7 +2320,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                           className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
                             current.external_relation === scoreVal
                               ? "bg-emerald-600 border-emerald-650 text-white scale-110 shadow-sm"
-                              : "bg-white dark:bg-slate-955 text-slate-655 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                              : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                           } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
                           {scoreVal}
@@ -2338,8 +2338,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                               key={`r-${entry.userId}`}
                               className={`inline-flex items-center gap-1.5 text-[10px] font-semibold border px-2.5 py-1 rounded-full ${
                                 isMe
-                                  ? "bg-emerald-50 dark:bg-emerald-955 text-emerald-750 dark:text-emerald-450 border-emerald-250 dark:border-emerald-900"
-                                  : "bg-slate-50 dark:bg-slate-955 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                                  ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900"
+                                  : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                               }`}
                             >
                               <span>{entry.userName}</span>
@@ -2547,7 +2547,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                         {comment.replies.map((reply) => (
                           <div
                             key={reply.id}
-                            className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 leading-relaxed text-[11px]"
+                            className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 leading-relaxed text-[11px]"
                           >
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex-1 min-w-0">
@@ -2582,13 +2582,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     {!readOnly && (
                       <div className="pt-1 select-none">
                         {replyingToSentenceCommentId === comment.id ? (
-                          <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 p-2.5 rounded-xl">
+                          <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl">
                             <textarea
                               value={sentenceCommentReplyText}
                               onChange={(e) => setSentenceCommentReplyText(e.target.value)}
                               placeholder="Write a reply..."
                               rows={1}
-                              className="w-full text-xs border border-slate-205 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-955 dark:text-white"
+                              className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                             />
                             <div className="flex gap-1.5 justify-end">
                               <button
@@ -2723,22 +2723,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
                   
                   {/* Summary metric cards */}
-                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-850">
+                  <div className="bg-slate-50/60 dark:bg-slate-900/20 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Source Sentences</span>
                     <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.totalSentences}</p>
                   </div>
 
-                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                  <div className="bg-slate-50/60 dark:bg-slate-900/20 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Final Gold Triples</span>
                     <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.totalGoldTriples}</p>
                   </div>
 
-                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                  <div className="bg-slate-50/60 dark:bg-slate-900/20 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Avg Triples / Sent</span>
                     <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.avgTriplesPerSentence}</p>
                   </div>
 
-                  <div className="bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3.5 border border-slate-150 dark:border-slate-855">
+                  <div className="bg-slate-50/60 dark:bg-slate-900/20 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block">Total Graders</span>
                     <p className="text-lg font-extrabold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">{paperMetrics.numUsers}</p>
                   </div>
