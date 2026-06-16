@@ -5,6 +5,7 @@ import ReviewStep from "./components/ReviewStep";
 import GradingForm from "./components/GradingForm";
 import EvaluationPanel from "./components/EvaluationPanel";
 import AuthPanel from "./components/AuthPanel";
+import { Sun, Moon } from "lucide-react";
 import { getAuthToken, logoutUser, meUser, saveSession } from "./api";
 
 class ErrorBoundary extends React.Component {
@@ -80,12 +81,38 @@ function createManualSessionSeed(options = {}) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   // uploadData  : raw parse result from /api/upload (sentence_groups)
   // gradingData : loaded/resumed grading session payload
   const [uploadData, setUploadData] = useState(null);
   const [gradingData, setGradingData] = useState(null);
   const [evalSession, setEvalSession] = useState(null); // { sessionId, sourceFilename }
   const [recentUploadSessionId, setRecentUploadSessionId] = useState(null);
+
+  // Initialize theme on mount
+  useEffect(() => {
+    const isDarkTheme =
+      localStorage.getItem("theme") === "dark" ||
+      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setIsDark(isDarkTheme);
+    if (isDarkTheme) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDark;
+    setIsDark(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
 
   useEffect(() => {
     const token = getAuthToken();
@@ -211,7 +238,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 text-sm">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-500 dark:text-slate-400 text-sm">
         Restoring session...
       </div>
     );
@@ -292,12 +319,21 @@ export default function App() {
               Welcome, <span className="font-semibold text-slate-800 dark:text-white">{greetingName}</span>
               {usernameTag && <span className="ml-2 text-slate-400 dark:text-slate-550">({usernameTag})</span>}
             </p>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-350 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Logout
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Toggle Light/Dark Theme"
+              >
+                {isDark ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-350 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       )}
