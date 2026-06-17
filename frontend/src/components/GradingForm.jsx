@@ -258,6 +258,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     };
   }, []);
 
+  // Scroll main workspace container to top when sentence index changes
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, [currentIdx]);
+
   const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
   const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
 
@@ -2167,7 +2174,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </AnimatePresence>
 
         {/* RIGHT MAIN PANEL */}
-        <main ref={mainRef} className="flex-1 flex flex-col h-full bg-slate-100 dark:bg-slate-950/40 overflow-hidden">
+        <main className="flex-1 flex flex-col h-full bg-slate-100 dark:bg-slate-955/40 overflow-hidden">
           
           {/* Active Sentence Workspace Card (Fixed Top Section) */}
           <div className="px-4 sm:px-6 pt-4 shrink-0 bg-slate-100 dark:bg-slate-950/40">
@@ -2392,7 +2399,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           </div>
 
           {/* Scrollable Container (Collaborators Activity, Triples Workspace, and Sentence Comments) */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
+          <div ref={mainRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
             
             {/* Graders Collaborators Banner Card */}
           {/* Graders Collaborators Banner Card */}
