@@ -1448,6 +1448,13 @@ def _parse_uploaded_json(file_bytes: bytes) -> list[Dict[str, Any]]:
         except Exception as exc:
             raise ValueError(f"Invalid JSON upload: {str(exc)}")
 
+    if isinstance(payload, list):
+        is_group = len(payload) > 0 and isinstance(payload[0], dict) and "versions" in payload[0]
+        if is_group:
+            payload = {"sentence_groups": payload}
+        else:
+            payload = {"sentences": payload}
+
     if not isinstance(payload, dict):
         raise ValueError("Uploaded JSON must be an object at the top level.")
 

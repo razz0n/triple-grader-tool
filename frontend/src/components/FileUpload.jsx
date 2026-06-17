@@ -231,6 +231,14 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
           } catch (err) {
             throw new Error("Uploaded JSON is not valid JSON.");
           }
+          if (Array.isArray(payload)) {
+            const isGroup = payload.length > 0 && payload[0] && typeof payload[0] === "object" && ("versions" in payload[0]);
+            if (isGroup) {
+              payload = { sentence_groups: payload };
+            } else {
+              payload = { sentences: payload };
+            }
+          }
           _validateJsonUpload(payload);
         }
         const data = await uploadFile(file);
