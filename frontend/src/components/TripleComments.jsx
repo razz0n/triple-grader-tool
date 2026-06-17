@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MessageSquare, CornerDownRight, Trash2, Send, X, User } from "lucide-react";
 
 function createCommentId() {
@@ -35,6 +35,24 @@ export default function TripleComments({
   const [formData, setFormData] = useState("");
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyData, setReplyData] = useState("");
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (showForm) {
+      textareaRef.current?.focus();
+    }
+  }, [showForm]);
+
+  useEffect(() => {
+    if (replyingToId) {
+      setTimeout(() => {
+        const replyTextarea = document.querySelector(`textarea[placeholder="Write a reply..."]`);
+        if (replyTextarea) {
+          replyTextarea.focus();
+        }
+      }, 50);
+    }
+  }, [replyingToId]);
 
   const handleSubmitComment = async () => {
     const text = String(formData || "").trim();
@@ -176,6 +194,7 @@ export default function TripleComments({
               {!readOnly && replyingToId === comment.id && (
                 <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
                   <textarea
+                    autoFocus
                     value={replyData}
                     onChange={(e) => setReplyData(e.target.value)}
                     placeholder="Write a reply..."
@@ -261,6 +280,8 @@ export default function TripleComments({
           ) : (
             <div className="space-y-2.5 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm">
               <textarea
+                autoFocus
+                ref={textareaRef}
                 value={formData}
                 onChange={(e) => setFormData(e.target.value)}
                 placeholder="Add a comment about this triple annotation..."
