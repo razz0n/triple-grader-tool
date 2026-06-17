@@ -1448,12 +1448,50 @@ def _parse_uploaded_json(file_bytes: bytes) -> list[Dict[str, Any]]:
         except Exception as exc:
             raise ValueError(f"Invalid JSON upload: {str(exc)}")
 
-    if isinstance(payload, list):
-        is_group = len(payload) > 0 and isinstance(payload[0], dict) and "versions" in payload[0]
-        if is_group:
-            payload = {"sentence_groups": payload}
+    if isinstance(payload, list) and len(payload) > 0:
+        first_item = payload[0]
+        is_flat_triples = isinstance(first_item, dict) and "subject" in first_item and "predicate" in first_item and "object" in first_item
+        
+        if is_flat_triples:
+            grouped_sentences = []
+            sentence_index = {}
+            for idx, item in enumerate(payload):
+                if not isinstance(item, dict):
+                    continue
+                s_text = str(
+                    item.get("sentence")
+                    or item.get("text")
+                    or item.get("sentence_text")
+                    or item.get("sentence_candidate")
+                    or ""
+                ).strip()
+                if not s_text:
+                    s_text = f"Untitled Sentence {idx+1}"
+                
+                triple_obj = {
+                    "id": str(item.get("id") or f"tpl-{idx}"),
+                    "subject": str(item.get("subject") or "").strip(),
+                    "predicate": str(item.get("predicate") or "").strip(),
+                    "object": str(item.get("object") or "").strip(),
+                }
+                
+                if s_text in sentence_index:
+                    target_idx = sentence_index[s_text]
+                    grouped_sentences[target_idx]["triples"].append(triple_obj)
+                else:
+                    new_sent = {
+                        "text": s_text,
+                        "triples": [triple_obj]
+                    }
+                    sentence_index[s_text] = len(grouped_sentences)
+                    grouped_sentences.append(new_sent)
+            payload = {"sentences": grouped_sentences}
         else:
-            payload = {"sentences": payload}
+            is_group = isinstance(first_item, dict) and "versions" in first_item
+            if is_group:
+                payload = {"sentence_groups": payload}
+            else:
+                payload = {"sentences": payload}
 
     if not isinstance(payload, dict):
         raise ValueError("Uploaded JSON must be an object at the top level.")

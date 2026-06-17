@@ -232,11 +232,47 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             throw new Error("Uploaded JSON is not valid JSON.");
           }
           if (Array.isArray(payload)) {
-            const isGroup = payload.length > 0 && payload[0] && typeof payload[0] === "object" && ("versions" in payload[0]);
-            if (isGroup) {
-              payload = { sentence_groups: payload };
+            const firstItem = payload[0];
+            const isFlatTriples = firstItem && typeof firstItem === "object" && ("subject" in firstItem) && ("predicate" in firstItem) && ("object" in firstItem);
+            
+            if (isFlatTriples) {
+              const groupedSentences = [];
+              const sentenceIndex = {};
+              
+              payload.forEach((item, idx) => {
+                if (!item || typeof item !== "object") return;
+                const sText = String(
+                  item.sentence || item.text || item.sentence_text || item.sentence_candidate || ""
+                ).trim() || `Untitled Sentence ${idx + 1}`;
+                
+                const tripleObj = {
+                  id: String(item.id || `tpl-${idx}-${Date.now()}`),
+                  subject: String(item.subject || "").trim(),
+                  predicate: String(item.predicate || "").trim(),
+                  object: String(item.object || "").trim(),
+                };
+                
+                if (sText in sentenceIndex) {
+                  const targetIdx = sentenceIndex[sText];
+                  groupedSentences[targetIdx].triples.push(tripleObj);
+                } else {
+                  const newSent = {
+                    text: sText,
+                    triples: [tripleObj]
+                  };
+                  sentenceIndex[sText] = groupedSentences.length;
+                  groupedSentences.push(newSent);
+                }
+              });
+              
+              payload = { sentences: groupedSentences };
             } else {
-              payload = { sentences: payload };
+              const isGroup = payload.length > 0 && payload[0] && typeof payload[0] === "object" && ("versions" in payload[0]);
+              if (isGroup) {
+                payload = { sentence_groups: payload };
+              } else {
+                payload = { sentences: payload };
+              }
             }
           }
           _validateJsonUpload(payload);
