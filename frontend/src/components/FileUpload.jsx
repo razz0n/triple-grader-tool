@@ -141,16 +141,22 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
   const [collapsedSourceGroups, setCollapsedSourceGroups] = useState({});
   const [recentFocusAppliedFor, setRecentFocusAppliedFor] = useState(null);
 
-  // Fetch saved sessions on mount
+  // Fetch saved sessions on mount and poll every 30 seconds
   useEffect(() => {
-    listSessions()
-      .then((list) => {
-        const sorted = [...list].sort((a, b) =>
-          b.uploaded_at.localeCompare(a.uploaded_at)
-        );
-        setSessions(sorted);
-      })
-      .catch(() => { });
+    const fetchSessions = () => {
+      listSessions()
+        .then((list) => {
+          const sorted = [...list].sort((a, b) =>
+            b.uploaded_at.localeCompare(a.uploaded_at)
+          );
+          setSessions(sorted);
+        })
+        .catch(() => { });
+    };
+
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -617,6 +623,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                   })
                   : "";
                 const isCollapsed = !!collapsedSourceGroups[group.sourceKey];
+                const isGroupRecent = group.latestUploadedAt && (Date.now() - new Date(group.latestUploadedAt + "Z").getTime() < 24 * 60 * 60 * 1000);
 
                 return (
                   <div
@@ -632,8 +639,14 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                           <Folder size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white truncate">
-                            {group.sourceFilename}
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white truncate flex items-center gap-1.5 flex-wrap">
+                            <span>{group.sourceFilename}</span>
+                            {isGroupRecent && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-450 border border-emerald-100 dark:border-emerald-900/30 select-none shrink-0">
+                                <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+                                New File
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                             <span>
@@ -699,6 +712,8 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                               }/10`
                               : null;
 
+                          const isRecent = s.uploaded_at && (Date.now() - new Date(s.uploaded_at + "Z").getTime() < 24 * 60 * 60 * 1000);
+
                           return (
                             <div
                               key={s.session_id}
@@ -712,6 +727,12 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   <span className={`text-[9px] font-bold border px-2 py-0.5 rounded-full uppercase tracking-wider ${sessionTypeClass}`}>
                                     {s.is_owner ? "Owner" : "Collaborator"}
                                   </span>
+                                  {isRecent && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-450 border border-emerald-100 dark:border-emerald-900/30 select-none shrink-0">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+                                      New
+                                    </span>
+                                  )}
                                   <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-0.5 text-slate-500 dark:text-slate-400 font-semibold text-[10px]">
                                     <span className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[8px] font-bold flex items-center justify-center text-slate-750 dark:text-slate-350 uppercase shrink-0">
                                       {avatarLetter}
