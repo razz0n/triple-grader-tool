@@ -1083,6 +1083,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         };
       })
     );
+
+    // Auto-focus the first button in External Relation row
+    setTimeout(() => {
+      const externalRelationBtn = document.querySelector("#sentence-external-relation-buttons-row button:not([disabled])");
+      if (externalRelationBtn) {
+        externalRelationBtn.focus();
+      }
+    }, 100);
   };
 
   const handleSentenceExternalRelationChange = (val) => {
@@ -1249,6 +1257,23 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               if (btn) btn.focus();
             }, 300);
           }
+        } else {
+          // All active triples are graded! Focus sentence metrics.
+          setShowSentenceMetrics(true);
+          setTimeout(() => {
+            const el = document.getElementById("sentence-metrics-container");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              setHighlightedElementId("sentence-metrics-container");
+              setTimeout(() => setHighlightedElementId(null), 2050);
+              
+              // Focus the first button in completeness row
+              const completenessBtn = document.querySelector("#sentence-completeness-buttons-row button:not([disabled])");
+              if (completenessBtn) {
+                completenessBtn.focus();
+              }
+            }
+          }, 200);
         }
       }
     }, 100);
@@ -2234,7 +2259,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               </blockquote>
 
               {showSentenceMetrics && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                <div
+                  id="sentence-metrics-container"
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 pb-1 border-t border-slate-100 dark:border-slate-800/80 transition-all duration-300 ${
+                    highlightedElementId === "sentence-metrics-container"
+                      ? "ring-4 ring-rose-500/25 scale-[1.01]"
+                      : ""
+                  }`}
+                >
                   
                   {/* Completeness Input */}
                   <div className="bg-indigo-50/25 dark:bg-indigo-950/15 border border-indigo-150 dark:border-indigo-900/30 rounded-2xl p-4.5 space-y-3.5">
@@ -2253,7 +2285,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     </div>
 
                     {/* Score rating row */}
-                    <div className="flex flex-wrap items-center gap-1">
+                    <div id="sentence-completeness-buttons-row" className="flex flex-wrap items-center gap-1">
                       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
                         <button
                           key={scoreVal}
@@ -2312,7 +2344,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     </div>
 
                     {/* Score rating row */}
-                    <div className="flex flex-wrap items-center gap-1">
+                    <div id="sentence-external-relation-buttons-row" className="flex flex-wrap items-center gap-1">
                       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
                         <button
                           key={scoreVal}
