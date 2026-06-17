@@ -310,8 +310,10 @@ export default function App() {
 
   const isDashboard = !uploadData && !gradingData && !evalSession;
 
+  const isFixedLayout = !!gradingData;
+
   return (
-    <div className={isDashboard ? "min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300" : "h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300"}>
+    <div className={isFixedLayout ? "h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300" : "min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300"}>
       {isDashboard && (
         <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
           <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
