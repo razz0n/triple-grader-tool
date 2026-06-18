@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { saveSession, downloadSession, getAuthToken } from "../api";
+import { saveSession, downloadSession, getAuthToken, loadSession } from "../api";
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
@@ -824,6 +824,70 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
   }, [sentences]);
+
+  // Background polling to fetch collaborative updates in real time
+  useEffect(() => {
+    if (!initialSessionId) return;
+
+    let isTabFocused = true;
+
+    const handleFocus = () => { isTabFocused = true; };
+    const handleBlur = () => { isTabFocused = false; };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+
+    const pollInterval = setInterval(async () => {
+      // Bypasses sync if tab is inactive, or user has unsaved changes, or save is currently in progress
+      if (!isTabFocused || hasUnsavedChangesRef.current || savingRef.current) return;
+
+      try {
+        const response = await loadSession(initialSessionId);
+        if (response && Array.isArray(response.sentences)) {
+          setSentences((prev) =>
+            prev.map((s) => {
+              const match = response.sentences.find((ns) => ns.id === s.id);
+              if (!match) return s;
+
+              // Map updated values while preserving local editing flags
+              return {
+                ...s,
+                sentence_comments: match.sentence_comments,
+                comment_count: match.comment_count,
+                completeness_by_user: match.completeness_by_user,
+                external_relation_by_user: match.external_relation_by_user,
+                completeness_count: match.completeness_count,
+                completeness_average: match.completeness_average,
+                external_relation_count: match.external_relation_count,
+                external_relation_average: match.external_relation_average,
+                triples: (match.triples || []).map((t) => {
+                  const localT = s.triples.find((lt) => lt.id === t.id);
+                  return localT
+                    ? {
+                        ...t,
+                        is_editing: localT.is_editing,
+                        suggestions: (t.suggestions || []).map((sug) => {
+                          const localSug = (localT.suggestions || []).find((ls) => ls.id === sug.id);
+                          return localSug ? { ...sug, is_editing: localSug.is_editing } : sug;
+                        }),
+                      }
+                    : t;
+                }),
+              };
+            })
+          );
+        }
+      } catch (err) {
+        console.warn("[GradingForm] Collaborative background sync failed:", err);
+      }
+    }, 15000);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [initialSessionId]);
 
   const markChanged = () => {
     hasUnsavedChangesRef.current = true;
