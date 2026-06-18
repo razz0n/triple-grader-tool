@@ -1,4 +1,0 @@
-sentence_id,true_positives,n_gold,n_pred,precision,recall,f1
-s0001,0,6,0,0.0,0.0,0.0
-s0002,0,3,0,0.0,0.0,0.0
-s0003,0,2,0,0.0,0.0,0.0
