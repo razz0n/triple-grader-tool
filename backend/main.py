@@ -419,6 +419,9 @@ def _normalize_sentence_comments(
             if not author:
                 author = user_id or "User"
 
+            if author == "System Migration" or author == "System" or "Legacy Suggestion Migration" in text:
+                continue
+
             created_at = payload.get("created_at")
             if created_at is None:
                 created_at = payload.get("posted_at")

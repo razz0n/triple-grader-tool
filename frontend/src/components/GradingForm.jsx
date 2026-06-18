@@ -62,16 +62,26 @@ function normalizeMetricValue(value) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function normalizeSentenceComments(comments, suggestionText) {
+function normalizeSentenceComments(comments) {
   const normalized = [];
   if (Array.isArray(comments)) {
     comments.forEach((c) => {
       if (c && typeof c === "object") {
+        const author = c.author ? String(c.author) : "User";
+        const text = c.text ? String(c.text) : "";
+        if (
+          author === "System Migration" ||
+          author === "System" ||
+          text.includes("Legacy Suggestion Migration")
+        ) {
+          return;
+        }
+
         normalized.push({
           id: c.id ? String(c.id) : `cmt-${Math.random()}`,
-          author: c.author ? String(c.author) : "User",
+          author: author,
           user_id: c.user_id ? String(c.user_id) : "",
-          text: c.text ? String(c.text) : "",
+          text: text,
           created_at: c.created_at || new Date().toISOString(),
           read_by: Array.isArray(c.read_by) ? c.read_by.map(String) : [],
           replies: Array.isArray(c.replies)
@@ -86,16 +96,6 @@ function normalizeSentenceComments(comments, suggestionText) {
             : [],
         });
       }
-    });
-  }
-  if (suggestionText && typeof suggestionText === "string" && suggestionText.trim()) {
-    normalized.push({
-      id: `legacy-sug-${Date.now()}`,
-      author: "System Migration",
-      user_id: "",
-      text: `Legacy Suggestion Migration: "${suggestionText.trim()}"`,
-      created_at: new Date().toISOString(),
-      replies: [],
     });
   }
   return normalized;
@@ -155,7 +155,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     initialSentences.map((s) => {
       const completenessByUser = normalizeMetricByUser(s.completeness_by_user);
       const externalRelationByUser = normalizeMetricByUser(s.external_relation_by_user);
-      const sentenceComments = normalizeSentenceComments(s.sentence_comments, s.suggestion || "");
+      const sentenceComments = normalizeSentenceComments(s.sentence_comments);
 
       const completenessValues = Object.values(completenessByUser)
         .map((entry) => normalizeMetricValue(entry?.value))
