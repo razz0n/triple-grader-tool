@@ -572,15 +572,61 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     };
   }, [sentences, uploadData]);
 
+  const isOwner = !!is_owner;
+
   const notifications = useMemo(() => {
     const list = [];
     if (!currentUserId) return list;
 
+    // Load local storage read states for completion & deletion notifications
+    const readCompletions = JSON.parse(localStorage.getItem(`read_completions_${initialSessionId}`) || "[]");
+    const readDeletions = JSON.parse(localStorage.getItem(`read_deletions_${initialSessionId}`) || "[]");
+
+    // 1. Calculate active triples and grader completion (for owner notification)
+    let totalT = 0;
+    const graderGradesCount = {}; // userId -> count
+    const graderNames = {}; // userId -> name
+
+    sentences.forEach((s) => {
+      const activeTriples = (s.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
+      totalT += activeTriples.length;
+      activeTriples.forEach((t) => {
+        Object.entries(t.grades_by_user || {}).forEach(([userId, payload]) => {
+          if (payload?.grade !== null && payload?.grade !== undefined && payload?.grade !== "") {
+            graderGradesCount[userId] = (graderGradesCount[userId] || 0) + 1;
+            graderNames[userId] = payload.user_name || "Grader";
+          }
+        });
+      });
+    });
+
+    if (isOwner && totalT > 0) {
+      Object.entries(graderGradesCount).forEach(([userId, count]) => {
+        if (count === totalT && !readCompletions.includes(userId)) {
+          list.push({
+            id: `completion-${userId}`,
+            type: "grading_completed",
+            title: `Grading completed by ${graderNames[userId]}`,
+            text: `All ${totalT} triples have been graded.`,
+            createdAt: new Date().toISOString(),
+            sentenceId: null,
+            sentenceIdx: 0,
+            graderId: userId,
+          });
+        }
+      });
+    }
+
     sentences.forEach((sentence) => {
+      const sentenceIdx = sentences.findIndex(s => s.id === sentence.id);
+
+      // 2. Sentence Comments
       (sentence.sentence_comments || []).forEach((comment) => {
         const isOwnC = comment.user_id === currentUserId;
         const isReadC = (comment.read_by || []).includes(currentUserId);
-        if (!isOwnC && !isReadC) {
+
+        // Notify if unread, not own, and user is owner (since owner is involved in all comments)
+        if (!isOwnC && !isReadC && isOwner) {
           list.push({
             id: comment.id,
             type: "sentence_comment",
@@ -588,72 +634,106 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             text: comment.text,
             createdAt: comment.created_at,
             sentenceId: sentence.id,
-            sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+            sentenceIdx,
             tripleId: null,
             commentId: comment.id,
           });
         }
 
+        // Replies to sentence comment
         (comment.replies || []).forEach((reply) => {
           const isOwn = reply.user_id === currentUserId;
           const isRead = (reply.read_by || []).includes(currentUserId);
           if (!isOwn && !isRead) {
-            list.push({
-              id: reply.id,
-              type: "comment_reply",
-              title: `New reply from ${reply.author || "User"}`,
-              text: reply.text,
-              createdAt: reply.created_at,
-              sentenceId: sentence.id,
-              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
-              tripleId: null,
-              commentId: comment.id,
-            });
+            // Involved: owner, parent comment author, or anyone who replied in this thread
+            const isParentAuthor = comment.user_id === currentUserId;
+            const hasRepliedInThread = (comment.replies || []).some(r => r.user_id === currentUserId);
+            if (isOwner || isParentAuthor || hasRepliedInThread) {
+              list.push({
+                id: reply.id,
+                type: "comment_reply",
+                title: `New reply from ${reply.author || "User"}`,
+                text: reply.text,
+                createdAt: reply.created_at,
+                sentenceId: sentence.id,
+                sentenceIdx,
+                tripleId: null,
+                commentId: comment.id,
+              });
+            }
           }
         });
       });
 
       (sentence.triples || []).forEach((triple) => {
+        // 3. Deletion Requests (Owner only)
+        if (isOwner && triple.marked_for_removal && !readDeletions.includes(triple.id)) {
+          list.push({
+            id: `deletion-${triple.id}`,
+            type: "deletion_request",
+            title: `Deletion requested for triple`,
+            text: `Reason: "${triple.removal_reason || "No reason given."}" for (${triple.subject}, ${triple.predicate}, ${triple.object})`,
+            createdAt: triple.graded_at || new Date().toISOString(),
+            sentenceId: sentence.id,
+            sentenceIdx,
+            tripleId: triple.id,
+          });
+        }
+
+        // 4. Triple Comments
         (triple.triple_comments || []).forEach((comment) => {
           const isOwnC = comment.user_id === currentUserId;
           const isReadC = (comment.read_by || []).includes(currentUserId);
-          if (!isOwnC && !isReadC) {
-            list.push({
-              id: comment.id,
-              type: "triple_comment",
-              title: `New comment from ${comment.author || "User"} on triple`,
-              text: comment.text,
-              createdAt: comment.created_at,
-              sentenceId: sentence.id,
-              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
-              tripleId: triple.id,
-              commentId: comment.id,
-            });
-          }
 
-          (comment.replies || []).forEach((reply) => {
-            const isOwn = reply.user_id === currentUserId;
-            const isRead = (reply.read_by || []).includes(currentUserId);
-            if (!isOwn && !isRead) {
+          if (!isOwnC && !isReadC) {
+            // Involved: owner, or creator of suggestion (if this is a suggested triple)
+            const isSuggestionCreator = triple.is_new_suggestion && (triple.suggested_by_id === currentUserId || triple.suggested_by === currentUserName);
+            if (isOwner || isSuggestionCreator) {
               list.push({
-                id: reply.id,
-                type: "comment_reply",
-                title: `New reply from ${reply.author || "User"} on triple`,
-                text: reply.text,
-                createdAt: reply.created_at,
+                id: comment.id,
+                type: "triple_comment",
+                title: `New comment from ${comment.author || "User"} on triple`,
+                text: comment.text,
+                createdAt: comment.created_at,
                 sentenceId: sentence.id,
-                sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+                sentenceIdx,
                 tripleId: triple.id,
                 commentId: comment.id,
               });
             }
+          }
+
+          // Replies to triple comment
+          (comment.replies || []).forEach((reply) => {
+            const isOwn = reply.user_id === currentUserId;
+            const isRead = (reply.read_by || []).includes(currentUserId);
+            if (!isOwn && !isRead) {
+              // Involved: owner, parent comment author, suggestion creator, or anyone who replied in this thread
+              const isParentAuthor = comment.user_id === currentUserId;
+              const hasRepliedInThread = (comment.replies || []).some(r => r.user_id === currentUserId);
+              const isSuggestionCreator = triple.is_new_suggestion && (triple.suggested_by_id === currentUserId || triple.suggested_by === currentUserName);
+              if (isOwner || isParentAuthor || hasRepliedInThread || isSuggestionCreator) {
+                list.push({
+                  id: reply.id,
+                  type: "comment_reply",
+                  title: `New reply from ${reply.author || "User"} on triple`,
+                  text: reply.text,
+                  createdAt: reply.created_at,
+                  sentenceId: sentence.id,
+                  sentenceIdx,
+                  tripleId: triple.id,
+                  commentId: comment.id,
+                });
+              }
+            }
           });
         });
 
+        // 5. Triple Suggestions (Owner only gets new suggestion notifications)
         (triple.suggestions || []).forEach((sug) => {
           const isOwnSug = sug.user_id === currentUserId;
           const isReadSug = (sug.read_by || []).includes(currentUserId);
-          if (!isOwnSug && !isReadSug) {
+          if (!isOwnSug && !isReadSug && isOwner) {
             list.push({
               id: sug.id,
               type: "triple_suggestion",
@@ -661,27 +741,33 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               text: `Proposed triple: (${sug.subject || ""}, ${sug.predicate || ""}, ${sug.object || ""})`,
               createdAt: sug.created_at,
               sentenceId: sentence.id,
-              sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
+              sentenceIdx,
               tripleId: triple.id,
               suggestionId: sug.id,
             });
           }
 
+          // Replies to triple suggestion
           (sug.replies || []).forEach((reply) => {
             const isOwnReply = reply.user_id === currentUserId;
             const isRead = (reply.read_by || []).includes(currentUserId);
-            if (isOwnSug && !isOwnReply && !isRead) {
-              list.push({
-                id: reply.id,
-                type: "suggestion_reply",
-                title: `New reply on suggestion from ${reply.author || "User"}`,
-                text: reply.text,
-                createdAt: reply.created_at,
-                sentenceId: sentence.id,
-                sentenceIdx: sentences.findIndex(s => s.id === sentence.id),
-                tripleId: triple.id,
-                suggestionId: sug.id,
-              });
+            if (!isOwnReply && !isRead) {
+              // Involved: owner, suggestion author, or anyone who replied in this thread
+              const isSuggestionAuthor = sug.user_id === currentUserId;
+              const hasRepliedInThread = (sug.replies || []).some(r => r.user_id === currentUserId);
+              if (isOwner || isSuggestionAuthor || hasRepliedInThread) {
+                list.push({
+                  id: reply.id,
+                  type: "suggestion_reply",
+                  title: `New reply on suggestion from ${reply.author || "User"}`,
+                  text: reply.text,
+                  createdAt: reply.created_at,
+                  sentenceId: sentence.id,
+                  sentenceIdx,
+                  tripleId: triple.id,
+                  suggestionId: sug.id,
+                });
+              }
             }
           });
         });
@@ -689,7 +775,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     });
 
     return list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  }, [sentences, currentUserId]);
+  }, [sentences, currentUserId, isOwner, initialSessionId, currentUserName]);
 
   // Overall grading progress across ALL sentences
   const gradingProgress = useMemo(() => {
@@ -969,6 +1055,25 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }, 300);
 
     try {
+      if (notif.type === "grading_completed") {
+        const readCompletions = JSON.parse(localStorage.getItem(`read_completions_${initialSessionId}`) || "[]");
+        if (!readCompletions.includes(notif.graderId)) {
+          readCompletions.push(notif.graderId);
+          localStorage.setItem(`read_completions_${initialSessionId}`, JSON.stringify(readCompletions));
+          setSentences((prev) => [...prev]); // Trigger re-evaluation of useMemo list
+        }
+        return;
+      }
+      if (notif.type === "deletion_request") {
+        const readDeletions = JSON.parse(localStorage.getItem(`read_deletions_${initialSessionId}`) || "[]");
+        if (!readDeletions.includes(notif.tripleId)) {
+          readDeletions.push(notif.tripleId);
+          localStorage.setItem(`read_deletions_${initialSessionId}`, JSON.stringify(readDeletions));
+          setSentences((prev) => [...prev]); // Trigger re-evaluation of useMemo list
+        }
+        return;
+      }
+
       const token = getAuthToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const payload = latestPayloadRef.current;
@@ -1055,6 +1160,26 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const handleMarkAllNotificationsRead = async () => {
     setNotificationsOpen(false);
     if (notifications.length === 0) return;
+
+    if (isOwner) {
+      const allCompletionIds = notifications
+        .filter((n) => n.type === "grading_completed")
+        .map((n) => n.graderId);
+      if (allCompletionIds.length > 0) {
+        const readCompletions = JSON.parse(localStorage.getItem(`read_completions_${initialSessionId}`) || "[]");
+        const nextCompletions = Array.from(new Set([...readCompletions, ...allCompletionIds]));
+        localStorage.setItem(`read_completions_${initialSessionId}`, JSON.stringify(nextCompletions));
+      }
+
+      const allDeletionIds = notifications
+        .filter((n) => n.type === "deletion_request")
+        .map((n) => n.tripleId);
+      if (allDeletionIds.length > 0) {
+        const readDeletions = JSON.parse(localStorage.getItem(`read_deletions_${initialSessionId}`) || "[]");
+        const nextDeletions = Array.from(new Set([...readDeletions, ...allDeletionIds]));
+        localStorage.setItem(`read_deletions_${initialSessionId}`, JSON.stringify(nextDeletions));
+      }
+    }
 
     try {
       const payload = latestPayloadRef.current;
