@@ -343,12 +343,12 @@ export default function TripleCard({
                 <Check size={11} className="shrink-0" />
                 <span>Scored: {grade}/10</span>
               </span>
-            ) : (
+            ) : !readOnly ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 px-2 py-0.5 rounded-full animate-pulse">
                 <AlertCircle size={11} className="shrink-0" />
                 <span>Ungraded</span>
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Grader list output */}

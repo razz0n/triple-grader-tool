@@ -2247,9 +2247,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
                   <div className={`text-right font-bold ${gradeColor}`}>
                     {sentenceGrade === null ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-xl">
-                        Ungraded
-                      </span>
+                      canEditSession ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-xl">
+                          Ungraded
+                        </span>
+                      ) : null
                     ) : sentenceGrade === "partial" ? (
                       <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900/50 px-2 py-1 rounded-xl text-amber-800 dark:text-amber-400">
                         Incomplete
