@@ -875,6 +875,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           suggested_by: t.suggested_by || null,
           marked_for_removal: !!t.marked_for_removal,
           removal_reason: t.removal_reason || "",
+          marked_for_removal_by: t.marked_for_removal_by || null,
+          marked_for_removal_by_name: t.marked_for_removal_by_name || null,
           triple_comments: t.triple_comments || [],
           suggestions: t.suggestions || [],
         })),
@@ -1479,7 +1481,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const onMarkForRemoval = (tripleId, isMarked) => {
-    if (!canSuggestTriples) return;
+    // Owner can cancel requests, graders can request or cancel their own
+    if (isMarked && !canSuggestTriples) return;
+    if (!isMarked && !canSuggestTriples && !canApproveSuggestions) return;
+
     markChanged();
     const reason = isMarked ? "Requested removal" : "";
     setSentences((prev) =>
@@ -1491,8 +1496,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             ...t,
             marked_for_removal: isMarked,
             removal_reason: reason,
+            marked_for_removal_by: isMarked ? currentUserId : null,
+            marked_for_removal_by_name: isMarked ? currentUserName : null,
           };
         });
+        return { ...s, triples: updatedTriples };
+      })
+    );
+  };
+
+  const onApproveDeletion = (tripleId) => {
+    if (!canApproveSuggestions) return;
+    markChanged();
+    setSentences((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = (s.triples || []).filter((t) => t.id !== tripleId);
         return { ...s, triples: updatedTriples };
       })
     );
@@ -2689,6 +2708,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       onApproveSuggestedTriple={onApproveSuggestedTriple}
                       onSaveSuggestedTriple={onSaveSuggestedTriple}
                       onSetTripleEditing={onSetTripleEditing}
+                      onApproveDeletion={onApproveDeletion}
                     />
 
                     {/* Suggestions Drawer section */}

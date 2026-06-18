@@ -725,10 +725,31 @@ def _apply_collaborative_grades(
                     if key in existing_triple:
                         triple[key] = existing_triple[key]
 
-                if "marked_for_removal" not in triple and "marked_for_removal" in existing_triple:
-                    triple["marked_for_removal"] = existing_triple["marked_for_removal"]
-                if "removal_reason" not in triple and "removal_reason" in existing_triple:
-                    triple["removal_reason"] = existing_triple["removal_reason"]
+                existing_marked = existing_triple.get("marked_for_removal", False)
+                existing_by = existing_triple.get("marked_for_removal_by")
+                existing_by_name = existing_triple.get("marked_for_removal_by_name")
+                existing_reason = existing_triple.get("removal_reason", "")
+
+                if existing_marked:
+                    is_authorized_to_modify = (
+                        _is_session_owner(incoming_session, None, user)
+                        or str(user.get("id") or "").strip() == str(existing_by or "").strip()
+                    )
+                    if not is_authorized_to_modify:
+                        triple["marked_for_removal"] = True
+                        triple["marked_for_removal_by"] = existing_by
+                        triple["marked_for_removal_by_name"] = existing_by_name
+                        triple["removal_reason"] = existing_reason
+                    else:
+                        triple["marked_for_removal"] = triple.get("marked_for_removal", False)
+                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by")
+                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name")
+                        triple["removal_reason"] = triple.get("removal_reason", "")
+                else:
+                    triple["marked_for_removal"] = triple.get("marked_for_removal", False)
+                    triple["marked_for_removal_by"] = triple.get("marked_for_removal_by")
+                    triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name")
+                    triple["removal_reason"] = triple.get("removal_reason", "")
 
                 if isinstance(existing_triple.get("suggestions"), list):
                     triple["suggestions"] = existing_triple.get("suggestions", [])

@@ -32,6 +32,7 @@ export default function TripleCard({
   onApproveSuggestedTriple,
   onSaveSuggestedTriple,
   onSetTripleEditing,
+  onApproveDeletion,
   index,
 }) {
   const { subject, predicate, object } = triple;
@@ -165,12 +166,55 @@ export default function TripleCard({
       
       {/* Removal Request alert */}
       {triple?.marked_for_removal && (
-        <div className="mb-3 px-3 py-2.5 bg-rose-50 dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/40 rounded-xl text-xs font-semibold text-rose-800 dark:text-rose-400 flex items-start gap-2">
-          <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Marked for removal:</span> {triple.removal_reason || "Requested removal."}
-          </div>
-        </div>
+        <>
+          {/* Owner view */}
+          {canApprove && (
+            <div className="mb-3 px-3 py-2.5 bg-rose-50 dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/40 rounded-xl text-xs font-semibold text-rose-800 dark:text-rose-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Request deletion by {triple.marked_for_removal_by_name || "Grader"}:</span> {triple.removal_reason || "Requested removal."}
+                </div>
+              </span>
+              <div className="flex items-center gap-2 justify-end self-end sm:self-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onApproveDeletion?.(triple.id)}
+                  className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                >
+                  <Trash2 size={11} /> Approve Deletion
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMarkForRemoval?.(triple.id, false)}
+                  className="px-2.5 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                >
+                  <X size={11} /> Cancel Request
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Requester view (Grader who requested it) */}
+          {!canApprove && triple.marked_for_removal_by === currentUserId && (
+            <div className="mb-3 px-3 py-2.5 bg-rose-50 dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/40 rounded-xl text-xs font-semibold text-rose-800 dark:text-rose-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">You requested deletion:</span> {triple.removal_reason || "Requested removal."}
+                </div>
+              </span>
+              <div className="flex items-center gap-2 justify-end self-end sm:self-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onMarkForRemoval?.(triple.id, false)}
+                  className="px-2.5 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                >
+                  <X size={11} /> Cancel Request
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Suggested Pending Alert */}
@@ -389,28 +433,30 @@ export default function TripleCard({
 
       {/* Mark for removal action */}
       {canSuggest && !isNewPending && (
-        <div className="mt-3.5 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-start">
-          <button
-            type="button"
-            onClick={() => onMarkForRemoval?.(triple.id, !triple?.marked_for_removal)}
-            className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg font-bold border transition-colors cursor-pointer ${
-              triple?.marked_for_removal
-                ? "bg-rose-50 dark:bg-rose-950/20 text-rose-700 border-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30"
-                : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 border-slate-200 dark:border-slate-700 hover:border-rose-250 dark:hover:bg-rose-900"
-            }`}
-            title={triple?.marked_for_removal ? "Cancel deletion flag" : "Request deletion of this triple"}
-          >
-            {triple?.marked_for_removal ? (
-              <>
-                <X size={11} /> Cancel Deletion Flag
-              </>
-            ) : (
-              <>
-                <AlertCircle size={11} /> Request Deletion
-              </>
-            )}
-          </button>
-        </div>
+        (!triple?.marked_for_removal || triple?.marked_for_removal_by === currentUserId) && (
+          <div className="mt-3.5 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-start">
+            <button
+              type="button"
+              onClick={() => onMarkForRemoval?.(triple.id, !triple?.marked_for_removal)}
+              className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg font-bold border transition-colors cursor-pointer ${
+                triple?.marked_for_removal
+                  ? "bg-rose-50 dark:bg-rose-950/20 text-rose-700 border-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                  : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 border-slate-200 dark:border-slate-700 hover:border-rose-250 dark:hover:bg-rose-900"
+              }`}
+              title={triple?.marked_for_removal ? "Cancel deletion request" : "Request deletion of this triple"}
+            >
+              {triple?.marked_for_removal ? (
+                <>
+                  <X size={11} /> Cancel Deletion Request
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={11} /> Request Deletion
+                </>
+              )}
+            </button>
+          </div>
+        )
       )}
     </div>
   );
