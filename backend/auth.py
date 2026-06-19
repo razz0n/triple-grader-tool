@@ -159,10 +159,10 @@ def issue_token(user_id: str) -> str:
     token = secrets.token_urlsafe(40)
     created_at = datetime.utcnow().isoformat()
     if use_database_storage():
-        add_token_db(token, user_id, created_at)
+        add_token_db(token, user_id, created_at, created_at)
     else:
         tokens = load_tokens()
-        tokens["tokens"][token] = {"user_id": user_id, "created_at": created_at}
+        tokens["tokens"][token] = {"user_id": user_id, "created_at": created_at, "last_active_at": created_at}
         save_tokens(tokens)
     return token
 
@@ -173,6 +173,42 @@ def user_from_token(token: str) -> Optional[Dict[str, Any]]:
     token_data = tokens.get(token)
     if not token_data:
         return None
+    return get_user_by_id(token_data.get("user_id", ""))
+
+
+def update_token_activity(token: str, last_active_at: str):
+    """Update a token's last active time in DB or JSON file."""
+    if use_database_storage():
+        from database import update_token_activity_db
+        update_token_activity_db(token, last_active_at)
+    else:
+        tokens = load_tokens()
+        if token in tokens["tokens"]:
+            tokens["tokens"][token]["last_active_at"] = last_active_at
+            save_tokens(tokens)
+
+
+def validate_and_update_token(token: str) -> Optional[Dict[str, Any]]:
+    """Validate token, enforce 10-minute inactivity limit, and update activity timestamp."""
+    tokens = load_tokens()["tokens"]
+    token_data = tokens.get(token)
+    if not token_data:
+        return None
+
+    last_active_str = token_data.get("last_active_at") or token_data.get("created_at")
+    now = datetime.utcnow()
+    
+    if last_active_str:
+        try:
+            last_active = datetime.fromisoformat(last_active_str)
+            elapsed = (now - last_active).total_seconds()
+            if elapsed > 600:  # 10 minutes
+                revoke_token(token)
+                return None
+        except Exception:
+            pass
+
+    update_token_activity(token, now.isoformat())
     return get_user_by_id(token_data.get("user_id", ""))
 
 
@@ -193,7 +229,7 @@ async def current_user(
     """Get current authenticated user from Bearer token."""
     if not creds or creds.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Authentication required.")
-    user = user_from_token(creds.credentials)
+    user = validate_and_update_token(creds.credentials)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
     return user
@@ -208,7 +244,7 @@ def current_user_from_bearer_or_query(request: Request, token_qs: Optional[str])
             token = auth[7:].strip()
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required.")
-    user = user_from_token(token)
+    user = validate_and_update_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
     return user

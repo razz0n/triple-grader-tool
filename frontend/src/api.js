@@ -9,14 +9,14 @@ const AUTH_TOKEN_KEY = "otg_auth_token";
 const API = axios.create({ baseURL: "" });
 
 export function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
+  return sessionStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 export function setAuthToken(token) {
   if (token) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
   } else {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
   }
 }
 

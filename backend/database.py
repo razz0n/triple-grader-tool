@@ -71,6 +71,7 @@ class TokenRecord(Base):
     token = Column(Text, primary_key=True)
     user_id = Column(String(64), nullable=False)
     created_at = Column(String(64), nullable=False)
+    last_active_at = Column(String(64), nullable=True)
 
 
 class SessionRecord(Base):
@@ -108,6 +109,12 @@ def init_database(
         if "security_answer" not in columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE users ADD COLUMN security_answer VARCHAR(255)"))
+        
+        # Check and migrate tokens table for last_active_at column
+        token_columns = [c["name"] for c in inspector.get_columns("tokens")]
+        if "last_active_at" not in token_columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE tokens ADD COLUMN last_active_at VARCHAR(64)"))
     except Exception as e:
         print("Migration error:", e)
 
@@ -235,6 +242,7 @@ def load_tokens_db() -> Dict[str, Any]:
             row.token: {
                 "user_id": row.user_id,
                 "created_at": row.created_at,
+                "last_active_at": row.last_active_at,
             }
             for row in rows
         }
@@ -257,10 +265,10 @@ def save_tokens_db(tokens_data: Dict[str, Any]) -> None:
         db.commit()
 
 
-def add_token_db(token: str, user_id: str, created_at: str) -> None:
+def add_token_db(token: str, user_id: str, created_at: str, last_active_at: str | None = None) -> None:
     """Insert a single new auth token (used right after login/register)."""
     with SessionLocal() as db:
-        _upsert_token(db, token, {"user_id": user_id, "created_at": created_at})
+        _upsert_token(db, token, {"user_id": user_id, "created_at": created_at, "last_active_at": last_active_at})
         db.commit()
 
 
@@ -276,12 +284,23 @@ def _upsert_token(db, token: str, payload: Dict[str, Any]) -> None:
     if row:
         row.user_id = str(payload.get("user_id", ""))
         row.created_at = str(payload.get("created_at", ""))
+        row.last_active_at = payload.get("last_active_at")
     else:
         db.add(TokenRecord(
             token=str(token),
             user_id=str(payload.get("user_id", "")),
             created_at=str(payload.get("created_at", "")),
+            last_active_at=payload.get("last_active_at"),
         ))
+
+
+def update_token_activity_db(token: str, last_active_at: str) -> None:
+    """Update only the last_active_at timestamp for a token."""
+    with SessionLocal() as db:
+        row = db.get(TokenRecord, token)
+        if row:
+            row.last_active_at = last_active_at
+            db.commit()
 
 
 def load_session_db(session_id: str) -> Dict[str, Any] | None:

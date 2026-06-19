@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { saveSession, downloadSession, getAuthToken, loadSession } from "../api";
+import { saveSession, downloadSession, getAuthToken, loadSession, meUser } from "../api";
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
@@ -320,6 +320,136 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const readOnly = !canEditSession && !canSuggestTriples;
   const currentUserId = currentUser?.id || "";
   const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
+
+  // Inactivity and offline status states
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [idleCountdown, setIdleCountdown] = useState(30);
+
+  const inactivityTimerRef = useRef(null);
+  const warningIntervalRef = useRef(null);
+  const heartbeatTimerRef = useRef(null);
+
+  // 10-Minute Inactivity/Idle Timeout logic
+  useEffect(() => {
+    const IDLE_LIMIT = 570000; // 9.5 minutes in milliseconds
+    const WARNING_DURATION = 30; // 30 seconds countdown
+
+    const handleForceLogoutOnIdle = async () => {
+      if (hasUnsavedChangesRef.current) {
+        try {
+          const payload = latestPayloadRef.current;
+          await saveSession(payload);
+        } catch (e) {
+          console.error("Auto-save on idle timeout failed:", e);
+        }
+      }
+      window.dispatchEvent(new CustomEvent("auth:logout"));
+    };
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+
+      setShowIdleWarning(false);
+
+      inactivityTimerRef.current = setTimeout(() => {
+        setShowIdleWarning(true);
+        setIdleCountdown(WARNING_DURATION);
+
+        let count = WARNING_DURATION;
+        warningIntervalRef.current = setInterval(async () => {
+          count -= 1;
+          setIdleCountdown(count);
+          if (count <= 0) {
+            clearInterval(warningIntervalRef.current);
+            await handleForceLogoutOnIdle();
+          }
+        }, 1000);
+      }, IDLE_LIMIT);
+    };
+
+    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    const handleActivity = () => {
+      if (!showIdleWarning) {
+        resetInactivityTimer();
+      }
+    };
+
+    events.forEach((event) => window.addEventListener(event, handleActivity));
+    resetInactivityTimer();
+
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+      events.forEach((event) => window.removeEventListener(event, handleActivity));
+    };
+  }, [showIdleWarning]);
+
+  // Offline Backup & Heartbeat Monitor
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        await meUser();
+        setIsOffline(false);
+      } catch (err) {
+        if (err?.response?.status !== 401 && err?.response?.status !== 403) {
+          setIsOffline(true);
+          if (hasUnsavedChangesRef.current) {
+            try {
+              localStorage.setItem(
+                `offline_backup_${initialSessionId}`,
+                JSON.stringify(latestPayloadRef.current)
+              );
+            } catch (e) {
+              console.error("Local storage backup failed:", e);
+            }
+          }
+        }
+      }
+    };
+
+    const handleOnline = async () => {
+      setIsOffline(false);
+      const backup = localStorage.getItem(`offline_backup_${initialSessionId}`);
+      if (backup) {
+        try {
+          const payload = JSON.parse(backup);
+          await saveSession(payload);
+          localStorage.removeItem(`offline_backup_${initialSessionId}`);
+          setSaveMsg("Offline changes synchronized successfully");
+          setTimeout(() => setSaveMsg(""), 3000);
+        } catch (e) {
+          console.error("Syncing offline backup failed:", e);
+        }
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      if (hasUnsavedChangesRef.current) {
+        try {
+          localStorage.setItem(
+            `offline_backup_${initialSessionId}`,
+            JSON.stringify(latestPayloadRef.current)
+          );
+        } catch (e) {
+          console.error("Local storage backup failed:", e);
+        }
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    heartbeatTimerRef.current = setInterval(checkConnection, 30000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+    };
+  }, [initialSessionId]);
 
   // Deep-clone sentences into local mutable state
   const [sentences, setSentences] = useState(() =>
@@ -3364,6 +3494,38 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           </div>
         )}
       </AnimatePresence>
+
+      {/* Offline banner overlay */}
+      {isOffline && (
+        <div className="bg-rose-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-center gap-2 select-none z-40 fixed top-[60px] left-0 right-0 animate-fade-in shadow-md">
+          <AlertCircle size={14} className="animate-pulse" />
+          <span>Offline Mode: Internet connection lost. Unsaved changes are backed up locally in your browser.</span>
+        </div>
+      )}
+
+      {/* Inactivity warning modal */}
+      {showIdleWarning && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4 animate-scale-in">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+              <AlertTriangle size={24} className="animate-bounce" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Inactivity Warning</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              You have been inactive for over 9 minutes. To protect your security, you will be disconnected in{" "}
+              <span className="font-bold text-rose-600 dark:text-rose-455 text-sm">{idleCountdown}</span> seconds.
+            </p>
+            <button
+              onClick={() => {
+                setShowIdleWarning(false);
+              }}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+            >
+              Stay Connected
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
