@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { uploadFile, listSessions, loadSession, deleteSession } from "../api";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDialog } from "./CustomDialog";
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -125,6 +126,7 @@ function _validateJsonUpload(payload) {
 }
 
 export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManual, recentUploadSessionId }) {
+  const { showAlert, showConfirm } = useDialog();
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -193,7 +195,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
       const errMsg = e?.response?.data?.detail || e?.message || "Failed to load session.";
       console.error('[FileUpload] loadSession error:', e);
       setResumeError(errMsg);
-      alert(`Error loading session: ${errMsg}`);
+      showAlert(`Error loading session: ${errMsg}`, "Failed to Load Session");
     } finally {
       setResuming(null);
     }
@@ -203,7 +205,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
     const sessionId = sessionMeta?.session_id;
     if (!sessionId || !sessionMeta?.is_owner) return;
 
-    const ok = window.confirm("Delete this shared file? This cannot be undone.");
+    const ok = await showConfirm("Delete this shared file? This cannot be undone.", "Delete Shared File", "Delete", "Cancel");
     if (!ok) return;
 
     setDeleteError("");

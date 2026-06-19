@@ -66,6 +66,10 @@ from models import (
     SuggestionReplyRequest,
     NotificationReadRequest,
     NotificationReadAllRequest,
+    UpdateProfileRequest,
+    GetSecurityQuestionRequest,
+    ResetPasswordWithQuestionRequest,
+    DeleteAccountRequest,
 )
 from parser import parse_file_rich
 from services import (
@@ -467,6 +471,7 @@ def _normalize_sentence_comments(
                         "text": r_text,
                         "created_at": r_created_at,
                         "read_by": r_read_by,
+                        "parent_reply_id": r_payload.get("parent_reply_id"),
                     })
             normalized_replies.sort(key=lambda row: str(row.get("created_at") or ""))
 
@@ -559,6 +564,7 @@ def _normalize_suggestions(raw_suggestions: Any) -> list[Dict[str, Any]]:
                     "text": r_text,
                     "created_at": r_created_at,
                     "read_by": r_read_by,
+                    "parent_reply_id": r_payload.get("parent_reply_id"),
                 })
         normalized_replies.sort(key=lambda row: str(row.get("created_at") or ""))
         
@@ -1294,6 +1300,8 @@ async def register(body: RegisterRequest):
         "password_salt": hashed["salt"],
         "password_hash": hashed["hash"],
         "created_at": datetime.utcnow().isoformat(),
+        "security_question": body.security_question.strip(),
+        "security_answer": body.security_answer.strip().lower(),
     }
 
     users_data["users"].append(user)
@@ -1305,7 +1313,13 @@ async def register(body: RegisterRequest):
     return {
         "ok": True,
         "message": "Account created successfully. Please log in.",
-        "user": {"id": user["id"], "username": user["username"], "name": display_name(user), "email": user["email"]},
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "name": display_name(user),
+            "email": user["email"],
+            "security_question": user["security_question"]
+        },
     }
 
 
@@ -1327,6 +1341,7 @@ async def login(body: AuthRequest):
             "username": user.get("username") or "",
             "name": display_name(user),
             "email": user["email"],
+            "security_question": user.get("security_question") or "",
         },
     }
 
@@ -1338,6 +1353,7 @@ async def me(user: Dict[str, Any] = Depends(current_user)):
         "username": user.get("username") or "",
         "name": display_name(user),
         "email": user["email"],
+        "security_question": user.get("security_question") or "",
     }
 
 
@@ -1346,6 +1362,226 @@ async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_S
     if creds and creds.scheme.lower() == "bearer":
         revoke_token(creds.credentials)
     return {"ok": True}
+
+
+@app.put("/api/auth/profile")
+async def update_profile(body: UpdateProfileRequest, user: Dict[str, Any] = Depends(current_user)):
+    users_data = load_users()
+    users = users_data.get("users", [])
+    
+    target = None
+    for u in users:
+        if u.get("id") == user["id"]:
+            target = u
+            break
+            
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    if body.name is not None:
+        name_val = body.name.strip()
+        if len(name_val) < 2 or len(name_val) > 80:
+            raise HTTPException(status_code=422, detail="Name must be between 2 and 80 characters.")
+        target["name"] = name_val
+        
+    if body.username is not None:
+        username_val = norm_username(body.username)
+        if username_val != norm_username(target.get("username", "")):
+            if not is_valid_username(username_val):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Username must be 3-24 chars, start with a letter, and use lowercase letters, numbers, or underscore.",
+                )
+            if get_user_by_username(username_val):
+                raise HTTPException(status_code=409, detail="This username is already taken.")
+            target["username"] = username_val
+            
+    if body.email is not None:
+        email_val = norm_email(body.email)
+        if email_val != norm_email(target.get("email", "")):
+            if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email_val):
+                raise HTTPException(status_code=422, detail="Invalid email format.")
+            if get_user_by_email(email_val):
+                raise HTTPException(status_code=409, detail="An account with this email already exists.")
+            target["email"] = email_val
+            
+    if body.password is not None:
+        pass_val = body.password
+        if len(pass_val) < 8 or len(pass_val) > 128:
+            raise HTTPException(status_code=422, detail="Password must be between 8 and 128 characters.")
+        
+        # Enforce security question validation to change password
+        if not body.security_answer:
+            raise HTTPException(status_code=400, detail="Security answer is required to change password.")
+            
+        stored_answer = str(target.get("security_answer") or "").strip().lower()
+        if body.security_answer.strip().lower() != stored_answer:
+            raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
+            
+        hashed = hash_password(pass_val)
+        target["password_salt"] = hashed["salt"]
+        target["password_hash"] = hashed["hash"]
+        
+    if body.security_question is not None:
+        q_val = body.security_question.strip()
+        if q_val:
+            if len(q_val) < 5 or len(q_val) > 255:
+                raise HTTPException(status_code=422, detail="Security question must be between 5 and 255 characters.")
+            target["security_question"] = q_val
+            
+    if body.security_answer is not None:
+        a_val = body.security_answer.strip().lower()
+        if a_val:
+            target["security_answer"] = a_val
+            
+    # Save updated user record
+    if use_database_storage():
+        upsert_user_db(target)
+    else:
+        save_users(users_data)
+        
+    return {
+        "ok": True,
+        "message": "Profile updated successfully.",
+        "user": {
+            "id": target["id"],
+            "username": target.get("username") or "",
+            "name": display_name(target),
+            "email": target["email"],
+            "security_question": target.get("security_question") or "",
+        }
+    }
+
+
+@app.post("/api/auth/forgot-password/question")
+async def forgot_password_question(body: GetSecurityQuestionRequest):
+    user = find_user_for_login(body.login)
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+        
+    question = user.get("security_question")
+    if not question:
+        raise HTTPException(
+            status_code=400,
+            detail="This account does not have a security question set. Please contact an administrator."
+        )
+        
+    return {
+        "ok": True,
+        "login": body.login,
+        "security_question": question
+    }
+
+
+@app.post("/api/auth/forgot-password/reset")
+async def forgot_password_reset(body: ResetPasswordWithQuestionRequest):
+    user = find_user_for_login(body.login)
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+        
+    stored_answer = str(user.get("security_answer") or "").strip().lower()
+    if not stored_answer:
+        raise HTTPException(
+            status_code=400,
+            detail="This account does not have a security question set."
+        )
+        
+    user_answer = body.answer.strip().lower()
+    if user_answer != stored_answer:
+        raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
+        
+    new_password = body.password
+    if len(new_password) < 8 or len(new_password) > 128:
+        raise HTTPException(status_code=422, detail="Password must be between 8 and 128 characters.")
+        
+    hashed = hash_password(new_password)
+    
+    # Update user password in user data list
+    users_data = load_users()
+    users = users_data.get("users", [])
+    
+    target = None
+    for u in users:
+        if u.get("id") == user["id"]:
+            target = u
+            break
+            
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    target["password_salt"] = hashed["salt"]
+    target["password_hash"] = hashed["hash"]
+    
+    if use_database_storage():
+        upsert_user_db(target)
+    else:
+        save_users(users_data)
+        
+    return {
+        "ok": True,
+        "message": "Password reset successfully. You can now log in."
+    }
+
+
+@app.post("/api/auth/delete-account")
+async def delete_account(body: DeleteAccountRequest, user: Dict[str, Any] = Depends(current_user)):
+    user_id = user["id"]
+    users_data = load_users()
+    users = users_data.get("users", [])
+    
+    target = None
+    for u in users:
+        if u.get("id") == user_id:
+            target = u
+            break
+            
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    # Verify password
+    if not verify_password(body.password, target["password_salt"], target["password_hash"]):
+        raise HTTPException(status_code=400, detail="Incorrect password.")
+        
+    # Verify security answer
+    stored_answer = str(target.get("security_answer") or "").strip().lower()
+    if body.security_answer.strip().lower() != stored_answer:
+        raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
+        
+    # Delete all user sessions, tokens, and records
+    if use_database_storage():
+        from database import SessionRecord, TokenRecord, UserRecord, SessionLocal
+        with SessionLocal() as db:
+            # Delete sessions owned by user
+            db.query(SessionRecord).filter(SessionRecord.owner_user_id == user_id).delete(synchronize_session=False)
+            # Delete tokens belonging to user
+            db.query(TokenRecord).filter(TokenRecord.user_id == user_id).delete(synchronize_session=False)
+            # Delete user record
+            db.query(UserRecord).filter(UserRecord.id == user_id).delete(synchronize_session=False)
+            db.commit()
+    else:
+        # Delete session files
+        import shutil
+        user_sessions_dir = SESSIONS_ROOT / user_id
+        if user_sessions_dir.exists():
+            shutil.rmtree(user_sessions_dir, ignore_errors=True)
+            
+        # Revoke user tokens
+        tokens_data = load_tokens()
+        tokens = tokens_data.get("tokens", {})
+        tokens_to_keep = {
+            t: data for t, data in tokens.items() if data.get("user_id") != user_id
+        }
+        tokens_data["tokens"] = tokens_to_keep
+        save_tokens(tokens_data)
+        
+        # Delete user record from users list
+        users_data["users"] = [u for u in users if u.get("id") != user_id]
+        save_users(users_data)
+        
+    return {
+        "ok": True,
+        "message": "Account and all associated grading sessions have been deleted successfully."
+    }
 
 def _json_to_sentence_groups(payload: Dict[str, Any]) -> list[Dict[str, Any]]:
     """Convert a downloaded session JSON into sentence_groups for review."""
@@ -2791,6 +3027,7 @@ async def add_comment_reply(body: CommentReplyRequest, user: Dict[str, Any] = De
         "text": body.text,
         "created_at": datetime.utcnow().isoformat(),
         "read_by": [user_id] if user_id else [],
+        "parent_reply_id": body.parent_reply_id if body.parent_reply_id else None,
     }
 
     if "replies" not in comment:
@@ -2801,6 +3038,34 @@ async def add_comment_reply(body: CommentReplyRequest, user: Dict[str, Any] = De
     _save_loaded_session(json_path, session)
 
     return {"ok": True, "reply": reply}
+
+
+def _delete_reply_recursive(replies: list[Dict[str, Any]], reply_id_to_delete: str, current_user_id: str) -> None:
+    # Find the target reply to verify authorization
+    target = None
+    for r in replies:
+        if r.get("id") == reply_id_to_delete:
+            target = r
+            break
+    if not target:
+        raise HTTPException(status_code=404, detail="Reply not found.")
+    if target.get("user_id") != current_user_id:
+        raise HTTPException(status_code=403, detail="You cannot delete someone else's reply.")
+
+    # Find all descendants to delete
+    ids_to_remove = {reply_id_to_delete}
+    added = True
+    while added:
+        added = False
+        for r in replies:
+            rid = r.get("id")
+            parent_id = r.get("parent_reply_id")
+            if parent_id in ids_to_remove and rid not in ids_to_remove:
+                ids_to_remove.add(rid)
+                added = True
+
+    # Filter replies in place
+    replies[:] = [r for r in replies if r.get("id") not in ids_to_remove]
 
 
 @app.delete("/api/comments/reply/{session_id}/{sentence_id}/{comment_id}/{reply_id}")
@@ -2850,18 +3115,7 @@ async def delete_comment_reply(
         raise HTTPException(status_code=404, detail="Comment not found.")
 
     replies = comment.get("replies", [])
-    found_idx = -1
-    for idx, r in enumerate(replies):
-        if r.get("id") == reply_id:
-            if r.get("user_id") != user_id:
-                raise HTTPException(status_code=403, detail="You cannot delete someone else's reply.")
-            found_idx = idx
-            break
-
-    if found_idx == -1:
-        raise HTTPException(status_code=404, detail="Reply not found.")
-
-    replies.pop(found_idx)
+    _delete_reply_recursive(replies, reply_id, user_id)
     _save_loaded_session(json_path, session)
 
     return {"ok": True}
@@ -2904,6 +3158,7 @@ async def add_suggestion_reply(body: SuggestionReplyRequest, user: Dict[str, Any
         "text": body.text,
         "created_at": datetime.utcnow().isoformat(),
         "read_by": [user_id] if user_id else [],
+        "parent_reply_id": body.parent_reply_id if body.parent_reply_id else None,
     }
 
     if "replies" not in suggestion:
@@ -2951,18 +3206,7 @@ async def delete_suggestion_reply(
         raise HTTPException(status_code=404, detail="Suggestion not found.")
 
     replies = suggestion.get("replies", [])
-    found_idx = -1
-    for idx, r in enumerate(replies):
-        if r.get("id") == reply_id:
-            if r.get("user_id") != user_id:
-                raise HTTPException(status_code=403, detail="You cannot delete someone else's reply.")
-            found_idx = idx
-            break
-
-    if found_idx == -1:
-        raise HTTPException(status_code=404, detail="Reply not found.")
-
-    replies.pop(found_idx)
+    _delete_reply_recursive(replies, reply_id, user_id)
     _save_loaded_session(json_path, session)
 
     return {"ok": True}

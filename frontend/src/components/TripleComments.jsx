@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageSquare, CornerDownRight, Trash2, Send, X, User } from "lucide-react";
+import { useDialog } from "./CustomDialog";
 
 function createCommentId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -20,6 +21,165 @@ function formatCommentTimestamp(isoTime) {
   });
 }
 
+function buildReplyTree(replies = []) {
+  const replyMap = {};
+  const rootReplies = [];
+
+  replies.forEach((r) => {
+    replyMap[r.id] = { ...r, replies: [] };
+  });
+
+  replies.forEach((r) => {
+    const mapped = replyMap[r.id];
+    if (r.parent_reply_id && replyMap[r.parent_reply_id]) {
+      mapped.parent_reply_author = replyMap[r.parent_reply_id].author;
+      replyMap[r.parent_reply_id].replies.push(mapped);
+    } else {
+      rootReplies.push(mapped);
+    }
+  });
+
+  const sortReplies = (list) => {
+    list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    list.forEach((item) => sortReplies(item.replies));
+  };
+  sortReplies(rootReplies);
+
+  return rootReplies;
+}
+
+function ReplyNode({
+  reply,
+  commentId,
+  replyingToId,
+  setReplyingToId,
+  replyData,
+  setReplyData,
+  handlePostReply,
+  handleDeleteReplyClick,
+  currentUserId,
+  readOnly,
+  depth = 0
+}) {
+  const isReplying = replyingToId === reply.id;
+  const indentClass = depth > 0 ? "pl-3 sm:pl-4 border-l border-slate-205 dark:border-slate-800/80 mt-2" : "";
+
+  return (
+    <div key={reply.id} className={indentClass}>
+      <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 rounded-xl p-2.5 text-[11px] leading-relaxed relative">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-500 font-semibold">
+              <span className="font-bold text-slate-700 dark:text-slate-355 flex items-center gap-0.5">
+                <User size={9} className="text-slate-400" />
+                {reply.author || "User"}
+              </span>
+              {reply.parent_reply_author && (
+                <>
+                  <span className="text-slate-300">&bull;</span>
+                  <span className="text-indigo-650 dark:text-indigo-400 font-normal">
+                    replying to {reply.parent_reply_author}
+                  </span>
+                </>
+              )}
+              <span>&bull;</span>
+              <span>{formatCommentTimestamp(reply.created_at)}</span>
+            </div>
+            <p className="text-slate-650 dark:text-slate-300 mt-0.5 break-words">
+              {reply.text}
+            </p>
+          </div>
+          {!readOnly && reply.user_id === currentUserId && (
+            <button
+              type="button"
+              onClick={() => handleDeleteReplyClick(commentId, reply.id)}
+              className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-455 transition-colors cursor-pointer"
+              title="Delete reply"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
+        </div>
+
+        {!readOnly && (
+          <div className="flex items-center gap-2 mt-1 select-none">
+            <button
+              type="button"
+              onClick={() => {
+                if (isReplying) {
+                  setReplyingToId(null);
+                  setReplyData("");
+                } else {
+                  setReplyingToId(reply.id);
+                  setReplyData("");
+                }
+              }}
+              className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
+            >
+              <CornerDownRight size={10} />
+              Reply
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!readOnly && isReplying && (
+        <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
+          <textarea
+            autoFocus
+            value={replyData}
+            onChange={(e) => setReplyData(e.target.value)}
+            placeholder={`Reply to ${reply.author || "User"}...`}
+            rows={1}
+            className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+          />
+          <div className="flex gap-1.5 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingToId(null);
+                setReplyData("");
+              }}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePostReply(commentId, reply.id)}
+              disabled={!replyData.trim()}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer"
+            >
+              Post Reply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reply.replies && reply.replies.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {reply.replies.map((child) => (
+            <ReplyNode
+              key={child.id}
+              reply={child}
+              commentId={commentId}
+              replyingToId={replyingToId}
+              setReplyingToId={setReplyingToId}
+              replyData={replyData}
+              setReplyData={setReplyData}
+              handlePostReply={handlePostReply}
+              handleDeleteReplyClick={handleDeleteReplyClick}
+              currentUserId={currentUserId}
+              readOnly={readOnly}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TripleComments({
   tripleId,
   comments = [],
@@ -31,6 +191,7 @@ export default function TripleComments({
   onAddReply,
   onDeleteReply,
 }) {
+  const { showAlert, showConfirm } = useDialog();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState("");
   const [replyingToId, setReplyingToId] = useState(null);
@@ -57,7 +218,7 @@ export default function TripleComments({
   const handleSubmitComment = async () => {
     const text = String(formData || "").trim();
     if (!text) {
-      alert("Comment cannot be empty");
+      showAlert("Comment cannot be empty", "Validation Error");
       return;
     }
 
@@ -74,20 +235,21 @@ export default function TripleComments({
       setFormData("");
       setShowForm(false);
     } catch (err) {
-      alert("Failed to add comment: " + err.message);
+      showAlert("Failed to add comment: " + err.message, "Error");
     }
   };
 
   const handleDeleteClick = async (commentId) => {
-    if (!window.confirm("Remove this comment?")) return;
+    const ok = await showConfirm("Remove this comment?", "Remove Comment", "Remove", "Cancel");
+    if (!ok) return;
     try {
       await onDeleteComment?.(commentId);
     } catch (err) {
-      alert("Failed to delete comment: " + err.message);
+      showAlert("Failed to delete comment: " + err.message, "Error");
     }
   };
 
-  const handlePostReply = async (commentId) => {
+  const handlePostReply = async (commentId, parentReplyId = null) => {
     const text = String(replyData || "").trim();
     if (!text) return;
     try {
@@ -97,21 +259,24 @@ export default function TripleComments({
         user_id: currentUserId || "",
         text,
         created_at: new Date().toISOString(),
+        parent_reply_id: parentReplyId,
+        read_by: currentUserId ? [currentUserId] : [],
       };
       await onAddReply?.(commentId, newReply);
       setReplyData("");
       setReplyingToId(null);
     } catch (err) {
-      alert("Failed to add reply: " + err.message);
+      showAlert("Failed to add reply: " + err.message, "Error");
     }
   };
 
   const handleDeleteReplyClick = async (commentId, replyId) => {
-    if (!window.confirm("Remove this reply?")) return;
+    const ok = await showConfirm("Remove this reply?", "Remove Reply", "Remove", "Cancel");
+    if (!ok) return;
     try {
       await onDeleteReply?.(commentId, replyId);
     } catch (err) {
-      alert("Failed to delete reply: " + err.message);
+      showAlert("Failed to delete reply: " + err.message, "Error");
     }
   };
 
@@ -182,7 +347,7 @@ export default function TripleComments({
                       setReplyingToId(replyingToId === comment.id ? null : comment.id);
                       setReplyData("");
                     }}
-                    className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
+                    className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
                   >
                     <CornerDownRight size={10} />
                     Reply
@@ -190,7 +355,7 @@ export default function TripleComments({
                 </div>
               )}
 
-              {/* Nested Reply form */}
+              {/* Nested Reply form (directly replying to the top-level comment) */}
               {!readOnly && replyingToId === comment.id && (
                 <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
                   <textarea
@@ -214,7 +379,7 @@ export default function TripleComments({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handlePostReply(comment.id)}
+                      onClick={() => handlePostReply(comment.id, null)}
                       disabled={!replyData.trim()}
                       className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer"
                     >
@@ -224,40 +389,23 @@ export default function TripleComments({
                 </div>
               )}
 
-              {/* Nested Replies List */}
+              {/* Threaded Nested Replies List */}
               {comment.replies && comment.replies.length > 0 && (
                 <div className="pl-3 border-l-2 border-slate-200 dark:border-slate-800 mt-2.5 space-y-2">
-                  {comment.replies.map((reply) => (
-                    <div
+                  {buildReplyTree(comment.replies).map((reply) => (
+                    <ReplyNode
                       key={reply.id}
-                      className="bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 rounded-xl p-2.5 text-[11px] leading-relaxed"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-500 font-semibold">
-                            <span className="font-bold text-slate-700 dark:text-slate-355 flex items-center gap-0.5">
-                              <User size={9} className="text-slate-400" />
-                              {reply.author || "User"}
-                            </span>
-                            <span>&bull;</span>
-                            <span>{formatCommentTimestamp(reply.created_at)}</span>
-                          </div>
-                          <p className="text-slate-650 dark:text-slate-300 mt-0.5 break-words">
-                            {reply.text}
-                          </p>
-                        </div>
-                        {!readOnly && reply.user_id === currentUserId && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReplyClick(comment.id, reply.id)}
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-455 transition-colors cursor-pointer"
-                            title="Delete reply"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      reply={reply}
+                      commentId={comment.id}
+                      replyingToId={replyingToId}
+                      setReplyingToId={setReplyingToId}
+                      replyData={replyData}
+                      setReplyData={setReplyData}
+                      handlePostReply={handlePostReply}
+                      handleDeleteReplyClick={handleDeleteReplyClick}
+                      currentUserId={currentUserId}
+                      readOnly={readOnly}
+                    />
                   ))}
                 </div>
               )}

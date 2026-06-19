@@ -41,8 +41,8 @@ API.interceptors.response.use(
   }
 );
 
-export async function registerUser(name, username, email, password) {
-  const { data } = await API.post("/api/auth/register", { name, username, email, password });
+export async function registerUser(name, username, email, password, security_question, security_answer) {
+  const { data } = await API.post("/api/auth/register", { name, username, email, password, security_question, security_answer });
   return data;
 }
 
@@ -399,13 +399,14 @@ export async function markTripleForRemoval(sessionId, sentenceId, tripleId, mark
  * @param {string} text
  * @returns {Promise<{ok: boolean, reply: object}>}
  */
-export async function replyToComment(sessionId, sentenceId, tripleId, commentId, text) {
+export async function replyToComment(sessionId, sentenceId, tripleId, commentId, text, parentReplyId = null) {
   const { data } = await API.post("/api/comments/reply", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     comment_id: commentId,
     text,
+    parent_reply_id: parentReplyId,
   });
   return data;
 }
@@ -436,13 +437,14 @@ export async function deleteCommentReply(sessionId, sentenceId, commentId, reply
  * @param {string} text
  * @returns {Promise<{ok: boolean, reply: object}>}
  */
-export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggestionId, text) {
+export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggestionId, text, parentReplyId = null) {
   const { data } = await API.post("/api/suggestions/reply", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     suggestion_id: suggestionId,
     text,
+    parent_reply_id: parentReplyId,
   });
   return data;
 }
@@ -484,6 +486,49 @@ export async function markAllNotificationsRead(sessionId) {
   const { data } = await API.post("/api/notifications/read-all", {
     session_id: sessionId,
   });
+  return data;
+}
+
+/**
+ * Update user profile settings.
+ * @param {object} profileData
+ * @returns {Promise<{ok: boolean, user: object}>}
+ */
+export async function updateProfile(profileData) {
+  const { data } = await API.put("/api/auth/profile", profileData);
+  return data;
+}
+
+/**
+ * Fetch a user's security question.
+ * @param {string} login
+ * @returns {Promise<{security_question: string, login: string}>}
+ */
+export async function getSecurityQuestion(login) {
+  const { data } = await API.post("/api/auth/forgot-password/question", { login });
+  return data;
+}
+
+/**
+ * Reset password using security question verification.
+ * @param {string} login
+ * @param {string} answer
+ * @param {string} password
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+export async function resetPasswordWithQuestion(login, answer, password) {
+  const { data } = await API.post("/api/auth/forgot-password/reset", { login, answer, password });
+  return data;
+}
+
+/**
+ * Delete user account.
+ * @param {string} password
+ * @param {string} securityAnswer
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+export async function deleteAccount(password, securityAnswer) {
+  const { data } = await API.post("/api/auth/delete-account", { password, security_answer: securityAnswer });
   return data;
 }
 

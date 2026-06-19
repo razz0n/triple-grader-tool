@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDialog } from "./CustomDialog";
 import {
   Edit3,
   AlertCircle,
@@ -35,6 +36,7 @@ export default function TripleCard({
   onApproveDeletion,
   index,
 }) {
+  const { showAlert } = useDialog();
   const { subject, predicate, object } = triple;
 
   const [sub, setSub] = useState(subject || "");
@@ -52,7 +54,7 @@ export default function TripleCard({
 
   const handleSaveClick = () => {
     if (!sub.trim() || !pred.trim() || !obj.trim()) {
-      alert("All fields (Subject, Predicate, Object) are required.");
+      showAlert("All fields (Subject, Predicate, Object) are required.", "Validation Error");
       return;
     }
     onSaveSuggestedTriple?.(triple.id, {

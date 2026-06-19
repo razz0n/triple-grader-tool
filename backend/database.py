@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from sqlalchemy import Column, String, Text, create_engine, select
+from sqlalchemy import Column, String, Text, create_engine, select, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
@@ -61,6 +61,8 @@ class UserRecord(Base):
     password_salt = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(String(64), nullable=False)
+    security_question = Column(String(255), nullable=True)
+    security_answer = Column(String(255), nullable=True)
 
 
 class TokenRecord(Base):
@@ -95,6 +97,19 @@ def init_database(
         return
 
     Base.metadata.create_all(bind=engine)
+
+    # Check and run database migrations if columns are missing
+    try:
+        inspector = inspect(engine)
+        columns = [c["name"] for c in inspector.get_columns("users")]
+        if "security_question" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN security_question VARCHAR(255)"))
+        if "security_answer" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN security_answer VARCHAR(255)"))
+    except Exception as e:
+        print("Migration error:", e)
 
     with SessionLocal() as db:
         has_users = db.scalar(select(UserRecord.id).limit(1)) is not None
@@ -153,6 +168,8 @@ def load_users_db() -> Dict[str, Any]:
             "password_salt": row.password_salt,
             "password_hash": row.password_hash,
             "created_at": row.created_at,
+            "security_question": row.security_question,
+            "security_answer": row.security_answer,
         }
         for row in rows
     ]
@@ -194,6 +211,8 @@ def _upsert_user(db, user: Dict[str, Any]) -> None:
         row.password_salt = str(user.get("password_salt", ""))
         row.password_hash = str(user.get("password_hash", ""))
         row.created_at = str(user.get("created_at", ""))
+        row.security_question = user.get("security_question")
+        row.security_answer = user.get("security_answer")
     else:
         db.add(UserRecord(
             id=uid,
@@ -203,6 +222,8 @@ def _upsert_user(db, user: Dict[str, Any]) -> None:
             password_salt=str(user.get("password_salt", "")),
             password_hash=str(user.get("password_hash", "")),
             created_at=str(user.get("created_at", "")),
+            security_question=user.get("security_question"),
+            security_answer=user.get("security_answer"),
         ))
 
 

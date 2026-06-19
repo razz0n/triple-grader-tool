@@ -28,6 +28,8 @@ class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=24)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    security_question: str = Field(min_length=5, max_length=255)
+    security_answer: str = Field(min_length=1, max_length=255)
 
 
 class TripleSuggestionRequest(BaseModel):
@@ -99,6 +101,7 @@ class CommentReplyRequest(BaseModel):
     triple_id: Optional[str] = None
     comment_id: str
     text: str
+    parent_reply_id: Optional[str] = None
 
 
 class SuggestionReplyRequest(BaseModel):
@@ -108,6 +111,7 @@ class SuggestionReplyRequest(BaseModel):
     triple_id: str
     suggestion_id: str
     text: str
+    parent_reply_id: Optional[str] = None
 
 
 class NotificationReadRequest(BaseModel):
@@ -119,4 +123,33 @@ class NotificationReadRequest(BaseModel):
 class NotificationReadAllRequest(BaseModel):
     """Request model for marking all items in a session as read."""
     session_id: str
+
+
+class UpdateProfileRequest(BaseModel):
+    """Request model for updating user profile information."""
+    name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    security_question: Optional[str] = None
+    security_answer: Optional[str] = None
+
+
+class GetSecurityQuestionRequest(BaseModel):
+    """Request model for getting a user's security question."""
+    login: str = Field(min_length=2, max_length=120)
+
+
+class ResetPasswordWithQuestionRequest(BaseModel):
+    """Request model for resetting password using security question."""
+    login: str = Field(min_length=2, max_length=120)
+    answer: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class DeleteAccountRequest(BaseModel):
+    """Request model for deleting user account."""
+    password: str = Field(min_length=8, max_length=128)
+    security_answer: str = Field(min_length=1, max_length=255)
+
 

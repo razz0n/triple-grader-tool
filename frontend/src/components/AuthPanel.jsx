@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
-import { loginUser, registerUser } from "../api";
+import { loginUser, registerUser, getSecurityQuestion, resetPasswordWithQuestion } from "../api";
+import { SECURITY_QUESTIONS } from "./SettingsPanel";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, User, Mail, Shield, AlertCircle, CheckCircle, Sun, Moon, Eye, EyeOff } from "lucide-react";
+import { Lock, User, Mail, Shield, AlertCircle, CheckCircle, Sun, Moon, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 export default function AuthPanel({ onAuthenticated }) {
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // 'login', 'register', 'forgot_password', 'reset_password'
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [securityQuestion, setSecurityQuestion] = useState(SECURITY_QUESTIONS[0]);
+  const [securityAnswer, setSecurityAnswer] = useState("");
+  const [retrievedQuestion, setRetrievedQuestion] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,7 +56,7 @@ export default function AuthPanel({ onAuthenticated }) {
       : "";
 
   const confirmError =
-    mode === "register" && confirmPassword && password !== confirmPassword
+    (mode === "register" || mode === "reset_password") && confirmPassword && password !== confirmPassword
       ? "Confirm password does not match original password."
       : "";
 
@@ -65,6 +69,63 @@ export default function AuthPanel({ onAuthenticated }) {
     mode === "register" && usernameHasTypingSignals && !isUsernameValid
       ? "Username must be 3-24 characters, start with a letter, and use lowercase letters, numbers, or _."
       : "";
+
+  const handleGetQuestion = async (e) => {
+    e.preventDefault();
+    if (!identifier.trim()) {
+      setError("Please enter your username or email.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setInfo("");
+    try {
+      const res = await getSecurityQuestion(identifier.trim());
+      setRetrievedQuestion(res.security_question);
+      setMode("reset_password");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Failed to retrieve security question.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!securityAnswer.trim()) {
+      setError("Please enter your security answer.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setInfo("");
+    try {
+      const res = await resetPasswordWithQuestion(
+        identifier.trim(),
+        securityAnswer.trim(),
+        password
+      );
+      setMode("login");
+      setSecurityAnswer("");
+      setPassword("");
+      setConfirmPassword("");
+      setInfo(res.message || "Password reset successfully. Please log in.");
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Failed to reset password.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -82,6 +143,10 @@ export default function AuthPanel({ onAuthenticated }) {
         setError("Please enter a valid username.");
         return;
       }
+      if (!securityAnswer.trim()) {
+        setError("Please fill in a security question answer.");
+        return;
+      }
       if (password !== confirmPassword) {
         setError("Passwords do not match.");
         return;
@@ -94,17 +159,28 @@ export default function AuthPanel({ onAuthenticated }) {
         const user = await loginUser(identifier, password);
         onAuthenticated(user);
       } else {
-        await registerUser(name.trim(), usernameTrimmed, identifier, password);
+        await registerUser(name.trim(), usernameTrimmed, identifier, password, securityQuestion, securityAnswer.trim());
         setMode("login");
         setPassword("");
         setConfirmPassword("");
         setUsername("");
+        setSecurityAnswer("");
         setInfo("Account created successfully. Please log in.");
       }
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Authentication failed.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    if (mode === "forgot_password") {
+      handleGetQuestion(e);
+    } else if (mode === "reset_password") {
+      handleResetPassword(e);
+    } else {
+      submit(e);
     }
   };
 
@@ -139,43 +215,51 @@ export default function AuthPanel({ onAuthenticated }) {
             Ontology Triple Grader
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
-            {mode === "login" ? "Sign in to access your grading workspace" : "Register a new evaluator account"}
+            {mode === "login"
+              ? "Sign in to access your grading workspace"
+              : mode === "register"
+              ? "Register a new evaluator account"
+              : mode === "forgot_password"
+              ? "Retrieve your security question to reset password"
+              : "Verify your answer and set a new password"}
           </p>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 mb-6 border border-slate-200/50 dark:border-slate-800/30">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setError("");
-              setInfo("");
-            }}
-            className={`flex-1 text-xs font-semibold rounded-lg py-2.5 transition-all duration-200 cursor-pointer ${
-              mode === "login"
-                ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("register");
-              setError("");
-              setInfo("");
-            }}
-            className={`flex-1 text-xs font-semibold rounded-lg py-2.5 transition-all duration-200 cursor-pointer ${
-              mode === "register"
-                ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
+        {(mode === "login" || mode === "register") && (
+          <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 mb-6 border border-slate-200/50 dark:border-slate-800/30">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+                setInfo("");
+              }}
+              className={`flex-1 text-xs font-semibold rounded-lg py-2.5 transition-all duration-200 cursor-pointer ${
+                mode === "login"
+                  ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setError("");
+                setInfo("");
+              }}
+              className={`flex-1 text-xs font-semibold rounded-lg py-2.5 transition-all duration-200 cursor-pointer ${
+                mode === "register"
+                  ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+        )}
 
         {/* Info & Error Banner */}
         <AnimatePresence mode="wait">
@@ -205,7 +289,7 @@ export default function AuthPanel({ onAuthenticated }) {
         </AnimatePresence>
 
         {/* Input Form */}
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <AnimatePresence mode="popLayout">
             {mode === "register" && (
               <motion.div
@@ -261,59 +345,167 @@ export default function AuthPanel({ onAuthenticated }) {
               </motion.div>
             )}
 
-            {/* Identifier input (Username or Email for login, Email only for register) */}
-            <div key="identifier-field" className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                {mode === "login" ? "Username or Email" : "Email Address"}
-              </label>
-              <div className="relative flex items-center">
-                <Mail size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
-                <input
-                  type={mode === "login" ? "text" : "email"}
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder={mode === "login" ? "Enter username or email" : "Enter email address"}
-                  required
-                  className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
-                />
-                {mode === "register" && isEmailValid && (
-                  <CheckCircle size={16} className="absolute right-3.5 text-emerald-500 shrink-0" />
+            {/* Identifier input (Username or Email for login/forgot_password, Email only for register) */}
+            {(mode === "login" || mode === "register" || mode === "forgot_password") && (
+              <div key="identifier-field" className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  {mode === "login" || mode === "forgot_password" ? "Username or Email" : "Email Address"}
+                </label>
+                <div className="relative flex items-center">
+                  <Mail size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type={mode === "register" ? "email" : "text"}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder={mode === "register" ? "Enter email address" : "Enter username or email"}
+                    required
+                    className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                  />
+                  {mode === "register" && isEmailValid && (
+                    <CheckCircle size={16} className="absolute right-3.5 text-emerald-500 shrink-0" />
+                  )}
+                </div>
+                {emailError && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 leading-normal">{emailError}</p>
                 )}
               </div>
-              {emailError && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 leading-normal">{emailError}</p>
-              )}
-            </div>
+            )}
 
-            {/* Password input */}
-            <div key="password-field" className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Password
-              </label>
-              <div className="relative flex items-center">
-                <Lock size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 8 characters"
-                  minLength={8}
-                  required
-                  className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
-                  title={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
+            {/* Security Question (for Resetting) */}
+            {mode === "reset_password" && (
+              <motion.div
+                key="reset-question-fields"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                {/* Question Info Box */}
+                <div className="space-y-1 bg-slate-50 dark:bg-slate-900/50 p-3.5 border border-slate-200/60 dark:border-slate-800 rounded-xl leading-normal">
+                  <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider block mb-1">
+                    Security Question
+                  </span>
+                  <p className="text-xs text-slate-700 dark:text-slate-350 font-medium">
+                    {retrievedQuestion}
+                  </p>
+                </div>
 
-            {/* Confirm Password input */}
+                {/* Answer input */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Your Answer
+                  </label>
+                  <div className="relative flex items-center">
+                    <Shield size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
+                    <input
+                      type="text"
+                      value={securityAnswer}
+                      onChange={(e) => setSecurityAnswer(e.target.value)}
+                      placeholder="Type your security answer"
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Security Question Selection during Registration */}
             {mode === "register" && (
+              <motion.div
+                key="register-security-question"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4 pt-1"
+              >
+                {/* Selection Dropdown */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Security Question
+                  </label>
+                  <select
+                    value={securityQuestion}
+                    onChange={(e) => setSecurityQuestion(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                  >
+                    {SECURITY_QUESTIONS.map((q, idx) => (
+                      <option key={idx} value={q}>
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Answer field */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Security Answer
+                  </label>
+                  <div className="relative flex items-center">
+                    <Shield size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
+                    <input
+                      type="text"
+                      value={securityAnswer}
+                      onChange={(e) => setSecurityAnswer(e.target.value)}
+                      placeholder="For password recovery"
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Password input (login / register / reset_password) */}
+            {(mode === "login" || mode === "register" || mode === "reset_password") && (
+              <div key="password-field" className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  {mode === "reset_password" ? "New Password" : "Password"}
+                </label>
+                <div className="relative flex items-center">
+                  <Lock size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    minLength={8}
+                    required
+                    className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {mode === "login" && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("forgot_password");
+                        setError("");
+                        setInfo("");
+                        setPassword("");
+                        setConfirmPassword("");
+                        setSecurityAnswer("");
+                      }}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Confirm Password input (register / reset_password) */}
+            {(mode === "register" || mode === "reset_password") && (
               <motion.div
                 key="confirm-password-field"
                 initial={{ opacity: 0, y: -10 }}
@@ -355,14 +547,43 @@ export default function AuthPanel({ onAuthenticated }) {
             {loading ? (
               <div className="flex items-center gap-2">
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Authenticating...</span>
+                <span>
+                  {mode === "forgot_password"
+                    ? "Checking account..."
+                    : mode === "reset_password"
+                    ? "Resetting..."
+                    : "Authenticating..."}
+                </span>
               </div>
             ) : mode === "login" ? (
               "Sign In"
-            ) : (
+            ) : mode === "register" ? (
               "Create Account"
+            ) : mode === "forgot_password" ? (
+              "Retrieve Security Question"
+            ) : (
+              "Reset Password"
             )}
           </button>
+
+          {/* Cancel / Back Link for Recovery Modes */}
+          {(mode === "forgot_password" || mode === "reset_password") && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+                setInfo("");
+                setPassword("");
+                setConfirmPassword("");
+                setSecurityAnswer("");
+              }}
+              className="w-full mt-2 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-semibold rounded-xl py-2.5 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <ArrowLeft size={14} />
+              Back to Sign In
+            </button>
+          )}
         </form>
       </motion.div>
     </div>

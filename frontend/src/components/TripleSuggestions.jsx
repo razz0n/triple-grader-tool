@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDialog } from "./CustomDialog";
 import {
   Lightbulb,
   Edit,
@@ -26,6 +27,157 @@ function formatCommentTimestamp(isoTime) {
   });
 }
 
+function buildReplyTree(replies = []) {
+  const replyMap = {};
+  const rootReplies = [];
+
+  replies.forEach((r) => {
+    replyMap[r.id] = { ...r, replies: [] };
+  });
+
+  replies.forEach((r) => {
+    const mapped = replyMap[r.id];
+    if (r.parent_reply_id && replyMap[r.parent_reply_id]) {
+      mapped.parent_reply_author = replyMap[r.parent_reply_id].author;
+      replyMap[r.parent_reply_id].replies.push(mapped);
+    } else {
+      rootReplies.push(mapped);
+    }
+  });
+
+  const sortReplies = (list) => {
+    list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    list.forEach((item) => sortReplies(item.replies));
+  };
+  sortReplies(rootReplies);
+
+  return rootReplies;
+}
+
+function SuggestionReplyNode({
+  reply,
+  sugId,
+  replyingToReplyId,
+  setReplyingToReplyId,
+  replyData,
+  setReplyData,
+  handlePostSuggestionReply,
+  handleDeleteSuggestionReply,
+  currentUser,
+  depth = 0
+}) {
+  const isReplying = replyingToReplyId === reply.id;
+  const isOwnReply = reply.user_id === (currentUser?.id || "");
+  const indentClass = depth > 0 ? "pl-3 sm:pl-4 border-l border-indigo-150 dark:border-indigo-900/50 mt-2" : "";
+
+  return (
+    <div key={reply.id} className={indentClass}>
+      <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100/60 dark:border-slate-800/80 rounded-xl p-2.5 text-[11px] leading-relaxed relative">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-500 font-semibold">
+              <span className="font-bold text-slate-700 dark:text-slate-300">{reply.author || "Grader"}</span>
+              {reply.parent_reply_author && (
+                <>
+                  <span className="text-slate-350">&bull;</span>
+                  <span className="text-indigo-500 dark:text-indigo-400 font-normal">
+                    replying to {reply.parent_reply_author}
+                  </span>
+                </>
+              )}
+              <span>&bull;</span>
+              <span>{formatCommentTimestamp(reply.created_at)}</span>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 mt-0.5 break-words">
+              {reply.text}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            {isOwnReply && (
+              <button
+                onClick={() => handleDeleteSuggestionReply(sugId, reply.id)}
+                className="p-1 rounded text-slate-400 hover:text-rose-650 transition-colors cursor-pointer"
+                title="Delete reply"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-1 select-none">
+          <button
+            onClick={() => {
+              if (isReplying) {
+                setReplyingToReplyId(null);
+                setReplyData("");
+              } else {
+                setReplyingToReplyId(reply.id);
+                setReplyData("");
+              }
+            }}
+            className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
+          >
+            <CornerDownRight size={10} />
+            Reply
+          </button>
+        </div>
+      </div>
+
+      {isReplying && (
+        <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
+          <textarea
+            autoFocus
+            value={replyData}
+            onChange={(e) => setReplyData(e.target.value)}
+            placeholder={`Reply to ${reply.author || "User"}...`}
+            rows={1}
+            className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+          />
+          <div className="flex gap-1.5 justify-end">
+            <button
+              onClick={() => {
+                setReplyingToReplyId(null);
+                setReplyData("");
+              }}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handlePostSuggestionReply(sugId, reply.id)}
+              disabled={!replyData.trim()}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer"
+            >
+              Post Reply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reply.replies && reply.replies.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {reply.replies.map((child) => (
+            <SuggestionReplyNode
+              key={child.id}
+              reply={child}
+              sugId={sugId}
+              replyingToReplyId={replyingToReplyId}
+              setReplyingToReplyId={setReplyingToReplyId}
+              replyData={replyData}
+              setReplyData={setReplyData}
+              handlePostSuggestionReply={handlePostSuggestionReply}
+              handleDeleteSuggestionReply={handleDeleteSuggestionReply}
+              currentUser={currentUser}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TripleSuggestions({
   triple,
   onAddSuggestion,
@@ -41,6 +193,7 @@ export default function TripleSuggestions({
   currentUserName,
   currentUser,
 }) {
+  const { showAlert, showConfirm } = useDialog();
   const { subject, predicate, object, suggestions = [] } = triple;
   const displayUserName = currentUserName || currentUser?.name || "";
   const voteHandler = onVote || onVoteSuggestion;
@@ -48,6 +201,8 @@ export default function TripleSuggestions({
 
   const [expandedDiscussionIds, setExpandedDiscussionIds] = useState({});
   const [discussionDrafts, setDiscussionDrafts] = useState({});
+  const [replyingToReplyId, setReplyingToReplyId] = useState(null);
+  const [replyData, setReplyData] = useState("");
 
   const toggleDiscussion = (sugId) => {
     setExpandedDiscussionIds((prev) => ({
@@ -56,23 +211,31 @@ export default function TripleSuggestions({
     }));
   };
 
-  const handlePostSuggestionReply = async (sugId) => {
-    const text = String(discussionDrafts[sugId] || "").trim();
+  const handlePostSuggestionReply = async (sugId, parentReplyId = null) => {
+    const text = parentReplyId
+      ? String(replyData || "").trim()
+      : String(discussionDrafts[sugId] || "").trim();
     if (!text) return;
     try {
-      await onAddSuggestionReply?.(sugId, text);
-      setDiscussionDrafts((prev) => ({ ...prev, [sugId]: "" }));
+      await onAddSuggestionReply?.(sugId, text, parentReplyId);
+      if (parentReplyId) {
+        setReplyData("");
+        setReplyingToReplyId(null);
+      } else {
+        setDiscussionDrafts((prev) => ({ ...prev, [sugId]: "" }));
+      }
     } catch (err) {
-      alert("Failed to add reply: " + err.message);
+      showAlert("Failed to add reply: " + err.message, "Error");
     }
   };
 
   const handleDeleteSuggestionReply = async (sugId, replyId) => {
-    if (!window.confirm("Remove this reply?")) return;
+    const ok = await showConfirm("Remove this reply?", "Remove Reply", "Remove", "Cancel");
+    if (!ok) return;
     try {
       await onDeleteSuggestionReply?.(sugId, replyId);
     } catch (err) {
-      alert("Failed to delete reply: " + err.message);
+      showAlert("Failed to delete reply: " + err.message, "Error");
     }
   };
 
@@ -108,12 +271,12 @@ export default function TripleSuggestions({
 
   const handleSubmitSuggestion = async () => {
     if (!canSuggest) {
-      alert("You are not allowed to add suggestions in this session.");
+      showAlert("You are not allowed to add suggestions in this session.", "Action Not Allowed");
       return;
     }
 
     if (!formData.subject || !formData.predicate || !formData.object) {
-      alert("Please fill in all triple fields");
+      showAlert("Please fill in all triple fields", "Validation Error");
       return;
     }
 
@@ -127,7 +290,7 @@ export default function TripleSuggestions({
       setFormData({ subject: "", predicate: "", object: "", reason: "" });
       setShowForm(false);
     } catch (err) {
-      alert("Failed to add suggestion: " + err.message);
+      showAlert("Failed to add suggestion: " + err.message, "Error");
     }
   };
 
@@ -153,7 +316,7 @@ export default function TripleSuggestions({
 
   const saveEditSuggestion = async (suggestionId) => {
     if (!editFormData.subject || !editFormData.predicate || !editFormData.object) {
-      alert("Please fill in all triple fields");
+      showAlert("Please fill in all triple fields", "Validation Error");
       return;
     }
 
@@ -166,7 +329,7 @@ export default function TripleSuggestions({
       });
       cancelEditSuggestion();
     } catch (err) {
-      alert("Failed to edit suggestion: " + err.message);
+      showAlert("Failed to edit suggestion: " + err.message, "Error");
     }
   };
 
@@ -512,41 +675,24 @@ export default function TripleSuggestions({
                     <div className="mt-4 pl-3.5 border-l-2 border-indigo-300 dark:border-indigo-900 space-y-2.5">
                       {sug.replies && sug.replies.length > 0 && (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                          {sug.replies.map((reply) => {
-                            const isOwnReply = reply.user_id === (currentUser?.id || "");
-                            return (
-                              <div
-                                key={reply.id}
-                                className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100/60 dark:border-slate-800/80 rounded-xl p-2.5 text-[11px] leading-relaxed relative"
-                              >
-                                <div className="flex justify-between items-start gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-500 font-semibold">
-                                      <span className="font-bold text-slate-700 dark:text-slate-300">{reply.author || "Grader"}</span>
-                                      <span>&bull;</span>
-                                      <span>{formatCommentTimestamp(reply.created_at)}</span>
-                                    </div>
-                                    <p className="text-slate-600 dark:text-slate-300 mt-0.5 break-words">
-                                      {reply.text}
-                                    </p>
-                                  </div>
-                                  {isOwnReply && (
-                                    <button
-                                      onClick={() => handleDeleteSuggestionReply(sug.id, reply.id)}
-                                      className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                      title="Delete reply"
-                                    >
-                                      <X size={10} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {buildReplyTree(sug.replies).map((reply) => (
+                            <SuggestionReplyNode
+                              key={reply.id}
+                              reply={reply}
+                              sugId={sug.id}
+                              replyingToReplyId={replyingToReplyId}
+                              setReplyingToReplyId={setReplyingToReplyId}
+                              replyData={replyData}
+                              setReplyData={setReplyData}
+                              handlePostSuggestionReply={handlePostSuggestionReply}
+                              handleDeleteSuggestionReply={handleDeleteSuggestionReply}
+                              currentUser={currentUser}
+                            />
+                          ))}
                         </div>
                       )}
 
-                      {/* Reply field */}
+                      {/* Reply field (replying to main suggestion) */}
                       <div className="space-y-2 pt-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-2.5">
                         <textarea
                           value={discussionDrafts[sug.id] || ""}
@@ -565,7 +711,7 @@ export default function TripleSuggestions({
                             Close Thread
                           </button>
                           <button
-                            onClick={() => handlePostSuggestionReply(sug.id)}
+                            onClick={() => handlePostSuggestionReply(sug.id, null)}
                             disabled={!(discussionDrafts[sug.id] || "").trim()}
                             className="text-[10px] px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold cursor-pointer shadow-sm"
                           >

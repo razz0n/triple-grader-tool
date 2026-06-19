@@ -3,6 +3,7 @@ import { saveSession, downloadSession, getAuthToken, loadSession } from "../api"
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
+import { useDialog } from "./CustomDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -91,6 +92,7 @@ function normalizeSentenceComments(comments) {
                 user_id: r.user_id ? String(r.user_id) : "",
                 text: r.text ? String(r.text) : "",
                 created_at: r.created_at || new Date().toISOString(),
+                parent_reply_id: r.parent_reply_id ? String(r.parent_reply_id) : undefined,
                 read_by: Array.isArray(r.read_by) ? r.read_by.map(String) : [],
               }))
             : [],
@@ -129,7 +131,176 @@ function formatCommentTimestamp(isoTime) {
   });
 }
 
+const filterRepliesRecursive = (replies = [], replyIdToDelete) => {
+  const idsToRemove = new Set([replyIdToDelete]);
+  let added = true;
+  while (added) {
+    added = false;
+    for (const r of replies) {
+      if (r.parent_reply_id && idsToRemove.has(r.parent_reply_id) && !idsToRemove.has(r.id)) {
+        idsToRemove.add(r.id);
+        added = true;
+      }
+    }
+  }
+  return replies.filter((r) => !idsToRemove.has(r.id));
+};
+
+function buildReplyTree(replies = []) {
+  const replyMap = {};
+  const rootReplies = [];
+
+  replies.forEach((r) => {
+    replyMap[r.id] = { ...r, replies: [] };
+  });
+
+  replies.forEach((r) => {
+    const mapped = replyMap[r.id];
+    if (r.parent_reply_id && replyMap[r.parent_reply_id]) {
+      mapped.parent_reply_author = replyMap[r.parent_reply_id].author;
+      replyMap[r.parent_reply_id].replies.push(mapped);
+    } else {
+      rootReplies.push(mapped);
+    }
+  });
+
+  const sortReplies = (list) => {
+    list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    list.forEach((item) => sortReplies(item.replies));
+  };
+  sortReplies(rootReplies);
+
+  return rootReplies;
+}
+
+function SentenceReplyNode({
+  reply,
+  commentId,
+  replyingToReplyId,
+  setReplyingToReplyId,
+  replyData,
+  setReplyData,
+  handlePostReply,
+  handleDeleteReply,
+  currentUserId,
+  canEditSession,
+  depth = 0
+}) {
+  const isReplying = replyingToReplyId === reply.id;
+  const indentClass = depth > 0 ? "pl-3 sm:pl-4 border-l border-indigo-150 dark:border-indigo-900 mt-2" : "";
+
+  return (
+    <div key={reply.id} className={indentClass}>
+      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 leading-relaxed text-[11px] relative">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-550 font-bold select-none">
+              <span className="text-slate-700 dark:text-slate-300 font-bold">{reply.author}</span>
+              {reply.parent_reply_author && (
+                <>
+                  <span className="text-slate-300">&bull;</span>
+                  <span className="text-indigo-650 dark:text-indigo-400 font-normal">
+                    replying to {reply.parent_reply_author}
+                  </span>
+                </>
+              )}
+              <span>&bull;</span>
+              <span>{formatCommentTimestamp(reply.created_at)}</span>
+            </div>
+            <p className="text-slate-655 dark:text-slate-350 mt-0.5 break-words">{reply.text}</p>
+          </div>
+          {canEditSession && reply.user_id === currentUserId && (
+            <button
+              type="button"
+              onClick={() => handleDeleteReply(reply.id)}
+              className="p-1 rounded text-slate-400 hover:text-rose-605 transition-colors cursor-pointer"
+              title="Delete reply"
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+
+        {canEditSession && (
+          <div className="flex items-center gap-2 mt-1 select-none">
+            <button
+              type="button"
+              onClick={() => {
+                if (isReplying) {
+                  setReplyingToReplyId(null);
+                  setReplyData("");
+                } else {
+                  setReplyingToReplyId(reply.id);
+                  setReplyData("");
+                }
+              }}
+              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              Reply
+            </button>
+          </div>
+        )}
+      </div>
+
+      {canEditSession && isReplying && (
+        <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
+          <textarea
+            autoFocus
+            value={replyData}
+            onChange={(e) => setReplyData(e.target.value)}
+            placeholder={`Reply to ${reply.author || "User"}...`}
+            rows={1}
+            className="w-full text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
+          />
+          <div className="flex gap-1.5 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingToReplyId(null);
+                setReplyData("");
+              }}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePostReply(reply.id)}
+              disabled={!replyData.trim()}
+              className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-650 hover:bg-indigo-700 text-white font-bold cursor-pointer"
+            >
+              Reply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reply.replies && reply.replies.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {reply.replies.map((child) => (
+            <SentenceReplyNode
+              key={child.id}
+              reply={child}
+              commentId={commentId}
+              replyingToReplyId={replyingToReplyId}
+              setReplyingToReplyId={setReplyingToReplyId}
+              replyData={replyData}
+              setReplyData={setReplyData}
+              handlePostReply={handlePostReply}
+              handleDeleteReply={handleDeleteReply}
+              currentUserId={currentUserId}
+              canEditSession={canEditSession}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate }) {
+  const { showConfirm, showAlert } = useDialog();
   const {
     session_id: initialSessionId,
     source_filename,
@@ -267,6 +438,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const [replyingToSentenceCommentId, setReplyingToSentenceCommentId] = useState(null);
   const [sentenceCommentReplyText, setSentenceCommentReplyText] = useState("");
+  const [replyingToSentenceReplyId, setReplyingToSentenceReplyId] = useState(null);
+  const [sentenceReplyData, setSentenceReplyData] = useState("");
   const [showSentenceCommentForm, setShowSentenceCommentForm] = useState(false);
   const [sentenceCommentText, setSentenceCommentText] = useState("");
   const sentenceCommentTextareaRef = useRef(null);
@@ -645,14 +818,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           const isOwn = reply.user_id === currentUserId;
           const isRead = (reply.read_by || []).includes(currentUserId);
           if (!isOwn && !isRead) {
-            // Involved: owner, parent comment author, or anyone who replied in this thread
+            // Involved: owner, parent comment author, parent reply author, or anyone who replied in this thread
             const isParentAuthor = comment.user_id === currentUserId;
             const hasRepliedInThread = (comment.replies || []).some(r => r.user_id === currentUserId);
-            if (isOwner || isParentAuthor || hasRepliedInThread) {
+            const isDirectParentAuthor = reply.parent_reply_id && 
+              (comment.replies || []).some(r => r.id === reply.parent_reply_id && r.user_id === currentUserId);
+            if (isOwner || isParentAuthor || hasRepliedInThread || isDirectParentAuthor) {
               list.push({
                 id: reply.id,
                 type: "comment_reply",
-                title: `New reply from ${reply.author || "User"}`,
+                title: isDirectParentAuthor
+                  ? `New reply to your post from ${reply.author || "User"}`
+                  : `New reply from ${reply.author || "User"}`,
                 text: reply.text,
                 createdAt: reply.created_at,
                 sentenceId: sentence.id,
@@ -708,15 +885,19 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             const isOwn = reply.user_id === currentUserId;
             const isRead = (reply.read_by || []).includes(currentUserId);
             if (!isOwn && !isRead) {
-              // Involved: owner, parent comment author, suggestion creator, or anyone who replied in this thread
+              // Involved: owner, parent comment author, suggestion creator, parent reply author, or anyone who replied in this thread
               const isParentAuthor = comment.user_id === currentUserId;
               const hasRepliedInThread = (comment.replies || []).some(r => r.user_id === currentUserId);
               const isSuggestionCreator = triple.is_new_suggestion && (triple.suggested_by_id === currentUserId || triple.suggested_by === currentUserName);
-              if (isOwner || isParentAuthor || hasRepliedInThread || isSuggestionCreator) {
+              const isDirectParentAuthor = reply.parent_reply_id && 
+                (comment.replies || []).some(r => r.id === reply.parent_reply_id && r.user_id === currentUserId);
+              if (isOwner || isParentAuthor || hasRepliedInThread || isSuggestionCreator || isDirectParentAuthor) {
                 list.push({
                   id: reply.id,
                   type: "comment_reply",
-                  title: `New reply from ${reply.author || "User"} on triple`,
+                  title: isDirectParentAuthor
+                    ? `New reply to your post from ${reply.author || "User"} on triple`
+                    : `New reply from ${reply.author || "User"} on triple`,
                   text: reply.text,
                   createdAt: reply.created_at,
                   sentenceId: sentence.id,
@@ -752,14 +933,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             const isOwnReply = reply.user_id === currentUserId;
             const isRead = (reply.read_by || []).includes(currentUserId);
             if (!isOwnReply && !isRead) {
-              // Involved: owner, suggestion author, or anyone who replied in this thread
+              // Involved: owner, suggestion author, parent reply author, or anyone who replied in this thread
               const isSuggestionAuthor = sug.user_id === currentUserId;
               const hasRepliedInThread = (sug.replies || []).some(r => r.user_id === currentUserId);
-              if (isOwner || isSuggestionAuthor || hasRepliedInThread) {
+              const isDirectParentAuthor = reply.parent_reply_id && 
+                (sug.replies || []).some(r => r.id === reply.parent_reply_id && r.user_id === currentUserId);
+              if (isOwner || isSuggestionAuthor || hasRepliedInThread || isDirectParentAuthor) {
                 list.push({
                   id: reply.id,
                   type: "suggestion_reply",
-                  title: `New reply on suggestion from ${reply.author || "User"}`,
+                  title: isDirectParentAuthor
+                    ? `New reply to your suggestion comment from ${reply.author || "User"}`
+                    : `New reply on suggestion from ${reply.author || "User"}`,
                   text: reply.text,
                   createdAt: reply.created_at,
                   sentenceId: sentence.id,
@@ -1358,8 +1543,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
-  const handleAddSentenceCommentReply = (commentId, newReply) => {
+  const handleAddSentenceCommentReply = (commentId, replyText, parentReplyId = null) => {
     markChanged();
+    const newReply = {
+      id: `rpl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      author: currentUserName,
+      user_id: currentUserId,
+      text: replyText,
+      created_at: new Date().toISOString(),
+      parent_reply_id: parentReplyId,
+      read_by: currentUserId ? [currentUserId] : [],
+    };
     setSentences((prev) =>
       prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
@@ -1379,7 +1573,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         if (idx !== currentIdx) return s;
         const nextComments = (s.sentence_comments || []).map((c) => {
           if (c.id !== commentId) return c;
-          return { ...c, replies: (c.replies || []).filter((r) => r.id !== replyId) };
+          return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
         });
         return { ...s, sentence_comments: nextComments };
       })
@@ -1676,7 +1870,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           if (t.id !== tripleId) return t;
           const nextComments = (t.triple_comments || []).map((c) => {
             if (c.id !== commentId) return c;
-            return { ...c, replies: (c.replies || []).filter((r) => r.id !== replyId) };
+            return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
           });
           return { ...t, triple_comments: nextComments };
         });
@@ -1809,7 +2003,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
-  const onAddSuggestionReply = (tripleId, sugId, replyText) => {
+  const onAddSuggestionReply = (tripleId, sugId, replyText, parentReplyId = null) => {
     markChanged();
     setSentences((prev) =>
       prev.map((s, idx) => {
@@ -1824,7 +2018,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               user_id: currentUserId,
               text: replyText,
               created_at: new Date().toISOString(),
-              read_by: [],
+              parent_reply_id: parentReplyId,
+              read_by: currentUserId ? [currentUserId] : [],
             };
             return {
               ...sug,
@@ -1849,7 +2044,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             if (sug.id !== sugId) return sug;
             return {
               ...sug,
-              replies: (sug.replies || []).filter((r) => r.id !== replyId),
+              replies: filterRepliesRecursive(sug.replies || [], replyId),
             };
           });
           return { ...t, suggestions: nextSuggestions };
@@ -2723,7 +2918,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       onVoteSuggestion={(sugId, voteType) => onVoteSuggestion(t.id, sugId, voteType)}
                       onDeleteSuggestion={(sugId) => onDeleteSuggestion(t.id, sugId)}
                       onApproveSuggestion={(sugId, isApproved) => onApproveSuggestion(t.id, sugId, isApproved)}
-                      onAddSuggestionReply={(sugId, text) => onAddSuggestionReply(t.id, sugId, text)}
+                      onAddSuggestionReply={(sugId, text, parentReplyId) => onAddSuggestionReply(t.id, sugId, text, parentReplyId)}
                       onDeleteSuggestionReply={(sugId, replyId) => onDeleteSuggestionReply(t.id, sugId, replyId)}
                     />
 
@@ -2768,7 +2963,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     key={comment.id}
                     className="p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-850 text-xs space-y-3"
                   >
-                    <div className="flex justify-between items-start gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">
                           <span className="text-slate-700 dark:text-slate-300">{comment.author}</span>
@@ -2782,8 +2977,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       {canEditSession && comment.user_id === currentUserId && (
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm("Remove this comment?")) {
+                          onClick={async () => {
+                            if (await showConfirm("Remove this comment?", "Remove Comment", "Remove", "Cancel")) {
                               handleDeleteSentenceComment(comment.id);
                             }
                           }}
@@ -2798,45 +2993,39 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     {/* Sentence comments replies list */}
                     {comment.replies && comment.replies.length > 0 && (
                       <div className="pl-4 border-l-2 border-indigo-150 dark:border-indigo-900 space-y-2.5">
-                        {comment.replies.map((reply) => (
-                          <div
+                        {buildReplyTree(comment.replies).map((reply) => (
+                          <SentenceReplyNode
                             key={reply.id}
-                            className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 leading-relaxed text-[11px]"
-                          >
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 dark:text-slate-550 font-bold select-none">
-                                  <span className="text-slate-700 dark:text-slate-300 font-bold">{reply.author}</span>
-                                  <span>&bull;</span>
-                                  <span>{formatCommentTimestamp(reply.created_at)}</span>
-                                </div>
-                                <p className="text-slate-650 dark:text-slate-350 mt-0.5 break-words">{reply.text}</p>
-                              </div>
-                              {canEditSession && reply.user_id === currentUserId && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (window.confirm("Remove this reply?")) {
-                                      handleDeleteSentenceCommentReply(comment.id, reply.id);
-                                    }
-                                  }}
-                                  className="p-1 rounded text-slate-400 hover:text-rose-605 transition-colors cursor-pointer"
-                                  title="Delete reply"
-                                >
-                                  <X size={11} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                            reply={reply}
+                            commentId={comment.id}
+                            replyingToReplyId={replyingToSentenceReplyId}
+                            setReplyingToReplyId={setReplyingToSentenceReplyId}
+                            replyData={sentenceReplyData}
+                            setReplyData={setSentenceReplyData}
+                            handlePostReply={(parentReplyId) => {
+                              const text = sentenceReplyData.trim();
+                              if (!text) return;
+                              handleAddSentenceCommentReply(comment.id, text, parentReplyId);
+                              setReplyingToSentenceReplyId(null);
+                              setSentenceReplyData("");
+                            }}
+                            handleDeleteReply={async (replyId) => {
+                              if (await showConfirm("Remove this reply?", "Remove Reply", "Remove", "Cancel")) {
+                                handleDeleteSentenceCommentReply(comment.id, replyId);
+                              }
+                            }}
+                            currentUserId={currentUserId}
+                            canEditSession={canEditSession}
+                          />
                         ))}
                       </div>
                     )}
 
-                    {/* Sentence Comment Reply Field */}
+                    {/* Sentence Comment Reply Field (replying directly to the comment) */}
                     {!readOnly && (
                       <div className="pt-1 select-none">
                         {replyingToSentenceCommentId === comment.id ? (
-                          <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl">
+                          <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 p-2.5 rounded-xl">
                             <textarea
                               autoFocus
                               value={sentenceCommentReplyText}
@@ -2852,7 +3041,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                                   setReplyingToSentenceCommentId(null);
                                   setSentenceCommentReplyText("");
                                 }}
-                                className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
+                                className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-855 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors font-bold cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -2861,15 +3050,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                                 onClick={() => {
                                   const text = sentenceCommentReplyText.trim();
                                   if (!text) return;
-                                  const newReply = {
-                                    id: `rpl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                                    author: currentUserName,
-                                    user_id: currentUserId,
-                                    text,
-                                    created_at: new Date().toISOString(),
-                                    read_by: [],
-                                  };
-                                  handleAddSentenceCommentReply(comment.id, newReply);
+                                  handleAddSentenceCommentReply(comment.id, text, null);
                                   setReplyingToSentenceCommentId(null);
                                   setSentenceCommentReplyText("");
                                 }}

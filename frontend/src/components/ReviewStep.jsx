@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDialog } from "./CustomDialog";
 import {
   ArrowLeft,
   Check,
@@ -53,6 +54,7 @@ function Badge({ color, children }) {
 }
 
 function TripleRow({ triple, included, onToggle, onSaveEdit, onDelete }) {
+  const { showAlert } = useDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState({
     subject: triple.subject || "",
@@ -74,7 +76,7 @@ function TripleRow({ triple, included, onToggle, onSaveEdit, onDelete }) {
     const object = draft.object.trim();
 
     if (!subject || !predicate || !object) {
-      alert("Subject, predicate, and object are required.");
+      showAlert("Subject, predicate, and object are required.", "Validation Error");
       return;
     }
 
@@ -199,6 +201,7 @@ function GroupCard({
   onDragOver,
   onDrop,
 }) {
+  const { showAlert } = useDialog();
   const [expanded, setExpanded] = useState(false);
   const [newTriple, setNewTriple] = useState({ subject: "", predicate: "", object: "" });
 
@@ -239,7 +242,7 @@ function GroupCard({
     const object = (newTriple.object || "").trim();
 
     if (!subject || !predicate || !object) {
-      alert("Please fill subject, predicate, and object before adding a triple.");
+      showAlert("Please fill subject, predicate, and object before adding a triple.", "Validation Error");
       return;
     }
 
@@ -557,6 +560,7 @@ function GroupCard({
 }
 
 export default function ReviewStep({ uploadData, onConfirm, onReset }) {
+  const { showAlert } = useDialog();
   const { session_id, source_filename, uploaded_at, sentence_groups, manual_mode } = uploadData;
   const isManualMode = !!manual_mode;
   const [draggingGroupId, setDraggingGroupId] = useState(null);
@@ -692,7 +696,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
     });
 
     if (sentences.length === 0) {
-      alert("Please select or add at least one sentence with triples before publishing.");
+      showAlert("Please select or add at least one sentence with triples before publishing.", "Validation Error");
       return;
     }
 
