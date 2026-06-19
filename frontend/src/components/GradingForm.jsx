@@ -221,28 +221,26 @@ function SentenceReplyNode({
           )}
         </div>
 
-        {canEditSession && (
-          <div className="flex items-center gap-2 mt-1 select-none">
-            <button
-              type="button"
-              onClick={() => {
-                if (isReplying) {
-                  setReplyingToReplyId(null);
-                  setReplyData("");
-                } else {
-                  setReplyingToReplyId(reply.id);
-                  setReplyData("");
-                }
-              }}
-              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-            >
-              Reply
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-1 select-none">
+          <button
+            type="button"
+            onClick={() => {
+              if (isReplying) {
+                setReplyingToReplyId(null);
+                setReplyData("");
+              } else {
+                setReplyingToReplyId(reply.id);
+                setReplyData("");
+              }
+            }}
+            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+          >
+            Reply
+          </button>
+        </div>
       </div>
 
-      {canEditSession && isReplying && (
+      {isReplying && (
         <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
           <textarea
             autoFocus
@@ -320,6 +318,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const readOnly = !canEditSession && !canSuggestTriples;
   const currentUserId = currentUser?.id || "";
   const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
+
+  // Exit prompt modal state
+  const [showExitPromptModal, setShowExitPromptModal] = useState(false);
 
   // Inactivity and offline status states
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -2298,7 +2299,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
           {/* Dashboard Back Link */}
           <button
-            onClick={onReset}
+            onClick={() => setShowExitPromptModal(true)}
             className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
           >
             <ArrowLeft size={13} />
@@ -3152,9 +3153,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     )}
 
                     {/* Sentence Comment Reply Field (replying directly to the comment) */}
-                    {!readOnly && (
-                      <div className="pt-1 select-none">
-                        {replyingToSentenceCommentId === comment.id ? (
+                    <div className="pt-1 select-none">
+                      {replyingToSentenceCommentId === comment.id ? (
                           <div className="space-y-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 p-2.5 rounded-xl">
                             <textarea
                               autoFocus
@@ -3203,7 +3203,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                           </button>
                         )}
                       </div>
-                    )}
 
                   </div>
                 ))}
@@ -3523,6 +3522,58 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             >
               Stay Connected
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Exit prompt warning modal */}
+      {showExitPromptModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-in">
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+              <Save size={24} />
+            </div>
+            <h3 className="text-base font-bold text-center text-slate-800 dark:text-slate-100">Save Session?</h3>
+            <p className="text-xs text-center text-slate-500 dark:text-slate-400 leading-relaxed">
+              Would you like to save your progress before returning to the dashboard?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  setShowExitPromptModal(false);
+                  setSaving(true);
+                  try {
+                    const payload = latestPayloadRef.current;
+                    await saveSession(payload);
+                  } catch (e) {
+                    console.error("Save on exit failed:", e);
+                  } finally {
+                    setSaving(false);
+                    onReset();
+                  }
+                }}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95 text-center"
+              >
+                Yes, Save & Exit
+              </button>
+              <button
+                onClick={() => {
+                  setShowExitPromptModal(false);
+                  onReset();
+                }}
+                className="w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-750 text-center"
+              >
+                No, Exit Without Saving
+              </button>
+              <button
+                onClick={() => {
+                  setShowExitPromptModal(false);
+                }}
+                className="w-full py-2 border border-slate-200 dark:border-slate-850 text-slate-550 dark:text-slate-400 rounded-xl text-xs font-semibold transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 text-center"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

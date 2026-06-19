@@ -101,29 +101,27 @@ function ReplyNode({
           )}
         </div>
 
-        {!readOnly && (
-          <div className="flex items-center gap-2 mt-1 select-none">
-            <button
-              type="button"
-              onClick={() => {
-                if (isReplying) {
-                  setReplyingToId(null);
-                  setReplyData("");
-                } else {
-                  setReplyingToId(reply.id);
-                  setReplyData("");
-                }
-              }}
-              className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
-            >
-              <CornerDownRight size={10} />
-              Reply
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-1 select-none">
+          <button
+            type="button"
+            onClick={() => {
+              if (isReplying) {
+                setReplyingToId(null);
+                setReplyData("");
+              } else {
+                setReplyingToId(reply.id);
+                setReplyData("");
+              }
+            }}
+            className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
+          >
+            <CornerDownRight size={10} />
+            Reply
+          </button>
+        </div>
       </div>
 
-      {!readOnly && isReplying && (
+      {isReplying && (
         <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
           <textarea
             autoFocus
@@ -338,25 +336,22 @@ export default function TripleComments({
                 )}
               </div>
 
-              {/* Reply trigger action */}
-              {!readOnly && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReplyingToId(replyingToId === comment.id ? null : comment.id);
-                      setReplyData("");
-                    }}
-                    className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5"
-                  >
-                    <CornerDownRight size={10} />
-                    Reply
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyingToId(replyingToId === comment.id ? null : comment.id);
+                    setReplyData("");
+                  }}
+                  className="text-[9px] font-bold text-indigo-655 dark:text-indigo-450 hover:underline cursor-pointer flex items-center gap-0.5"
+                >
+                  <CornerDownRight size={10} />
+                  Reply
+                </button>
+              </div>
 
               {/* Nested Reply form (directly replying to the top-level comment) */}
-              {!readOnly && replyingToId === comment.id && (
+              {replyingToId === comment.id && (
                 <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-900 mt-2 space-y-2">
                   <textarea
                     autoFocus
