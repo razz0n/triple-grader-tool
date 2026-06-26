@@ -363,26 +363,30 @@ export default function TripleCard({
       {!isNewPending && (
         <div className="space-y-3.5 border-t border-slate-100 dark:border-slate-800/80 pt-4">
           <div className="flex items-center gap-3.5 flex-wrap">
-            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">
-              Quality Grade
-            </span>
+            {!readOnly && (
+              <>
+                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider w-24 shrink-0">
+                  Quality Grade
+                </span>
 
-            <div className="flex items-center gap-1 flex-wrap">
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => onChange(grade === n ? null : n)}
-                  disabled={readOnly}
-                  className={`grade-button w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
-                    grade === n
-                      ? "bg-indigo-600 border-indigo-600 text-white scale-110 shadow-sm"
-                      : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-                  } ${readOnly ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => onChange(grade === n ? null : n)}
+                      disabled={readOnly}
+                      className={`grade-button w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                        grade === n
+                          ? "bg-indigo-600 border-indigo-600 text-white scale-110 shadow-sm"
+                          : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                      } ${readOnly ? "opacity-60 cursor-not-allowed" : ""}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {grade !== null && grade !== undefined ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/40 px-2 py-0.5 rounded-full">

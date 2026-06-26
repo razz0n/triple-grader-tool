@@ -1370,7 +1370,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       return;
     }
 
-    if (gradingProgress.pct < 100) {
+    if (!isOwner && gradingProgress.pct < 100) {
       setPendingDownloadFormat(target);
       setShowDownloadWarningModal(true);
       return;
@@ -2326,7 +2326,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
         // Status filter
         const activeTriples = (s.triples || []).filter(t => !t.is_new_suggestion || t.status === "approved");
-        const gradedCount = activeTriples.filter((t) => t.grade !== null && t.grade !== undefined).length;
+        const gradedCount = isOwner
+          ? activeTriples.filter((t) => t.grade_average !== null && t.grade_average !== undefined).length
+          : activeTriples.filter((t) => t.grade !== null && t.grade !== undefined).length;
         const allGraded = activeTriples.length > 0 && gradedCount === activeTriples.length;
 
         if (sidebarFilter === "completed") {
@@ -2400,16 +2402,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </div>
 
         {/* Global Progress Bar (visible on md screens up) */}
-        <div className="hidden lg:flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-850 px-3 py-1.5 rounded-xl">
-          <div className="flex flex-col text-right">
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-none">Overall Progress</span>
-            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mt-1">{gradingProgress.graded} / {gradingProgress.total} Triples</span>
+        {!isOwner && (
+          <div className="hidden lg:flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-850 px-3 py-1.5 rounded-xl">
+            <div className="flex flex-col text-right">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider leading-none">Overall Progress</span>
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mt-1">{gradingProgress.graded} / {gradingProgress.total} Triples</span>
+            </div>
+            <div className="w-20 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
+              <div className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${gradingProgress.pct}%` }} />
+            </div>
+            <span className="text-sm font-extrabold text-indigo-650 dark:text-indigo-400 tabular-nums">{gradingProgress.pct}%</span>
           </div>
-          <div className="w-20 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
-            <div className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${gradingProgress.pct}%` }} />
-          </div>
-          <span className="text-sm font-extrabold text-indigo-650 dark:text-indigo-400 tabular-nums">{gradingProgress.pct}%</span>
-        </div>
+        )}
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
@@ -2711,21 +2715,23 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 </div>
 
                 {/* Sidebar Filter Selector */}
-                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[10px] font-bold">
-                  {["all", "completed", "pending"].map((filterOpt) => (
-                    <button
-                      key={filterOpt}
-                      onClick={() => setSidebarFilter(filterOpt)}
-                      className={`flex-1 py-1.5 rounded-md transition-all cursor-pointer ${
-                        sidebarFilter === filterOpt
-                          ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                      }`}
-                    >
-                      {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : "Pending"}
-                    </button>
-                  ))}
-                </div>
+                {!isOwner && (
+                  <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[10px] font-bold">
+                    {["all", "completed", "pending"].map((filterOpt) => (
+                      <button
+                        key={filterOpt}
+                        onClick={() => setSidebarFilter(filterOpt)}
+                        className={`flex-1 py-1.5 rounded-md transition-all cursor-pointer ${
+                          sidebarFilter === filterOpt
+                            ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
+                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        }`}
+                      >
+                        {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : "Pending"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Scrollable Sentence List */}
@@ -2777,10 +2783,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                               {s.comment_count}
                             </span>
                           )}
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${completenessBadge}`}>
-                            {badgeIcon}
-                            <span>{gradedT}/{activeT.length} Graded</span>
-                          </span>
+                          {!isOwner && (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${completenessBadge}`}>
+                              {badgeIcon}
+                              <span>{gradedT}/{activeT.length} Graded</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                       <p className={`text-xs leading-relaxed line-clamp-2 ${
@@ -2825,7 +2833,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     <BarChart3 size={11} />
                     <span>{showSentenceMetrics ? "Hide Metrics" : "Show Metrics"}</span>
                   </button>
-                  {ungradedTriples.length > 0 && (
+                  {!isOwner && ungradedTriples.length > 0 && (
                     <button
                       onClick={handleJumpToUngraded}
                       className="bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/45 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-[10px] px-2.5 py-1 rounded-xl font-extrabold cursor-pointer transition-all active:scale-95 flex items-center gap-1 shrink-0"
@@ -2923,22 +2931,24 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     </div>
 
                     {/* Score rating row */}
-                    <div id="sentence-completeness-buttons-row" className="flex flex-wrap items-center gap-1">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
-                        <button
-                          key={scoreVal}
-                          onClick={() => handleSentenceCompletenessChange(scoreVal)}
-                          disabled={!canEditSession}
-                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
-                            current.completeness === scoreVal
-                              ? "bg-indigo-600 border-indigo-655 text-white scale-110 shadow-sm"
-                              : "bg-white dark:bg-slate-950 text-slate-655 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          {scoreVal}
-                        </button>
-                      ))}
-                    </div>
+                    {!isOwner && (
+                      <div id="sentence-completeness-buttons-row" className="flex flex-wrap items-center gap-1">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                          <button
+                            key={scoreVal}
+                            onClick={() => handleSentenceCompletenessChange(scoreVal)}
+                            disabled={!canEditSession}
+                            className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                              current.completeness === scoreVal
+                                ? "bg-indigo-600 border-indigo-655 text-white scale-110 shadow-sm"
+                                : "bg-white dark:bg-slate-950 text-slate-655 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                            } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                          >
+                            {scoreVal}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Averages list */}
                     {completenessMetricEntries.length > 0 && (
@@ -2982,22 +2992,24 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                     </div>
 
                     {/* Score rating row */}
-                    <div id="sentence-external-relation-buttons-row" className="flex flex-wrap items-center gap-1">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
-                        <button
-                          key={scoreVal}
-                          onClick={() => handleSentenceExternalRelationChange(scoreVal)}
-                          disabled={!canEditSession}
-                          className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
-                            current.external_relation === scoreVal
-                              ? "bg-emerald-600 border-emerald-650 text-white scale-110 shadow-sm"
-                              : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                          } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          {scoreVal}
-                        </button>
-                      ))}
-                    </div>
+                    {!isOwner && (
+                      <div id="sentence-external-relation-buttons-row" className="flex flex-wrap items-center gap-1">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => (
+                          <button
+                            key={scoreVal}
+                            onClick={() => handleSentenceExternalRelationChange(scoreVal)}
+                            disabled={!canEditSession}
+                            className={`w-6 h-6 rounded-full text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+                              current.external_relation === scoreVal
+                                ? "bg-emerald-600 border-emerald-650 text-white scale-110 shadow-sm"
+                                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                            } ${!canEditSession ? "opacity-60 cursor-not-allowed" : ""}`}
+                          >
+                            {scoreVal}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Averages list */}
                     {externalRelationMetricEntries.length > 0 && (
