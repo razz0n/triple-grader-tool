@@ -6,7 +6,7 @@ import GradingForm from "./components/GradingForm";
 import EvaluationPanel from "./components/EvaluationPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import AuthPanel from "./components/AuthPanel";
-import { Sun, Moon, Settings, LogOut, User as UserIcon } from "lucide-react";
+import { Sun, Moon, Settings, LogOut, User as UserIcon, RefreshCw } from "lucide-react";
 import { getAuthToken, logoutUser, meUser, saveSession } from "./api";
 
 class ErrorBoundary extends React.Component {
@@ -91,6 +91,39 @@ export default function App() {
   const [recentUploadSessionId, setRecentUploadSessionId] = useState(null);
   const [dashboardTab, setDashboardTab] = useState("sessions"); // "sessions" or "settings"
   const [showMenu, setShowMenu] = useState(false);
+  const [needsReload, setNeedsReload] = useState(false);
+
+  // Check version / build ID for updates
+  useEffect(() => {
+    const currentBuildId = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : null;
+    if (!currentBuildId) return;
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch("/version.json?t=" + Date.now(), {
+          headers: { "Cache-Control": "no-cache" }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.version && data.version !== currentBuildId) {
+            setNeedsReload(true);
+          }
+        }
+      } catch (err) {
+        console.warn("[VersionCheck] Failed to check deployed version:", err);
+      }
+    };
+
+    checkVersion();
+    const interval = setInterval(checkVersion, 5 * 60 * 1000);
+    const onFocus = () => checkVersion();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   // Initialize theme on mount
   useEffect(() => {
@@ -392,6 +425,28 @@ export default function App() {
         </div>
       )}
       {workspaceView}
+      {needsReload && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="max-w-md w-full mx-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-5">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-650 dark:text-indigo-400 flex items-center justify-center animate-bounce">
+              <RefreshCw size={28} className="animate-spin text-indigo-650 dark:text-indigo-400" style={{ animationDuration: '3s' }} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-extrabold text-slate-850 dark:text-white tracking-tight">New Update Available!</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-2">
+                A new version of the Ontology Triple Grader tool has been deployed. Please reload the page to sync and use the latest features.
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-550 hover:from-indigo-700 hover:to-indigo-600 text-white font-bold rounded-2xl text-xs transition-all active:scale-95 shadow-md cursor-pointer flex items-center justify-center gap-2"
+            >
+              <RefreshCw size={14} />
+              <span>Reload and Update Now</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
