@@ -1229,19 +1229,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     };
   }, [sentences]);
 
-  // Background polling to fetch collaborative updates in real time
+  // Background polling & WebSocket real-time updates
   useEffect(() => {
     if (!initialSessionId) return;
 
     let isTabFocused = true;
-
     const handleFocus = () => { isTabFocused = true; };
     const handleBlur = () => { isTabFocused = false; };
 
     window.addEventListener("focus", handleFocus);
     window.addEventListener("blur", handleBlur);
 
-    const pollInterval = setInterval(async () => {
+    const fetchUpdates = async () => {
       // Bypasses sync if tab is inactive, or user has unsaved changes, or save is currently in progress
       if (!isTabFocused || hasUnsavedChangesRef.current || savingRef.current) return;
 
@@ -1284,10 +1283,43 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       } catch (err) {
         console.warn("[GradingForm] Collaborative background sync failed:", err);
       }
-    }, 15000);
+    };
+
+    // WebSocket real-time connection
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/api/ws/${initialSessionId}`;
+    let socket;
+    let reconnectTimeout;
+
+    const connectWS = () => {
+      socket = new WebSocket(wsUrl);
+      socket.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "session_updated") {
+            fetchUpdates();
+          }
+        } catch (e) {
+          console.error("[GradingForm] WS parsing error:", e);
+        }
+      };
+      socket.onclose = () => {
+        reconnectTimeout = setTimeout(connectWS, 3000);
+      };
+      socket.onerror = () => {
+        socket.close();
+      };
+    };
+
+    connectWS();
+
+    const pollInterval = setInterval(fetchUpdates, 15000);
 
     return () => {
       clearInterval(pollInterval);
+      if (socket) socket.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
     };
@@ -1643,35 +1675,95 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     );
   };
 
+  // Instant Save helper for real-time notifications/comments
+  const saveStateInstantly = async (updatedSentences) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError("");
+    setSaveMsg("");
+    try {
+      const payload = {
+        session_id: initialSessionId,
+        source_filename,
+        uploaded_at,
+        manual_mode: !!manual_mode,
+        total_sentences: updatedSentences.length,
+        sentences: updatedSentences.map((s) => ({
+          id: s.id,
+          text: s.text,
+          is_calibration: !!s.is_calibration,
+          completeness: s.completeness,
+          external_relation: s.external_relation,
+          completeness_by_user: s.completeness_by_user,
+          external_relation_by_user: s.external_relation_by_user,
+          sentence_comments: s.sentence_comments,
+          triples: s.triples.map((t) => ({
+            id: t.id,
+            subject: t.subject,
+            predicate: t.predicate,
+            object: t.object,
+            grade: t.grade,
+            author: t.author,
+            grades_by_user: t.grades_by_user,
+            is_new_suggestion: !!t.is_new_suggestion,
+            status: t.status || null,
+            suggested_by: t.suggested_by || null,
+            marked_for_removal: !!t.marked_for_removal,
+            removal_reason: t.removal_reason || "",
+            marked_for_removal_by: t.marked_for_removal_by || null,
+            marked_for_removal_by_name: t.marked_for_removal_by_name || null,
+            triple_comments: t.triple_comments || [],
+            suggestions: t.suggestions || [],
+          })),
+        })),
+      };
+      
+      const result = await saveSession(payload);
+      setSavedSessionId(result.session_id);
+      setSavedAt(new Date());
+      setSaveMsg("Changes synced instantly");
+      setTimeout(() => setSaveMsg(""), 3000);
+      hasUnsavedChangesRef.current = false;
+    } catch (e) {
+      setSaveError(
+        e?.response?.data?.detail || "Save failed. Is the backend running?"
+      );
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
   // Comments / Replies / Suggestions Actions
   const handleSentenceCommentAdd = (newComment) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const nextComments = [...(s.sentence_comments || []), newComment];
-        return {
-          ...s,
-          sentence_comments: nextComments,
-          comment_count: nextComments.length,
-        };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const nextComments = [...(s.sentence_comments || []), newComment];
+      return {
+        ...s,
+        sentence_comments: nextComments,
+        comment_count: nextComments.length,
+      };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const handleDeleteSentenceComment = (commentId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const nextComments = (s.sentence_comments || []).filter((c) => c.id !== commentId);
-        return {
-          ...s,
-          sentence_comments: nextComments,
-          comment_count: nextComments.length,
-        };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const nextComments = (s.sentence_comments || []).filter((c) => c.id !== commentId);
+      return {
+        ...s,
+        sentence_comments: nextComments,
+        comment_count: nextComments.length,
+      };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const handleAddSentenceCommentReply = (commentId, replyText, parentReplyId = null) => {
@@ -1685,30 +1777,30 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       parent_reply_id: parentReplyId,
       read_by: currentUserId ? [currentUserId] : [],
     };
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const nextComments = (s.sentence_comments || []).map((c) => {
-          if (c.id !== commentId) return c;
-          return { ...c, replies: [...(c.replies || []), newReply] };
-        });
-        return { ...s, sentence_comments: nextComments };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const nextComments = (s.sentence_comments || []).map((c) => {
+        if (c.id !== commentId) return c;
+        return { ...c, replies: [...(c.replies || []), newReply] };
+      });
+      return { ...s, sentence_comments: nextComments };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const handleDeleteSentenceCommentReply = (commentId, replyId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const nextComments = (s.sentence_comments || []).map((c) => {
-          if (c.id !== commentId) return c;
-          return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
-        });
-        return { ...s, sentence_comments: nextComments };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const nextComments = (s.sentence_comments || []).map((c) => {
+        if (c.id !== commentId) return c;
+        return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
+      });
+      return { ...s, sentence_comments: nextComments };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onTripleGradeChange = (tripleId, val) => {
@@ -1942,72 +2034,72 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const onAddTripleComment = (tripleId, newComment) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          return {
-            ...t,
-            triple_comments: [...(t.triple_comments || []), newComment],
-          };
-        });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const updatedTriples = s.triples.map((t) => {
+        if (t.id !== tripleId) return t;
+        return {
+          ...t,
+          triple_comments: [...(t.triple_comments || []), newComment],
+        };
+      });
+      return { ...s, triples: updatedTriples };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onDeleteTripleComment = (tripleId, commentId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          return {
-            ...t,
-            triple_comments: (t.triple_comments || []).filter((c) => c.id !== commentId),
-          };
-        });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const updatedTriples = s.triples.map((t) => {
+        if (t.id !== tripleId) return t;
+        return {
+          ...t,
+          triple_comments: (t.triple_comments || []).filter((c) => c.id !== commentId),
+        };
+      });
+      return { ...s, triples: updatedTriples };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onAddTripleReply = (tripleId, commentId, newReply) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          const nextComments = (t.triple_comments || []).map((c) => {
-            if (c.id !== commentId) return c;
-            return { ...c, replies: [...(c.replies || []), newReply] };
-          });
-          return { ...t, triple_comments: nextComments };
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const updatedTriples = s.triples.map((t) => {
+        if (t.id !== tripleId) return t;
+        const nextComments = (t.triple_comments || []).map((c) => {
+          if (c.id !== commentId) return c;
+          return { ...c, replies: [...(c.replies || []), newReply] };
         });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+        return { ...t, triple_comments: nextComments };
+      });
+      return { ...s, triples: updatedTriples };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onDeleteTripleReply = (tripleId, commentId, replyId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          const nextComments = (t.triple_comments || []).map((c) => {
-            if (c.id !== commentId) return c;
-            return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
-          });
-          return { ...t, triple_comments: nextComments };
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const updatedTriples = s.triples.map((t) => {
+        if (t.id !== tripleId) return t;
+        const nextComments = (t.triple_comments || []).map((c) => {
+          if (c.id !== commentId) return c;
+          return { ...c, replies: filterRepliesRecursive(c.replies || [], replyId) };
         });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+        return { ...t, triple_comments: nextComments };
+      });
+      return { ...s, triples: updatedTriples };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onAddSuggestion = (tripleId, payload) => {

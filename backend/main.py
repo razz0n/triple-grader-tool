@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
@@ -131,10 +131,51 @@ SESSIONS_ROOT = STORAGE_DIR / "users"
 SESSIONS_ROOT.mkdir(exist_ok=True)
 USERS_FILE = STORAGE_DIR / "users.json"
 TOKENS_FILE = STORAGE_DIR / "tokens.json"
-_AUTH_SCHEME = HTTPBearer(auto_error=False)
-
 
 # ---------------------------------------------------------------------------
+# WebSocket Real-Time Broadcasting
+# ---------------------------------------------------------------------------
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, list[WebSocket]] = {}
+
+    async def connect(self, session_id: str, websocket: WebSocket):
+        await websocket.accept()
+        if session_id not in self.active_connections:
+            self.active_connections[session_id] = []
+        self.active_connections[session_id].append(websocket)
+
+    def disconnect(self, session_id: str, websocket: WebSocket):
+        if session_id in self.active_connections:
+            if websocket in self.active_connections[session_id]:
+                self.active_connections[session_id].remove(websocket)
+            if not self.active_connections[session_id]:
+                del self.active_connections[session_id]
+
+    async def broadcast(self, session_id: str, message: dict):
+        if session_id in self.active_connections:
+            for connection in list(self.active_connections[session_id]):
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    self.disconnect(session_id, connection)
+
+manager = ConnectionManager()
+
+@app.websocket("/api/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    await manager.connect(session_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(session_id, websocket)
+    except Exception:
+        manager.disconnect(session_id, websocket)
+
+
+# -------------------------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
 
@@ -1925,6 +1966,9 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
     session_data.pop("copied_at", None)
 
     _save_loaded_session(existing_path, session_data, owner_user_id=user["id"])
+
+    # Broadcast real-time update
+    await manager.broadcast(body.session_id, {"type": "session_updated"})
 
     stats = _session_grading_stats(session_data)
     return {
