@@ -131,6 +131,7 @@ SESSIONS_ROOT = STORAGE_DIR / "users"
 SESSIONS_ROOT.mkdir(exist_ok=True)
 USERS_FILE = STORAGE_DIR / "users.json"
 TOKENS_FILE = STORAGE_DIR / "tokens.json"
+_AUTH_SCHEME = HTTPBearer(auto_error=False)
 
 # ---------------------------------------------------------------------------
 # WebSocket Real-Time Broadcasting
