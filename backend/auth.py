@@ -189,7 +189,7 @@ def update_token_activity(token: str, last_active_at: str):
 
 
 def validate_and_update_token(token: str) -> Optional[Dict[str, Any]]:
-    """Validate token, enforce 10-minute inactivity limit, and update activity timestamp."""
+    """Validate token, enforce 6-hour inactivity limit, and update activity timestamp."""
     tokens = load_tokens()["tokens"]
     token_data = tokens.get(token)
     if not token_data:
@@ -202,7 +202,7 @@ def validate_and_update_token(token: str) -> Optional[Dict[str, Any]]:
         try:
             last_active = datetime.fromisoformat(last_active_str)
             elapsed = (now - last_active).total_seconds()
-            if elapsed > 600:  # 10 minutes
+            if elapsed > 21600:  # 6 hours
                 revoke_token(token)
                 return None
         except Exception:

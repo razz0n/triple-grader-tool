@@ -331,9 +331,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const warningIntervalRef = useRef(null);
   const heartbeatTimerRef = useRef(null);
 
-  // 10-Minute Inactivity/Idle Timeout logic
+  // 6-Hour Inactivity/Idle Timeout logic
   useEffect(() => {
-    const IDLE_LIMIT = 570000; // 9.5 minutes in milliseconds
+    const IDLE_LIMIT = 21570000; // 5 hours 59.5 minutes in milliseconds
     const WARNING_DURATION = 30; // 30 seconds countdown
 
     const handleForceLogoutOnIdle = async () => {
