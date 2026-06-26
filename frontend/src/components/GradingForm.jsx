@@ -510,6 +510,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           grade_count: Number.isFinite(t.grade_count) ? t.grade_count : undefined,
           grade_average: t.grade_average ?? null,
           suggestions: t.suggestions || [],
+          triple_comments: normalizeSentenceComments(t.triple_comments),
         })),
       };
     })
@@ -1255,7 +1256,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               // Map updated values while preserving local editing flags
               return {
                 ...s,
-                sentence_comments: match.sentence_comments,
+                sentence_comments: normalizeSentenceComments(match.sentence_comments),
                 comment_count: match.comment_count,
                 completeness_by_user: match.completeness_by_user,
                 external_relation_by_user: match.external_relation_by_user,
@@ -1265,16 +1266,20 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 external_relation_average: match.external_relation_average,
                 triples: (match.triples || []).map((t) => {
                   const localT = s.triples.find((lt) => lt.id === t.id);
+                  const normalizedT = {
+                    ...t,
+                    triple_comments: normalizeSentenceComments(t.triple_comments),
+                  };
                   return localT
                     ? {
-                        ...t,
+                        ...normalizedT,
                         is_editing: localT.is_editing,
                         suggestions: (t.suggestions || []).map((sug) => {
                           const localSug = (localT.suggestions || []).find((ls) => ls.id === sug.id);
                           return localSug ? { ...sug, is_editing: localSug.is_editing } : sug;
                         }),
                       }
-                    : t;
+                    : normalizedT;
                 }),
               };
             })
