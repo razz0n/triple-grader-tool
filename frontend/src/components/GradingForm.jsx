@@ -2398,8 +2398,14 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
           {/* Dashboard Back Link */}
           <button
-            onClick={() => setShowExitPromptModal(true)}
-            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
+            onClick={() => {
+              if (hasUnsavedChangesRef.current) {
+                setShowExitPromptModal(true);
+              } else {
+                onReset();
+              }
+            }}
+            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-655 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
           >
             <ArrowLeft size={13} />
             <span>Dashboard</span>
