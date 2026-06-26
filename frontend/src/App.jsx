@@ -95,6 +95,12 @@ export default function App() {
 
   // Check version / build ID for updates
   useEffect(() => {
+    // Bypass version check in development mode to prevent local dev server reload loops
+    if (import.meta.env.DEV) {
+      console.log("[VersionCheck] Bypassing version check in development mode");
+      return;
+    }
+
     const currentBuildId = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : null;
     if (!currentBuildId) return;
 
@@ -105,6 +111,7 @@ export default function App() {
         });
         if (res.ok) {
           const data = await res.json();
+          console.log("[VersionCheck] Client build ID:", currentBuildId, "Latest deployed version:", data?.version);
           if (data && data.version && data.version !== currentBuildId) {
             setNeedsReload(true);
           }
