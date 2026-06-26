@@ -540,7 +540,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [searchQuery, setSearchQuery] = useState("");
   const [isDark, setIsDark] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showSentenceMetrics, setShowSentenceMetrics] = useState(false);
+  const [showSentenceMetrics, setShowSentenceMetrics] = useState(true);
   const mainRef = useRef(null);
 
   useEffect(() => {
