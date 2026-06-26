@@ -2690,13 +2690,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               {/* Sidebar Header & Filters */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 space-y-3 shrink-0">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider flex items-center gap-1.5">
+                  <h2 className="text-xs font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider flex items-center gap-1.5">
                     <BookOpen size={14} />
                     <span>Sentences List</span>
                   </h2>
-                  <span className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-850">
-                    {filteredSentences.length} of {total}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-850">
+                      {filteredSentences.length} of {total}
+                    </span>
+                    <button
+                      onClick={() => setSidebarOpen(false)}
+                      className="p-1 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors shadow-sm"
+                      title="Hide Sentences List"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Search Field */}
@@ -2816,7 +2825,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         </AnimatePresence>
 
         {/* RIGHT MAIN PANEL */}
-        <main className="flex-1 flex flex-col h-full bg-slate-100 dark:bg-slate-955/40 overflow-hidden">
+        <main className="flex-1 flex flex-col h-full bg-slate-100 dark:bg-slate-955/40 overflow-hidden relative">
+          
+          {/* Floating Expand Sidebar Handle (visible when sidebar is closed) */}
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="absolute left-0 top-[45%] z-20 w-5 h-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-y border-r border-slate-200 dark:border-slate-800 rounded-r-xl shadow-md text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-center cursor-pointer transition-all active:scale-95 hover:w-6"
+              title="Expand Sentences List"
+            >
+              <ChevronRight size={13} />
+            </button>
+          )}
           
           {/* Active Sentence Workspace Card (Fixed Top Section) */}
           <div className="px-4 sm:px-6 pt-4 shrink-0 bg-slate-100 dark:bg-slate-950/40">
