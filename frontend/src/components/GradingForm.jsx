@@ -31,7 +31,10 @@ import {
   MessageSquare,
   Users,
   Award,
-  BookOpen
+  BookOpen,
+  Copy,
+  History,
+  Check
 } from "lucide-react";
 
 // ── normalizers ────────────────────────────────────────────────────────────
@@ -297,7 +300,7 @@ function SentenceReplyNode({
   );
 }
 
-export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate }) {
+export default function GradingForm({ uploadData, onReset, currentUser, onEvaluate, onUpdateSessionData }) {
   const { showConfirm, showAlert } = useDialog();
   const {
     session_id: initialSessionId,
@@ -318,6 +321,195 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const readOnly = !canEditSession && !canSuggestTriples;
   const currentUserId = currentUser?.id || "";
   const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
+
+  // Version-based history states
+  const [currentVersionName, setCurrentVersionName] = useState(uploadData.current_version_name || "Initial");
+  const versionsList = useMemo(() => uploadData.versions || [], [uploadData.versions]);
+  const [lastTypedVersionName, setLastTypedVersionName] = useState(() => localStorage.getItem(`last_version_name_${initialSessionId}`) || currentVersionName);
+  const [versionPromptOpen, setVersionPromptOpen] = useState(false);
+  const [versionInputName, setVersionInputName] = useState(lastTypedVersionName);
+  const [versionCallback, setVersionCallback] = useState(null);
+
+  const runWithOwnerVersionPrompt = (callback) => {
+    if (is_owner) {
+      setVersionInputName(lastTypedVersionName);
+      setVersionCallback(() => callback);
+      setVersionPromptOpen(true);
+    } else {
+      callback(currentVersionName);
+    }
+  };
+
+  const handleVersionChange = async (versionName) => {
+    try {
+      setSaving(true);
+      const updated = await loadSession(initialSessionId, versionName);
+      if (onUpdateSessionData) {
+        onUpdateSessionData(updated);
+      }
+    } catch (err) {
+      showAlert("Failed to load version: " + (err.message || String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const executeOwnerTripleOperation = (updaterFn) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = updaterFn(prev);
+      return nextSentences;
+    });
+    if (nextSentences) {
+      saveStateInstantly(nextSentences);
+    }
+  };
+
+  const handlePublishVersion = () => {
+    setVersionInputName("");
+    setVersionCallback(() => async (newVersionName) => {
+      setSaving(true);
+      setSaveError("");
+      try {
+        const payload = {
+          session_id: initialSessionId,
+          source_filename,
+          uploaded_at,
+          manual_mode: !!manual_mode,
+          total_sentences: sentences.length,
+          version_name: newVersionName,
+          current_version_name: newVersionName,
+          last_version_name: newVersionName,
+          is_publish: true,
+          sentences: sentences.map((s) => ({
+            id: s.id,
+            text: s.text,
+            is_calibration: !!s.is_calibration,
+            completeness: s.completeness,
+            external_relation: s.external_relation,
+            completeness_by_user: s.completeness_by_user,
+            external_relation_by_user: s.external_relation_by_user,
+            sentence_comments: s.sentence_comments,
+            triples: s.triples.map((t) => ({
+              id: t.id,
+              subject: t.subject,
+              predicate: t.predicate,
+              object: t.object,
+              grade: t.grade,
+              author: t.author,
+              grades_by_user: t.grades_by_user,
+              is_new_suggestion: !!t.is_new_suggestion,
+              status: t.status || null,
+              suggested_by: t.suggested_by || null,
+              marked_for_removal: !!t.marked_for_removal,
+              removal_reason: t.removal_reason || "",
+              marked_for_removal_by: t.marked_for_removal_by || null,
+              marked_for_removal_by_name: t.marked_for_removal_by_name || null,
+              triple_comments: t.triple_comments || [],
+              suggestions: t.suggestions || [],
+            })),
+          })),
+        };
+        const result = await saveSession(payload);
+        setSavedSessionId(result.session_id);
+        setSavedAt(new Date());
+        setSaveMsg("New version published!");
+        setTimeout(() => setSaveMsg(""), 3500);
+        hasUnsavedChangesRef.current = false;
+        
+        setCurrentVersionName(newVersionName);
+        const fullSession = await loadSession(initialSessionId, newVersionName);
+        if (onUpdateSessionData) {
+          onUpdateSessionData(fullSession);
+        }
+      } catch (e) {
+        setSaveError(e?.response?.data?.detail || "Failed to publish version.");
+      } finally {
+        setSaving(false);
+      }
+    });
+    setVersionPromptOpen(true);
+  };
+
+  // Triple diff and history comparison states
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyTripleId, setHistoryTripleId] = useState(null);
+  const [historyTripleLabel, setHistoryTripleLabel] = useState("");
+  const [textualInfoModalOpen, setTextualInfoModalOpen] = useState(false);
+
+  const getTripleDiffAndNewFlag = (triple) => {
+    if (versionsList.length <= 1 || triple.is_new_suggestion) return { diffHint: null, isNewInVersion: false };
+    
+    const idx = versionsList.findIndex((v) => v.name === currentVersionName);
+    if (idx <= 0) return { diffHint: null, isNewInVersion: false };
+    
+    const prevVersion = versionsList[idx - 1];
+    const prevSent = (prevVersion.sentences || []).find((s) => s.id === current.id);
+    if (!prevSent) return { diffHint: null, isNewInVersion: true };
+    
+    const prevTriple = (prevSent.triples || []).find((t) => t.id === triple.id);
+    if (!prevTriple) return { diffHint: null, isNewInVersion: true };
+    
+    const subjectChanged = prevTriple.subject !== triple.subject;
+    const predicateChanged = prevTriple.predicate !== triple.predicate;
+    const objectChanged = prevTriple.object !== triple.object;
+    
+    if (subjectChanged || predicateChanged || objectChanged) {
+      const hints = [];
+      if (subjectChanged) hints.push(`Subject changed from '${prevTriple.subject}' to '${triple.subject}'`);
+      if (predicateChanged) hints.push(`Predicate changed from '${prevTriple.predicate}' to '${triple.predicate}'`);
+      if (objectChanged) hints.push(`Object changed from '${prevTriple.object}' to '${triple.object}'`);
+      return { diffHint: hints, isNewInVersion: false };
+    }
+    
+    return { diffHint: null, isNewInVersion: false };
+  };
+
+  const getTripleHistory = (tripleId) => {
+    const history = [];
+    versionsList.forEach((v) => {
+      const sent = (v.sentences || []).find((s) => s.id === current.id);
+      const trip = sent ? (sent.triples || []).find((t) => t.id === tripleId) : null;
+      if (trip) {
+        history.push({
+          versionName: v.name,
+          createdBy: v.created_by || "owner",
+          createdAt: v.created_at,
+          subject: trip.subject,
+          predicate: trip.predicate,
+          object: trip.object,
+          status: trip.status || "approved",
+          exists: true,
+        });
+      } else {
+        if (history.length > 0) {
+          history.push({
+            versionName: v.name,
+            createdBy: v.created_by || "owner",
+            createdAt: v.created_at,
+            exists: false,
+          });
+        }
+      }
+    });
+    return history;
+  };
+
+  const getTextualInfo = () => {
+    if (!current) return "";
+    const activeTriples = (current.triples || []).filter(
+      (t) => !t.is_new_suggestion || t.status === "approved"
+    );
+    let txt = `Sentence:\n${current.text}\n\nTriples:\n`;
+    if (activeTriples.length === 0) {
+      txt += "(None)";
+    } else {
+      activeTriples.forEach((t) => {
+        txt += `- ${t.subject} -> ${t.predicate} -> ${t.object}\n`;
+      });
+    }
+    return txt;
+  };
 
   // Exit prompt modal state
   const [showExitPromptModal, setShowExitPromptModal] = useState(false);
@@ -1170,6 +1362,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       uploaded_at,
       manual_mode: !!manual_mode,
       total_sentences: sentences.length,
+      current_version_name: currentVersionName,
+      last_version_name: lastTypedVersionName,
       sentences: sentences.map((s) => ({
         id: s.id,
         text: s.text,
@@ -1199,7 +1393,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         })),
       })),
     };
-  }, [sentences, initialSessionId, source_filename, uploaded_at, manual_mode]);
+  }, [sentences, initialSessionId, source_filename, uploaded_at, manual_mode, currentVersionName, lastTypedVersionName]);
 
   useEffect(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -1387,7 +1581,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const executeDownload = async (target) => {
     setDownloading(true);
     try {
-      await downloadSession(savedSessionId, target);
+      await downloadSession(savedSessionId, target, currentVersionName);
     } catch (e) {
       setDlError(e?.message || "Download failed.");
     } finally {
@@ -1694,6 +1888,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         uploaded_at,
         manual_mode: !!manual_mode,
         total_sentences: updatedSentences.length,
+        current_version_name: currentVersionName,
+        last_version_name: lastTypedVersionName,
         sentences: updatedSentences.map((s) => ({
           id: s.id,
           text: s.text,
@@ -1929,8 +2125,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const onApproveDeletion = (tripleId) => {
     if (!canApproveSuggestions) return;
-    markChanged();
-    setSentences((prev) =>
+    executeOwnerTripleOperation((prev) =>
       prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = (s.triples || []).filter((t) => t.id !== tripleId);
@@ -1940,7 +2135,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const onAddTripleAdjacent = (tripleId, position) => {
-    if (!canSuggestTriples) return;
+    if (!canSuggestTriples && !canApproveSuggestions) return;
     markChanged();
     setSentences((prev) =>
       prev.map((s, idx) => {
@@ -1957,9 +2152,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           grade: null,
           author: currentUserName,
           grades_by_user: {},
-          is_new_suggestion: true,
-          status: "pending",
-          suggested_by: currentUserName,
+          is_new_suggestion: !isOwner,
+          status: isOwner ? "approved" : "pending",
+          suggested_by: isOwner ? null : currentUserName,
           marked_for_removal: false,
           removal_reason: "",
           triple_comments: [],
@@ -1980,19 +2175,27 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const onRemoveSuggestedTriple = (tripleId) => {
-    markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
-      })
-    );
+    if (isOwner) {
+      executeOwnerTripleOperation((prev) =>
+        prev.map((s, idx) => {
+          if (idx !== currentIdx) return s;
+          return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
+        })
+      );
+    } else {
+      markChanged();
+      setSentences((prev) =>
+        prev.map((s, idx) => {
+          if (idx !== currentIdx) return s;
+          return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
+        })
+      );
+    }
   };
 
   const onApproveSuggestedTriple = (tripleId) => {
     if (!canApproveSuggestions) return;
-    markChanged();
-    setSentences((prev) =>
+    executeOwnerTripleOperation((prev) =>
       prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
@@ -2005,23 +2208,44 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const onSaveSuggestedTriple = (tripleId, payload) => {
-    markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          return {
-            ...t,
-            subject: payload.subject,
-            predicate: payload.predicate,
-            object: payload.object,
-            is_editing: false,
-          };
-        });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+    if (isOwner) {
+      executeOwnerTripleOperation((prev) =>
+        prev.map((s, idx) => {
+          if (idx !== currentIdx) return s;
+          const updatedTriples = s.triples.map((t) => {
+            if (t.id !== tripleId) return t;
+            return {
+              ...t,
+              subject: payload.subject,
+              predicate: payload.predicate,
+              object: payload.object,
+              is_editing: false,
+              is_new_suggestion: false,
+              status: "approved",
+            };
+          });
+          return { ...s, triples: updatedTriples };
+        })
+      );
+    } else {
+      markChanged();
+      setSentences((prev) =>
+        prev.map((s, idx) => {
+          if (idx !== currentIdx) return s;
+          const updatedTriples = s.triples.map((t) => {
+            if (t.id !== tripleId) return t;
+            return {
+              ...t,
+              subject: payload.subject,
+              predicate: payload.predicate,
+              object: payload.object,
+              is_editing: false,
+            };
+          });
+          return { ...s, triples: updatedTriples };
+        })
+      );
+    }
   };
 
   const onSetTripleEditing = (tripleId, isEditing) => {
@@ -2110,8 +2334,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const onAddSuggestion = (tripleId, payload) => {
     if (!canSuggestTriples) return;
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2137,14 +2362,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const onEditSuggestion = (tripleId, sugId, payload) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2161,14 +2389,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           return { ...t, suggestions: nextSuggestions };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const onVoteSuggestion = (tripleId, sugId, voteType) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2183,8 +2414,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           return { ...t, suggestions: nextSuggestions };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const displayUserNameVote = (sug) => {
@@ -2193,8 +2426,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const onDeleteSuggestion = (tripleId, sugId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2204,24 +2438,50 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const onApproveSuggestion = (tripleId, sugId, isCurrentlyApproved) => {
     if (!canApproveSuggestions) return;
-    markChanged();
-    setSentences((prev) =>
+    
+    executeOwnerTripleOperation((prev) =>
       prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
           const nextSuggestions = (t.suggestions || []).map((sug) => {
             if (sug.id !== sugId) return sug;
+            
+            // If approving, we copy fields to approved_from and apply suggestion to base triple.
+            if (!isCurrentlyApproved) {
+              sug.approved_from = {
+                subject: t.subject,
+                predicate: t.predicate,
+                object: t.object,
+                author: t.author,
+              };
+              t.subject = sug.subject;
+              t.predicate = sug.predicate;
+              t.object = sug.object;
+              t.author = currentUserName;
+            } else {
+              // If unapproving, restore previous triple fields
+              const prevTriple = sug.approved_from || {};
+              t.subject = prevTriple.subject ?? t.subject;
+              t.predicate = prevTriple.predicate ?? t.predicate;
+              t.object = prevTriple.object ?? t.object;
+              t.author = prevTriple.author ?? t.author;
+              delete sug.approved_from;
+            }
+            
             return {
               ...sug,
               status: isCurrentlyApproved ? "pending" : "approved",
               approved_by: isCurrentlyApproved ? null : currentUserName,
+              approved_at: isCurrentlyApproved ? null : new Date().toISOString(),
             };
           });
           return { ...t, suggestions: nextSuggestions };
@@ -2233,8 +2493,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   const onAddSuggestionReply = (tripleId, sugId, replyText, parentReplyId = null) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2257,14 +2518,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           return { ...t, suggestions: nextSuggestions };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const onDeleteSuggestionReply = (tripleId, sugId, replyId) => {
     markChanged();
-    setSentences((prev) =>
-      prev.map((s, idx) => {
+    let nextSentences;
+    setSentences((prev) => {
+      nextSentences = prev.map((s, idx) => {
         if (idx !== currentIdx) return s;
         const updatedTriples = s.triples.map((t) => {
           if (t.id !== tripleId) return t;
@@ -2278,16 +2542,19 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           return { ...t, suggestions: nextSuggestions };
         });
         return { ...s, triples: updatedTriples };
-      })
-    );
+      });
+      return nextSentences;
+    });
+    if (nextSentences) saveStateInstantly(nextSentences);
   };
 
   const previewHref = useMemo(() => {
     if (!savedSessionId) return undefined;
     const token = getAuthToken();
-    if (!token) return `/api/preview/${savedSessionId}`;
-    return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}`;
-  }, [savedSessionId]);
+    const vParam = currentVersionName ? `&version_name=${encodeURIComponent(currentVersionName)}` : "";
+    if (!token) return `/api/preview/${savedSessionId}?${vParam.slice(1)}`;
+    return `/api/preview/${savedSessionId}?token=${encodeURIComponent(token)}${vParam}`;
+  }, [savedSessionId, currentVersionName]);
 
   const sentenceGrade = useMemo(() => {
     if (!current) return null;
@@ -2429,6 +2696,19 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
           
+          {/* Publish Version (Owner only) */}
+          {isOwner && (
+            <button
+              onClick={handlePublishVersion}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-55 text-white shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+              title="Create a new version snapshot of the current state"
+            >
+              <Check size={14} />
+              <span>Publish Version</span>
+            </button>
+          )}
+
           {/* 1. Save Action */}
           <div className="relative flex items-center">
             <button
@@ -2695,6 +2975,29 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             >
               {/* Sidebar Header & Filters */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 space-y-3 shrink-0">
+                {/* Version Selector Dropdown */}
+                {versionsList.length > 0 && (
+                  <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-850 space-y-1 select-none">
+                    <label className="text-[9px] font-extrabold text-slate-400 dark:text-slate-550 uppercase tracking-wider block">
+                      Active Version
+                    </label>
+                    <select
+                      value={currentVersionName}
+                      onChange={(e) => {
+                        const nextVersion = e.target.value;
+                        setCurrentVersionName(nextVersion);
+                        handleVersionChange(nextVersion);
+                      }}
+                      className="w-full text-xs font-bold bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 cursor-pointer shadow-sm"
+                    >
+                      {versionsList.map((v) => (
+                        <option key={v.name} value={v.name}>
+                          {v.name} (by {v.created_by || "owner"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider flex items-center gap-1.5">
                     <BookOpen size={14} />
@@ -2863,6 +3166,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   >
                     <BarChart3 size={11} />
                     <span>{showSentenceMetrics ? "Hide Metrics" : "Show Metrics"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTextualInfoModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-550 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-850 rounded-xl px-2.5 py-1 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all shrink-0 shadow-sm"
+                    title="Copy sentence and triples text to clipboard"
+                  >
+                    <Copy size={11} />
+                    <span>Copy Text Info</span>
                   </button>
                   {!isOwner && ungradedTriples.length > 0 && (
                     <button
@@ -3170,6 +3482,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       onSaveSuggestedTriple={onSaveSuggestedTriple}
                       onSetTripleEditing={onSetTripleEditing}
                       onApproveDeletion={onApproveDeletion}
+                      diffHint={getTripleDiffAndNewFlag(t).diffHint}
+                      isNewInVersion={getTripleDiffAndNewFlag(t).isNewInVersion}
+                      onSeeChanges={(lbl) => {
+                        setHistoryTripleId(t.id);
+                        setHistoryTripleLabel(lbl);
+                        setHistoryModalOpen(true);
+                      }}
                     />
 
                     {/* Suggestions Drawer section */}
@@ -3707,6 +4026,198 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 className="w-full py-2 border border-slate-200 dark:border-slate-850 text-slate-550 dark:text-slate-400 rounded-xl text-xs font-semibold transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 text-center"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version/History Prompt Modal */}
+      {versionPromptOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center gap-2 text-indigo-650 dark:text-indigo-400">
+              <Shield size={20} />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Specify Version Name</h3>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed text-left">
+              Every triple edit, deletion, addition, or approval creates a new version snapshot. Please specify the history name.
+            </p>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider mb-1.5 block text-left">
+                History Name / Version
+              </label>
+              <input
+                type="text"
+                value={versionInputName}
+                onChange={(e) => setVersionInputName(e.target.value)}
+                placeholder="e.g. Version 1.1, Review Round"
+                className="w-full border border-slate-250 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white font-bold"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setVersionPromptOpen(false);
+                  setVersionCallback(null);
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-850 hover:bg-slate-100/80 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const val = versionInputName.trim();
+                  if (!val) {
+                    showAlert("Version name cannot be empty.");
+                    return;
+                  }
+                  localStorage.setItem(`last_version_name_${initialSessionId}`, val);
+                  setLastTypedVersionName(val);
+                  setVersionPromptOpen(false);
+                  if (versionCallback) {
+                    versionCallback(val);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-650 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Triple History Modal */}
+      {historyModalOpen && historyTripleId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-scale-in text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-805/80 pb-3">
+              <div className="flex items-center gap-2 text-indigo-650 dark:text-indigo-400">
+                <History size={18} />
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Triple Version History</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryModalOpen(false);
+                  setHistoryTripleId(null);
+                }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-150 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-550 dark:text-slate-400 font-semibold italic truncate">
+              {historyTripleLabel}
+            </p>
+
+            <div className="max-h-[300px] overflow-y-auto pr-1 space-y-4">
+              {getTripleHistory(historyTripleId).map((entry, idx) => (
+                <div key={idx} className="flex gap-3 relative">
+                  {idx < getTripleHistory(historyTripleId).length - 1 && (
+                    <div className="absolute left-3 top-6 bottom-[-16px] w-[2px] bg-slate-200 dark:bg-slate-800" />
+                  )}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                    entry.exists
+                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800"
+                      : "bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-455 border border-rose-250 dark:border-rose-900"
+                  }`}>
+                    {idx + 1}
+                  </div>
+                  
+                  <div className="space-y-1 bg-slate-50 dark:bg-slate-955/40 p-3 rounded-xl border border-slate-150 dark:border-slate-850 flex-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-205">
+                        {entry.versionName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-550">
+                        by {entry.createdBy} &bull; {new Date(entry.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {entry.exists ? (
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1 text-slate-650 dark:text-slate-355 font-mono">
+                        <span className="bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-2 py-0.5 rounded font-medium">{entry.subject}</span>
+                        <span className="text-slate-400">&rarr;</span>
+                        <span className="bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-2 py-0.5 rounded font-medium">{entry.predicate}</span>
+                        <span className="text-slate-400">&rarr;</span>
+                        <span className="bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 px-2 py-0.5 rounded font-medium">{entry.object}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 pt-0.5">
+                        Triple deleted / not present in this version.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryModalOpen(false);
+                  setHistoryTripleId(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-850 hover:bg-slate-100/80 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Textual Info Modal */}
+      {textualInfoModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-scale-in text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-805/80 pb-3">
+              <div className="flex items-center gap-2 text-indigo-650 dark:text-indigo-400">
+                <Copy size={18} />
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Textual Sentence Information</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTextualInfoModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-150 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <p className="text-[10px] text-slate-550 dark:text-slate-400 font-semibold leading-relaxed">
+              This copyable text contains the sentence and all of its active triples.
+            </p>
+
+            <textarea
+              readOnly
+              value={getTextualInfo()}
+              className="w-full h-40 border border-slate-250 dark:border-slate-805 rounded-xl p-3 text-xs bg-slate-50 dark:bg-slate-955 text-slate-800 dark:text-slate-200 focus:outline-none font-mono resize-none leading-relaxed"
+              onClick={(e) => e.target.select()}
+            />
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setTextualInfoModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-850 hover:bg-slate-100/80 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(getTextualInfo());
+                  showAlert("Copied to clipboard!");
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-650 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer"
+              >
+                Copy Text
               </button>
             </div>
           </div>

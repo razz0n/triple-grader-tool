@@ -12,8 +12,19 @@ class SaveRequest(BaseModel):
     session_id: str
     source_filename: str
     uploaded_at: str
-    sentences: list
+    sentences: Optional[list] = None
+    versions: Optional[list] = None
     manual_mode: bool = False
+    last_version_name: Optional[str] = None
+    current_version_name: Optional[str] = None
+    is_publish: bool = False
+
+
+class PublishVersionRequest(BaseModel):
+    """Request model for publishing a new version."""
+    session_id: str
+    version_name: str
+    sentences: Optional[list] = None
 
 
 class AuthRequest(BaseModel):
@@ -41,6 +52,7 @@ class TripleSuggestionRequest(BaseModel):
     predicate: str
     object: str
     reason: Optional[str] = None
+    version_name: Optional[str] = None
 
 
 class VoteRequest(BaseModel):
@@ -50,6 +62,7 @@ class VoteRequest(BaseModel):
     triple_id: str
     suggestion_id: str
     vote: Optional[str] = None  # "yes", "no", numeric grade, or null to clear
+    version_name: Optional[str] = None
 
 
 class EditSuggestionRequest(BaseModel):
@@ -62,6 +75,7 @@ class EditSuggestionRequest(BaseModel):
     predicate: str
     object: str
     reason: Optional[str] = None
+    version_name: Optional[str] = None
 
 
 class ApproveSuggestionRequest(BaseModel):
@@ -70,6 +84,7 @@ class ApproveSuggestionRequest(BaseModel):
     sentence_id: int
     triple_id: str
     suggestion_id: str
+    version_name: Optional[str] = None
 
 
 class EvaluationRequest(BaseModel):
@@ -84,6 +99,7 @@ class TripleCommentRequest(BaseModel):
     sentence_id: int
     triple_id: str
     text: str
+    version_name: Optional[str] = None
 
 
 class MarkTripleRemovalRequest(BaseModel):
@@ -92,6 +108,7 @@ class MarkTripleRemovalRequest(BaseModel):
     sentence_id: int
     triple_id: str
     marked: bool
+    version_name: Optional[str] = None
 
 
 class CommentReplyRequest(BaseModel):
@@ -102,6 +119,7 @@ class CommentReplyRequest(BaseModel):
     comment_id: str
     text: str
     parent_reply_id: Optional[str] = None
+    version_name: Optional[str] = None
 
 
 class SuggestionReplyRequest(BaseModel):
@@ -112,6 +130,7 @@ class SuggestionReplyRequest(BaseModel):
     suggestion_id: str
     text: str
     parent_reply_id: Optional[str] = None
+    version_name: Optional[str] = None
 
 
 class NotificationReadRequest(BaseModel):

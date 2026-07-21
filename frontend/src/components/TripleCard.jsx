@@ -12,7 +12,9 @@ import {
   Copy,
   ChevronRight,
   Check,
-  User
+  User,
+  History,
+  Info
 } from "lucide-react";
 
 export default function TripleCard({
@@ -35,6 +37,9 @@ export default function TripleCard({
   onSetTripleEditing,
   onApproveDeletion,
   index,
+  diffHint = null,
+  isNewInVersion = false,
+  onSeeChanges,
 }) {
   const { showAlert } = useDialog();
   const { subject, predicate, object } = triple;
@@ -93,12 +98,12 @@ export default function TripleCard({
     );
   };
 
-  if (isNewPending && triple.is_editing) {
+  if (triple.is_editing) {
     return (
       <div className="border-l-4 border-l-amber-500 dark:border-l-amber-600 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 shadow-sm">
         <div className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
           <Edit3 size={14} />
-          <span>Edit Suggested Triple</span>
+          <span>Edit Triple</span>
         </div>
         <div className="grid grid-cols-1 gap-2.5">
           <div>
@@ -156,6 +161,10 @@ export default function TripleCard({
     ? "border-l-amber-500 dark:border-l-amber-600 bg-amber-50/40 dark:bg-amber-950/20 border-dashed"
     : isNewApproved
     ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20"
+    : diffHint
+    ? "border-l-blue-500 dark:border-l-blue-600 bg-blue-50/30 dark:bg-blue-950/10"
+    : isNewInVersion
+    ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/10"
     : "border-l-indigo-600 dark:border-l-indigo-500 bg-slate-50/80 dark:bg-slate-900/50";
 
   return (
@@ -163,6 +172,29 @@ export default function TripleCard({
       {index !== undefined && (
         <div className="flex items-center justify-between mb-3.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
           <span>Triple #{index + 1}</span>
+        </div>
+      )}
+
+      {/* Diff Modification Details */}
+      {diffHint && (
+        <div className="mb-3.5 px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl text-xs font-semibold text-blue-800 dark:text-blue-400 flex flex-col gap-1.5 text-left">
+          <span className="flex items-center gap-1.5 font-bold">
+            <Info size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+            Modified in this version:
+          </span>
+          <ul className="list-disc pl-4.5 space-y-0.5 font-medium text-slate-700 dark:text-slate-355">
+            {diffHint.map((hint, i) => (
+              <li key={i}>{hint}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* New in version alert */}
+      {isNewInVersion && (
+        <div className="mb-3.5 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/30 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-450 flex items-center gap-1.5 text-left">
+          <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
+          <span>Newly added in this version.</span>
         </div>
       )}
       
@@ -323,8 +355,36 @@ export default function TripleCard({
           {object}
         </button>
 
-        {canSuggest && (
+        {(canSuggest || canApprove) && (
           <div className="ml-auto flex items-center gap-1.5 pt-2 lg:pt-0">
+            {onSeeChanges && !isNewPending && (
+              <button
+                type="button"
+                onClick={() => onSeeChanges(`${subject} — ${predicate} — ${object}`)}
+                className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 hover:border-slate-350 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                title="View complete modification history across versions"
+              >
+                <History size={11} /> See Changes
+              </button>
+            )}
+            {canApprove && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSetTripleEditing?.(triple.id, true)}
+                  className="px-2.5 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveSuggestedTriple?.(triple.id)}
+                  className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                >
+                  <Trash2 size={11} /> Delete
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => onAddTripleAdjacent?.(triple.id, "above")}
@@ -341,20 +401,22 @@ export default function TripleCard({
             >
               + Add Below
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent("triple-copy", {
-                    detail: { tripleId: triple.id, action: "new" },
-                  })
-                )
-              }
-              className="px-2.5 py-1.5 border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[10px] rounded-lg font-bold transition-all hover:bg-indigo-100/50 cursor-pointer"
-              title="Create a new suggestion thread"
-            >
-              + New Suggestion
-            </button>
+            {canSuggest && (
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("triple-copy", {
+                      detail: { tripleId: triple.id, action: "new" },
+                    })
+                  )
+                }
+                className="px-2.5 py-1.5 border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[10px] rounded-lg font-bold transition-all hover:bg-indigo-100/50 cursor-pointer"
+                title="Create a new suggestion thread"
+              >
+                + New Suggestion
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -206,44 +206,79 @@ export default function App() {
   // We normalize both into the `sentences` shape that GradingForm expects.
   function normalizeSessionForGrading(session) {
     if (!session || typeof session !== 'object') return null;
-    // Already has sentences array — use as-is
-    if (Array.isArray(session.sentences) && session.sentences.length > 0) {
-      return session;
-    }
-    // Has sentence_groups (draft format) — flatten to sentences
-    if (Array.isArray(session.sentence_groups)) {
-      const sentences = [];
-      let sentenceId = 1;
-      for (const group of session.sentence_groups) {
-        const versions = group.versions || [];
-        const selectedVersion = versions.find(
-          (v) => v.version_id === group.selected_version_id
-        ) || versions[0];
-        if (!selectedVersion) continue;
-        const triples = (selectedVersion.triples || []).map((t, idx) => ({
-          id: t.id || `${sentenceId}_${idx + 1}`,
-          subject: t.subject || '',
-          predicate: t.predicate || '',
-          object: t.object || '',
-          grade: null,
-        }));
-        if (!triples.length) continue;
-        sentences.push({
-          id: sentenceId++,
-          text: group.sentence_text || selectedVersion.sentence_candidate || '(no sentence text)',
-          suggestion: '',
-          sentence_comments: [],
-          comment_count: 0,
-          sentence_grade: null,
-          completeness: null,
-          external_relation: null,
-          triples,
-        });
+
+    // Normalize versions structure
+    if (!session.versions || !Array.isArray(session.versions)) {
+      // Legacy session or fresh upload confirmed.
+      // Already has sentences array — wrap it!
+      if (Array.isArray(session.sentences) && session.sentences.length > 0) {
+        session.versions = [
+          {
+            name: "Initial",
+            created_at: session.uploaded_at || new Date().toISOString(),
+            created_by: session.owner_user_id || "",
+            sentences: session.sentences
+          }
+        ];
+        session.last_version_name = "Initial";
+        session.current_version_name = "Initial";
+      } else if (Array.isArray(session.sentence_groups)) {
+        // Has sentence_groups (draft format) — flatten to sentences
+        const sentences = [];
+        let sentenceId = 1;
+        for (const group of session.sentence_groups) {
+          const versions = group.versions || [];
+          const selectedVersion = versions.find(
+            (v) => v.version_id === group.selected_version_id
+          ) || versions[0];
+          if (!selectedVersion) continue;
+          const triples = (selectedVersion.triples || []).map((t, idx) => ({
+            id: t.id || `${sentenceId}_${idx + 1}`,
+            subject: t.subject || '',
+            predicate: t.predicate || '',
+            object: t.object || '',
+            grade: null,
+          }));
+          if (!triples.length) continue;
+          sentences.push({
+            id: sentenceId++,
+            text: group.sentence_text || selectedVersion.sentence_candidate || '(no sentence text)',
+            suggestion: '',
+            sentence_comments: [],
+            comment_count: 0,
+            sentence_grade: null,
+            completeness: null,
+            external_relation: null,
+            triples,
+          });
+        }
+        session.versions = [
+          {
+            name: "Initial",
+            created_at: session.uploaded_at || new Date().toISOString(),
+            created_by: session.owner_user_id || "",
+            sentences: sentences
+          }
+        ];
+        session.last_version_name = "Initial";
+        session.current_version_name = "Initial";
+        session.sentences = sentences;
+      } else {
+        session.versions = [];
+        session.sentences = [];
       }
-      return { ...session, sentences };
+    } else {
+      // It is already versioned. Make sure sentences is populated with the current version.
+      const current_name = session.current_version_name;
+      let active_version = session.versions.find(v => v.name === current_name);
+      if (!active_version && session.versions.length > 0) {
+        active_version = session.versions[session.versions.length - 1];
+        session.current_version_name = active_version.name;
+      }
+      session.sentences = active_version ? (active_version.sentences || []) : [];
     }
-    // Fallback: empty sentences so GradingForm can still render
-    return { ...session, sentences: [] };
+
+    return session;
   }
 
   // Resume a previously saved session — skip upload + review entirely
@@ -342,7 +377,13 @@ export default function App() {
       console.log('[App] Rendering GradingForm with gradingData:', gradingData?.session_id);
       return (
         <ErrorBoundary onReset={handleReset}>
-          <GradingForm uploadData={gradingData} onReset={handleReset} currentUser={user} onEvaluate={handleOpenEval} />
+          <GradingForm
+            uploadData={gradingData}
+            onReset={handleReset}
+            currentUser={user}
+            onEvaluate={handleOpenEval}
+            onUpdateSessionData={(newData) => setGradingData(normalizeSessionForGrading(newData))}
+          />
         </ErrorBoundary>
       );
     }

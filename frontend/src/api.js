@@ -88,6 +88,26 @@ export async function saveSession(session) {
 }
 
 /**
+ * Publish a new version snapshot for a session.
+ * @param {string} sessionId
+ * @param {string} versionName
+ * @param {Array} sentences
+ * @returns {Promise<object>}
+ */
+export async function publishVersion(sessionId, versionName, sentences) {
+  const { data } = await API.post("/api/save", {
+    session_id: sessionId,
+    source_filename: "",
+    uploaded_at: "",
+    version_name: versionName,
+    current_version_name: versionName,
+    is_publish: true,
+    sentences,
+  });
+  return data;
+}
+
+/**
  * Download a graded session in the chosen format.
  * @param {string} sessionId
  * @param {"json"|"csv"|"excel"|"pdf"|"word"} fmt
@@ -141,8 +161,10 @@ export async function listSessions() {
  * @param {string} sessionId
  * @returns {Promise<object>}
  */
-export async function loadSession(sessionId) {
-  const { data } = await API.get(`/api/session/${sessionId}`);
+export async function loadSession(sessionId, versionName = null) {
+  const { data } = await API.get(`/api/session/${sessionId}`, {
+    params: versionName ? { version_name: versionName } : {},
+  });
   return data;
 }
 
@@ -167,7 +189,7 @@ export async function deleteSession(sessionId) {
  * @param {string} reason
  * @returns {Promise<{suggestion_id, ok}>}
  */
-export async function addSuggestion(sessionId, sentenceId, tripleId, subject, predicate, object, reason = "") {
+export async function addSuggestion(sessionId, sentenceId, tripleId, subject, predicate, object, reason = "", versionName = null) {
   const { data } = await API.post("/api/suggestions/add", {
     session_id: sessionId,
     sentence_id: sentenceId,
@@ -176,6 +198,7 @@ export async function addSuggestion(sessionId, sentenceId, tripleId, subject, pr
     predicate,
     object,
     reason,
+    version_name: versionName,
   });
   return data;
 }
@@ -189,13 +212,14 @@ export async function addSuggestion(sessionId, sentenceId, tripleId, subject, pr
  * @param {string} vote
  * @returns {Promise<{ok}>}
  */
-export async function voteOnSuggestion(sessionId, sentenceId, tripleId, suggestionId, vote) {
+export async function voteOnSuggestion(sessionId, sentenceId, tripleId, suggestionId, vote, versionName = null) {
   const { data } = await API.post("/api/suggestions/vote", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     suggestion_id: suggestionId,
     vote,
+    version_name: versionName,
   });
   return data;
 }
@@ -212,7 +236,7 @@ export async function voteOnSuggestion(sessionId, sentenceId, tripleId, suggesti
  * @param {string} reason
  * @returns {Promise<{ok}>}
  */
-export async function editSuggestion(sessionId, sentenceId, tripleId, suggestionId, subject, predicate, object, reason = "") {
+export async function editSuggestion(sessionId, sentenceId, tripleId, suggestionId, subject, predicate, object, reason = "", versionName = null) {
   const { data } = await API.post("/api/suggestions/edit", {
     session_id: sessionId,
     sentence_id: sentenceId,
@@ -222,6 +246,7 @@ export async function editSuggestion(sessionId, sentenceId, tripleId, suggestion
     predicate,
     object,
     reason,
+    version_name: versionName,
   });
   return data;
 }
@@ -234,8 +259,10 @@ export async function editSuggestion(sessionId, sentenceId, tripleId, suggestion
  * @param {string} suggestionId
  * @returns {Promise<{ok}>}
  */
-export async function deleteSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
-  const { data } = await API.delete(`/api/suggestions/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}`);
+export async function deleteSuggestion(sessionId, sentenceId, tripleId, suggestionId, versionName = null) {
+  const { data } = await API.delete(`/api/suggestions/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}`, {
+    params: versionName ? { version_name: versionName } : {},
+  });
   return data;
 }
 
@@ -247,12 +274,13 @@ export async function deleteSuggestion(sessionId, sentenceId, tripleId, suggesti
  * @param {string} suggestionId
  * @returns {Promise<{ok: boolean, triple: object}>}
  */
-export async function approveSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
+export async function approveSuggestion(sessionId, sentenceId, tripleId, suggestionId, versionName = null) {
   const { data } = await API.post("/api/suggestions/approve", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     suggestion_id: suggestionId,
+    version_name: versionName,
   });
   return data;
 }
@@ -265,12 +293,13 @@ export async function approveSuggestion(sessionId, sentenceId, tripleId, suggest
  * @param {string} suggestionId
  * @returns {Promise<{ok: boolean}>}
  */
-export async function unapproveSuggestion(sessionId, sentenceId, tripleId, suggestionId) {
+export async function unapproveSuggestion(sessionId, sentenceId, tripleId, suggestionId, versionName = null) {
   const { data } = await API.post("/api/suggestions/unapprove", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     suggestion_id: suggestionId,
+    version_name: versionName,
   });
   return data;
 }
@@ -349,12 +378,13 @@ export async function downloadEvaluation(sessionId, fmt) {
  * @param {string} commentText
  * @returns {Promise<{ok: boolean}>}
  */
-export async function addTripleComment(sessionId, sentenceId, tripleId, commentText) {
+export async function addTripleComment(sessionId, sentenceId, tripleId, commentText, versionName = null) {
   const { data } = await API.post("/api/triples/comments/add", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     text: commentText,
+    version_name: versionName,
   });
   return data;
 }
@@ -367,8 +397,10 @@ export async function addTripleComment(sessionId, sentenceId, tripleId, commentT
  * @param {string} commentId
  * @returns {Promise<{ok: boolean}>}
  */
-export async function deleteTripleComment(sessionId, sentenceId, tripleId, commentId) {
-  const { data } = await API.delete(`/api/triples/comments/${sessionId}/${sentenceId}/${tripleId}/${commentId}`);
+export async function deleteTripleComment(sessionId, sentenceId, tripleId, commentId, versionName = null) {
+  const { data } = await API.delete(`/api/triples/comments/${sessionId}/${sentenceId}/${tripleId}/${commentId}`, {
+    params: versionName ? { version_name: versionName } : {},
+  });
   return data;
 }
 
@@ -380,12 +412,13 @@ export async function deleteTripleComment(sessionId, sentenceId, tripleId, comme
  * @param {boolean} marked
  * @returns {Promise<{ok: boolean}>}
  */
-export async function markTripleForRemoval(sessionId, sentenceId, tripleId, marked) {
+export async function markTripleForRemoval(sessionId, sentenceId, tripleId, marked, versionName = null) {
   const { data } = await API.post("/api/triples/mark-removal", {
     session_id: sessionId,
     sentence_id: sentenceId,
     triple_id: tripleId,
     marked,
+    version_name: versionName,
   });
   return data;
 }
@@ -399,7 +432,7 @@ export async function markTripleForRemoval(sessionId, sentenceId, tripleId, mark
  * @param {string} text
  * @returns {Promise<{ok: boolean, reply: object}>}
  */
-export async function replyToComment(sessionId, sentenceId, tripleId, commentId, text, parentReplyId = null) {
+export async function replyToComment(sessionId, sentenceId, tripleId, commentId, text, parentReplyId = null, versionName = null) {
   const { data } = await API.post("/api/comments/reply", {
     session_id: sessionId,
     sentence_id: sentenceId,
@@ -407,6 +440,7 @@ export async function replyToComment(sessionId, sentenceId, tripleId, commentId,
     comment_id: commentId,
     text,
     parent_reply_id: parentReplyId,
+    version_name: versionName,
   });
   return data;
 }
@@ -420,11 +454,12 @@ export async function replyToComment(sessionId, sentenceId, tripleId, commentId,
  * @param {string|null} tripleId
  * @returns {Promise<{ok: boolean}>}
  */
-export async function deleteCommentReply(sessionId, sentenceId, commentId, replyId, tripleId = null) {
+export async function deleteCommentReply(sessionId, sentenceId, commentId, replyId, tripleId = null, versionName = null) {
   const url = `/api/comments/reply/${sessionId}/${sentenceId}/${commentId}/${replyId}`;
-  const { data } = await API.delete(url, {
-    params: tripleId ? { triple_id: tripleId } : {},
-  });
+  const params = {};
+  if (tripleId) params.triple_id = tripleId;
+  if (versionName) params.version_name = versionName;
+  const { data } = await API.delete(url, { params });
   return data;
 }
 
@@ -437,7 +472,7 @@ export async function deleteCommentReply(sessionId, sentenceId, commentId, reply
  * @param {string} text
  * @returns {Promise<{ok: boolean, reply: object}>}
  */
-export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggestionId, text, parentReplyId = null) {
+export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggestionId, text, parentReplyId = null, versionName = null) {
   const { data } = await API.post("/api/suggestions/reply", {
     session_id: sessionId,
     sentence_id: sentenceId,
@@ -445,6 +480,7 @@ export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggest
     suggestion_id: suggestionId,
     text,
     parent_reply_id: parentReplyId,
+    version_name: versionName,
   });
   return data;
 }
@@ -458,8 +494,10 @@ export async function replyToSuggestion(sessionId, sentenceId, tripleId, suggest
  * @param {string} replyId
  * @returns {Promise<{ok: boolean}>}
  */
-export async function deleteSuggestionReply(sessionId, sentenceId, tripleId, suggestionId, replyId) {
-  const { data } = await API.delete(`/api/suggestions/reply/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}/${replyId}`);
+export async function deleteSuggestionReply(sessionId, sentenceId, tripleId, suggestionId, replyId, versionName = null) {
+  const { data } = await API.delete(`/api/suggestions/reply/${sessionId}/${sentenceId}/${tripleId}/${suggestionId}/${replyId}`, {
+    params: versionName ? { version_name: versionName } : {},
+  });
   return data;
 }
 

@@ -48,3 +48,9 @@ backend/storage/app.db
 .env.*.local
 backend/.env
 frontend/.env
+
+# AI Agent Local Documents
+.agent/
+
+# Local documents and datasets
+documents/
