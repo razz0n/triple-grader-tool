@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { saveSession, downloadSession, getAuthToken, loadSession, meUser } from "../api";
+import { saveSession, downloadSession, getAuthToken, loadSession, meUser, deleteSessionVersion } from "../api";
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
@@ -349,6 +349,30 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       }
     } catch (err) {
       showAlert("Failed to load version: " + (err.message || String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteVersion = async (versionName) => {
+    if (versionsList.length <= 1) {
+      showAlert("Cannot delete the only remaining version of a file.", "Version Control");
+      return;
+    }
+    const ok = await showConfirm(`Delete version '${versionName}' permanently?`, "Delete Version", "Delete", "Cancel");
+    if (!ok) return;
+
+    try {
+      setSaving(true);
+      const res = await deleteSessionVersion(initialSessionId, versionName);
+      showAlert(`Version '${versionName}' deleted successfully.`, "Version Deleted");
+      const fallbackVersion = res.current_version_name || versionsList.find((v) => v.name !== versionName)?.name;
+      const updated = await loadSession(initialSessionId, fallbackVersion);
+      if (onUpdateSessionData) {
+        onUpdateSessionData(updated);
+      }
+    } catch (err) {
+      showAlert(err?.response?.data?.detail || err?.message || "Failed to delete version.", "Error");
     } finally {
       setSaving(false);
     }
@@ -2977,10 +3001,28 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 space-y-3 shrink-0">
                 {/* Version Selector Dropdown */}
                 {versionsList.length > 0 && (
-                  <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-850 space-y-1 select-none">
-                    <label className="text-[9px] font-extrabold text-slate-400 dark:text-slate-550 uppercase tracking-wider block">
-                      Active Version
-                    </label>
+                  <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-200/60 dark:border-indigo-900/40 space-y-2 select-none">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-extrabold text-[10px] uppercase tracking-wider">
+                        <History size={13} />
+                        <span>Version Control</span>
+                        <span className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                          {versionsList.length} {versionsList.length === 1 ? "version" : "versions"}
+                        </span>
+                      </div>
+                      {isOwner && versionsList.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVersion(currentVersionName)}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          title="Delete active version"
+                        >
+                          <Trash2 size={11} />
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
+
                     <select
                       value={currentVersionName}
                       onChange={(e) => {
@@ -2988,11 +3030,11 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                         setCurrentVersionName(nextVersion);
                         handleVersionChange(nextVersion);
                       }}
-                      className="w-full text-xs font-bold bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 cursor-pointer shadow-sm"
+                      className="w-full text-xs font-bold bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 cursor-pointer shadow-sm"
                     >
-                      {versionsList.map((v) => (
+                      {versionsList.map((v, idx) => (
                         <option key={v.name} value={v.name}>
-                          {v.name} (by {v.created_by || "owner"})
+                          {v.name} {idx === versionsList.length - 1 ? "(Latest)" : ""} — by {v.created_by || "owner"}
                         </option>
                       ))}
                     </select>
@@ -3039,18 +3081,18 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
                 {/* Sidebar Filter Selector */}
                 {!isOwner && (
-                  <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[10px] font-bold">
-                    {["all", "completed", "pending"].map((filterOpt) => (
+                  <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[9px] font-bold overflow-x-auto">
+                    {["all", "completed", "pending", "modified"].map((filterOpt) => (
                       <button
                         key={filterOpt}
                         onClick={() => setSidebarFilter(filterOpt)}
-                        className={`flex-1 py-1.5 rounded-md transition-all cursor-pointer ${
+                        className={`flex-1 py-1.5 px-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
                           sidebarFilter === filterOpt
                             ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                         }`}
                       >
-                        {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : "Pending"}
+                        {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : filterOpt === "pending" ? "Pending" : "Modified/New"}
                       </button>
                     ))}
                   </div>

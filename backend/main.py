@@ -2570,6 +2570,45 @@ async def delete_session(session_id: str, user: Dict[str, Any] = Depends(current
     }
 
 
+@app.delete("/api/session/{session_id}/version/{version_name}")
+async def delete_session_version(
+    session_id: str,
+    version_name: str,
+    user: Dict[str, Any] = Depends(current_user)
+):
+    """Delete a version from a session's history (owner only)."""
+    json_path, session = _load_session_for_access(session_id)
+
+    if not _is_session_owner(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can delete versions.")
+
+    versions = session.get("versions") or []
+    if len(versions) <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the only remaining version of a file.")
+
+    target_idx = next((i for i, v in enumerate(versions) if v.get("name") == version_name), None)
+    if target_idx is None:
+        raise HTTPException(status_code=404, detail=f"Version '{version_name}' not found.")
+
+    deleted_ver = versions.pop(target_idx)
+
+    # If the active version was deleted, fallback to the latest remaining version
+    if session.get("current_version_name") == version_name:
+        session["current_version_name"] = versions[-1]["name"]
+        session["last_version_name"] = versions[-1]["name"]
+
+    _save_loaded_session(json_path, session)
+
+    await manager.broadcast(session_id, {"type": "version_deleted", "version_name": version_name})
+
+    return {
+        "ok": True,
+        "deleted_version": version_name,
+        "remaining_versions": [v.get("name") for v in versions],
+        "current_version_name": session["current_version_name"],
+    }
+
+
 @app.post("/api/session/{session_id}/copy")
 async def get_or_create_session_copy(
     session_id: str,
@@ -2850,6 +2889,8 @@ async def list_sessions(user: Dict[str, Any] = Depends(current_user)):
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
+                "total_versions":  len(data.get("versions", [])),
+                "current_version_name": data.get("current_version_name") or "Initial",
                 "owner_user_id": owner_user_id,
                 "owner_name": owner_name,
                 "is_owner": is_owner,
@@ -2902,6 +2943,8 @@ async def list_sessions(user: Dict[str, Any] = Depends(current_user)):
                 "source_filename": data.get("source_filename", "unknown"),
                 "uploaded_at":     data.get("uploaded_at", ""),
                 "total_sentences": len(data.get("sentences", [])),
+                "total_versions":  len(data.get("versions", [])),
+                "current_version_name": data.get("current_version_name") or "Initial",
                 "owner_user_id": owner_user_id,
                 "owner_name": owner_name,
                 "is_owner": is_owner,

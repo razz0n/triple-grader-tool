@@ -18,6 +18,7 @@ import {
   User,
   GraduationCap,
   Clock,
+  History,
   CheckCircle,
   AlertCircle
 } from "lucide-react";
@@ -746,6 +747,11 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
                                   <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-400">
                                     <FileText size={12} />
                                     {s.total_sentences} sentence{s.total_sentences === 1 ? "" : "s"}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/50 px-1.5 py-0.5 rounded text-[9px]">
+                                    <History size={10} />
+                                    {s.total_versions || 1} {s.total_versions === 1 ? "version" : "versions"}
                                   </span>
                                   {dateStr && (
                                     <>

@@ -161,28 +161,40 @@ export default function TripleCard({
     ? "border-l-amber-500 dark:border-l-amber-600 bg-amber-50/40 dark:bg-amber-950/20 border-dashed"
     : isNewApproved
     ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20"
-    : diffHint
-    ? "border-l-blue-500 dark:border-l-blue-600 bg-blue-50/30 dark:bg-blue-950/10"
-    : isNewInVersion
-    ? "border-l-emerald-500 dark:border-l-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/10"
+    : (diffHint || triple?.is_modified_in_version)
+    ? "border-2 border-blue-400 dark:border-blue-600 bg-blue-50/30 dark:bg-blue-950/20 shadow-sm"
+    : (isNewInVersion || triple?.is_new_in_version)
+    ? "border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-sm"
     : "border-l-indigo-600 dark:border-l-indigo-500 bg-slate-50/80 dark:bg-slate-900/50";
 
   return (
     <div className={`border border-slate-200/80 dark:border-slate-800 rounded-2xl border-l-4 p-5 transition-all duration-200 hover:shadow-sm ${borderLeftColor}`}>
       {index !== undefined && (
         <div className="flex items-center justify-between mb-3.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
-          <span>Triple #{index + 1}</span>
+          <div className="flex items-center gap-2">
+            <span>Triple #{index + 1}</span>
+            {(diffHint || triple?.is_modified_in_version) && (
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                <Info size={11} /> EDITED IN THIS VERSION — NEEDS GRADING
+              </span>
+            )}
+            {(isNewInVersion || triple?.is_new_in_version) && !(diffHint || triple?.is_modified_in_version) && (
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                <CheckCircle2 size={11} /> NEWLY ADDED — NEEDS GRADING
+              </span>
+            )}
+          </div>
         </div>
       )}
 
       {/* Diff Modification Details */}
       {diffHint && (
-        <div className="mb-3.5 px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl text-xs font-semibold text-blue-800 dark:text-blue-400 flex flex-col gap-1.5 text-left">
+        <div className="mb-3.5 px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs font-semibold text-blue-900 dark:text-blue-300 flex flex-col gap-1.5 text-left">
           <span className="flex items-center gap-1.5 font-bold">
             <Info size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
             Modified in this version:
           </span>
-          <ul className="list-disc pl-4.5 space-y-0.5 font-medium text-slate-700 dark:text-slate-355">
+          <ul className="list-disc pl-4.5 space-y-0.5 font-medium text-slate-700 dark:text-slate-300">
             {diffHint.map((hint, i) => (
               <li key={i}>{hint}</li>
             ))}
@@ -191,9 +203,9 @@ export default function TripleCard({
       )}
 
       {/* New in version alert */}
-      {isNewInVersion && (
-        <div className="mb-3.5 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/30 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-450 flex items-center gap-1.5 text-left">
-          <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
+      {(isNewInVersion || triple?.is_new_in_version) && !diffHint && (
+        <div className="mb-3.5 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-250 dark:border-emerald-900/50 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 text-left">
+          <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>Newly added in this version.</span>
         </div>
       )}

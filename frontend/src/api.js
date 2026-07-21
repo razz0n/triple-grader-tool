@@ -108,6 +108,17 @@ export async function publishVersion(sessionId, versionName, sentences) {
 }
 
 /**
+ * Delete a specific version from a session's version history (owner only).
+ * @param {string} sessionId
+ * @param {string} versionName
+ * @returns {Promise<object>}
+ */
+export async function deleteSessionVersion(sessionId, versionName) {
+  const { data } = await API.delete(`/api/session/${sessionId}/version/${encodeURIComponent(versionName)}`);
+  return data;
+}
+
+/**
  * Download a graded session in the chosen format.
  * @param {string} sessionId
  * @param {"json"|"csv"|"excel"|"pdf"|"word"} fmt
