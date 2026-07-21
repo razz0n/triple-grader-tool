@@ -329,6 +329,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [versionPromptOpen, setVersionPromptOpen] = useState(false);
   const [versionInputName, setVersionInputName] = useState(lastTypedVersionName);
   const [versionCallback, setVersionCallback] = useState(null);
+  const [liveBanner, setLiveBanner] = useState(null);
 
   const runWithOwnerVersionPrompt = (callback) => {
     if (is_owner) {
@@ -1307,8 +1308,40 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       });
     });
 
+    // 6. Published Versions Notifications (Notify graders when owner publishes a new version)
+    (uploadData?.versions || []).forEach((ver) => {
+      if (ver.created_by_id === currentUserId || ver.created_by === currentUserName) return;
+      const readVersions = JSON.parse(localStorage.getItem(`read_versions_${initialSessionId}`) || "[]");
+      if (!readVersions.includes(ver.name)) {
+        list.push({
+          id: `version-published-${ver.name}`,
+          type: "version_published",
+          title: `🚀 New Version Published: '${ver.name}'`,
+          text: `Owner ${ver.created_by || "owner"} published version '${ver.name}'. Modified and newly added triples are highlighted for grading.`,
+          createdAt: ver.created_at || new Date().toISOString(),
+          versionName: ver.name,
+        });
+      }
+    });
+
+    // 7. Backend push notifications
+    (uploadData?.notifications || []).forEach((n) => {
+      const readServerNotifs = JSON.parse(localStorage.getItem(`read_server_notifs_${initialSessionId}`) || "[]");
+      if (readServerNotifs.includes(n.id)) return;
+      if (n.type === "version_published" && n.published_by !== currentUserName) {
+        list.push({
+          id: n.id || `server-notif-${n.version_name}`,
+          type: "version_published",
+          title: `🚀 New Version Published: '${n.version_name}'`,
+          text: n.message || `Owner published version '${n.version_name}'.`,
+          createdAt: n.created_at || new Date().toISOString(),
+          versionName: n.version_name,
+        });
+      }
+    });
+
     return list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  }, [sentences, currentUserId, isOwner, initialSessionId, currentUserName]);
+  }, [sentences, currentUserId, isOwner, initialSessionId, currentUserName, uploadData?.versions, uploadData?.notifications]);
 
   // Overall grading progress across ALL sentences
   const gradingProgress = useMemo(() => {
@@ -1520,7 +1553,23 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       socket.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "session_updated") {
+          if (msg.type === "version_published") {
+            if (msg.published_by !== currentUserName) {
+              setLiveBanner({
+                type: "published",
+                versionName: msg.version_name,
+                message: `🚀 Owner ${msg.published_by || "owner"} published a new version: '${msg.version_name}'!`,
+              });
+            }
+            fetchUpdates();
+          } else if (msg.type === "version_deleted") {
+            setLiveBanner({
+              type: "deleted",
+              versionName: msg.version_name,
+              message: `🗑️ Version '${msg.version_name}' was deleted by owner.`,
+            });
+            fetchUpdates();
+          } else if (msg.type === "session_updated") {
             fetchUpdates();
           }
         } catch (e) {
@@ -1628,6 +1677,25 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }, 300);
 
     try {
+      if (notif.type === "version_published") {
+        const readVersions = JSON.parse(localStorage.getItem(`read_versions_${initialSessionId}`) || "[]");
+        if (!readVersions.includes(notif.versionName)) {
+          readVersions.push(notif.versionName);
+          localStorage.setItem(`read_versions_${initialSessionId}`, JSON.stringify(readVersions));
+        }
+        if (notif.id) {
+          const readServerNotifs = JSON.parse(localStorage.getItem(`read_server_notifs_${initialSessionId}`) || "[]");
+          if (!readServerNotifs.includes(notif.id)) {
+            readServerNotifs.push(notif.id);
+            localStorage.setItem(`read_server_notifs_${initialSessionId}`, JSON.stringify(readServerNotifs));
+          }
+        }
+        if (notif.versionName && notif.versionName !== currentVersionName) {
+          setCurrentVersionName(notif.versionName);
+          handleVersionChange(notif.versionName);
+        }
+        return;
+      }
       if (notif.type === "grading_completed") {
         const readCompletions = JSON.parse(localStorage.getItem(`read_completions_${initialSessionId}`) || "[]");
         if (!readCompletions.includes(notif.graderId)) {
@@ -1733,6 +1801,16 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const handleMarkAllNotificationsRead = async () => {
     setNotificationsOpen(false);
     if (notifications.length === 0) return;
+
+    const allVersionNames = notifications
+      .filter((n) => n.type === "version_published")
+      .map((n) => n.versionName)
+      .filter(Boolean);
+    if (allVersionNames.length > 0) {
+      const readVersions = JSON.parse(localStorage.getItem(`read_versions_${initialSessionId}`) || "[]");
+      const nextVersions = Array.from(new Set([...readVersions, ...allVersionNames]));
+      localStorage.setItem(`read_versions_${initialSessionId}`, JSON.stringify(nextVersions));
+    }
 
     if (isOwner) {
       const allCompletionIds = notifications
@@ -2662,6 +2740,49 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
   return (
     <div className="h-full overflow-hidden bg-slate-100 dark:bg-slate-950/40 flex flex-col transition-colors duration-300">
+      {/* ── REAL-TIME LIVE NOTIFICATION TOAST BANNER ───────────────────────────── */}
+      <AnimatePresence>
+        {liveBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4"
+          >
+            <div className="bg-slate-900 dark:bg-slate-800 text-white p-3.5 rounded-2xl shadow-2xl border border-indigo-500/50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-indigo-600 text-white shrink-0">
+                  <History size={18} />
+                </div>
+                <p className="text-xs font-semibold leading-snug truncate">
+                  {liveBanner.message}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {liveBanner.type === "published" && liveBanner.versionName && liveBanner.versionName !== currentVersionName && (
+                  <button
+                    onClick={() => {
+                      setCurrentVersionName(liveBanner.versionName);
+                      handleVersionChange(liveBanner.versionName);
+                      setLiveBanner(null);
+                    }}
+                    className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Switch Version
+                  </button>
+                )}
+                <button
+                  onClick={() => setLiveBanner(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 h-[60px] flex items-center px-4 justify-between gap-3 select-none">
         
         {/* Title, version & collapse sidebar trigger + Dashboard Link */}
