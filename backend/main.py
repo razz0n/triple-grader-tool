@@ -1225,9 +1225,11 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
 
     is_owner = _is_session_owner(data, None, user)
     owner_draft = data.get("owner_draft")
+    latest_version_name = versions_list[-1].get("name") if versions_list else "Initial"
     if is_owner and isinstance(owner_draft, dict) and owner_draft.get("sentences"):
         data["has_unpublished_draft"] = True
-        data["sentences"] = owner_draft["sentences"]
+        if data.get("current_version_name") == latest_version_name:
+            data["sentences"] = owner_draft["sentences"]
 
     return data
 

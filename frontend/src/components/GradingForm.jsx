@@ -34,6 +34,7 @@ import {
   BookOpen,
   Copy,
   History,
+  Trash2,
   Check
 } from "lucide-react";
 
@@ -2711,10 +2712,19 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         if (sidebarFilter === "pending") {
           return !allGraded;
         }
+        if (sidebarFilter === "modified") {
+          return (s.triples || []).some((t) => {
+            const isModOrNew = Boolean(t.is_modified_in_version || t.is_new_in_version || (t.diff_hint && t.diff_hint.length > 0));
+            if (!isModOrNew) return false;
+            if (isOwner) return true;
+            const userGrade = t.grades_by_user?.[currentUserId]?.grade;
+            return userGrade === undefined || userGrade === null || userGrade === "";
+          });
+        }
 
         return true;
       });
-  }, [sentences, searchQuery, sidebarFilter]);
+  }, [sentences, searchQuery, sidebarFilter, isOwner, currentUserId]);
 
   if (sentences.length === 0) {
     return (
@@ -3201,23 +3211,21 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 </div>
 
                 {/* Sidebar Filter Selector */}
-                {!isOwner && (
-                  <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[9px] font-bold overflow-x-auto">
-                    {["all", "completed", "pending", "modified"].map((filterOpt) => (
-                      <button
-                        key={filterOpt}
-                        onClick={() => setSidebarFilter(filterOpt)}
-                        className={`flex-1 py-1.5 px-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                          sidebarFilter === filterOpt
-                            ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
-                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : filterOpt === "pending" ? "Pending" : "Modified/New"}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-950/80 border border-slate-200/50 dark:border-slate-850 p-0.5 text-[9px] font-bold overflow-x-auto">
+                  {(isOwner ? ["all", "modified"] : ["all", "completed", "pending", "modified"]).map((filterOpt) => (
+                    <button
+                      key={filterOpt}
+                      onClick={() => setSidebarFilter(filterOpt)}
+                      className={`flex-1 py-1.5 px-1 rounded-md transition-all cursor-pointer whitespace-nowrap text-center ${
+                        sidebarFilter === filterOpt
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-extrabold shadow-sm"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {filterOpt === "all" ? "All" : filterOpt === "completed" ? "Graded" : filterOpt === "pending" ? "Pending" : "Modified/New"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Scrollable Sentence List */}

@@ -167,20 +167,27 @@ export default function TripleCard({
     ? "border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-sm"
     : "border-l-indigo-600 dark:border-l-indigo-500 bg-slate-50/80 dark:bg-slate-900/50";
 
+  const isEdited = Boolean(diffHint || triple?.is_modified_in_version);
+  const isNewVer = Boolean(isNewInVersion || triple?.is_new_in_version) && !isEdited;
+  const myGrade = currentUserId ? gradesByUser?.[currentUserId]?.grade : triple?.grade;
+  const isGradedByMe = myGrade !== undefined && myGrade !== null && myGrade !== "";
+
   return (
     <div className={`border border-slate-200/80 dark:border-slate-800 rounded-2xl border-l-4 p-5 transition-all duration-200 hover:shadow-sm ${borderLeftColor}`}>
       {index !== undefined && (
-        <div className="flex items-center justify-between mb-3.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-3.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span>Triple #{index + 1}</span>
-            {(diffHint || triple?.is_modified_in_version) && (
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                <Info size={11} /> EDITED IN THIS VERSION — NEEDS GRADING
+            {isEdited && (
+              <span className={`px-2.5 py-0.5 rounded-full text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs ${isGradedByMe ? "bg-blue-600/80" : "bg-blue-600 animate-pulse"}`}>
+                {isGradedByMe ? <CheckCircle2 size={11} /> : <Info size={11} />}
+                {isGradedByMe ? "EDITED IN THIS VERSION — GRADED" : "EDITED IN THIS VERSION — NEEDS GRADING"}
               </span>
             )}
-            {(isNewInVersion || triple?.is_new_in_version) && !(diffHint || triple?.is_modified_in_version) && (
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                <CheckCircle2 size={11} /> NEWLY ADDED — NEEDS GRADING
+            {isNewVer && (
+              <span className={`px-2.5 py-0.5 rounded-full text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs ${isGradedByMe ? "bg-emerald-600/80" : "bg-emerald-600 animate-pulse"}`}>
+                <CheckCircle2 size={11} />
+                {isGradedByMe ? "NEWLY ADDED — GRADED" : "NEWLY ADDED — NEEDS GRADING"}
               </span>
             )}
           </div>
