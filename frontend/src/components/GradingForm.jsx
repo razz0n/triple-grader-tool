@@ -437,19 +437,25 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           })),
         };
         const result = await saveSession(payload);
-        setSavedSessionId(result.session_id);
+        const activeSid = result?.session_id || initialSessionId || savedSessionId;
+        if (activeSid) {
+          setSavedSessionId(activeSid);
+        }
         setSavedAt(new Date());
         setSaveMsg("New version published!");
         setTimeout(() => setSaveMsg(""), 3500);
         hasUnsavedChangesRef.current = false;
         
         setCurrentVersionName(newVersionName);
-        const fullSession = await loadSession(initialSessionId, newVersionName);
-        if (onUpdateSessionData) {
-          onUpdateSessionData(fullSession);
+        if (activeSid) {
+          const fullSession = await loadSession(activeSid, newVersionName);
+          if (onUpdateSessionData) {
+            onUpdateSessionData(fullSession);
+          }
         }
       } catch (e) {
-        setSaveError(e?.response?.data?.detail || "Failed to publish version.");
+        const detailMsg = e?.response?.data?.detail || e?.message || "Failed to publish version.";
+        setSaveError(typeof detailMsg === "string" ? detailMsg : JSON.stringify(detailMsg));
       } finally {
         setSaving(false);
       }

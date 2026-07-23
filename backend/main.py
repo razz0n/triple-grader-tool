@@ -232,8 +232,15 @@ def _save_loaded_session(session_path: Optional[Path], session: Dict[str, Any], 
 
     target_path = session_path
     if not target_path:
-        target_user_id = owner_user_id or session.get("owner_user_id")
-        target_path = _get_session_path_for_access(str(session.get("session_id", "")), owner_user_id=target_user_id)
+        target_user_id = str(owner_user_id or session.get("owner_user_id") or "").strip()
+        session_id = str(session.get("session_id", "")).strip()
+        existing = _find_existing_session_path(session_id) if session_id else None
+        if existing:
+            target_path = existing
+        elif target_user_id and session_id:
+            target_path = _session_path_for_user(target_user_id, session_id)
+        else:
+            raise HTTPException(status_code=400, detail="Cannot save session without session ID and owner ID.")
     with open(target_path, "w", encoding="utf-8") as fh:
         json.dump(session, fh, indent=2, ensure_ascii=False)
 
@@ -2200,11 +2207,18 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
         target_session["current_version_name"] = "Initial"
         target_session["last_version_name"] = "Initial"
 
+    # Ensure owner metadata exists on new or target session
+    if not target_session.get("owner_user_id"):
+        target_session["owner_user_id"] = str(user.get("id") or "").strip()
+        target_session["owner_name"] = display_name(user)
+        target_session["owner_email"] = user.get("email")
+        target_session["owner_username"] = user.get("username")
+
     is_owner = _is_session_owner(target_session, existing_path, user)
     is_publish = bool(body.is_publish)
 
     if is_publish and is_owner:
-        pub_version_name = body.version_name or body.current_version_name or f"Version {len(target_session.get('versions', [])) + 1}"
+        pub_version_name = getattr(body, "version_name", None) or getattr(body, "current_version_name", None) or f"Version {len(target_session.get('versions', [])) + 1}"
         target_session = _publish_new_version(
             session=target_session,
             new_version_name=pub_version_name,

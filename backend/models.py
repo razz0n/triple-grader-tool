@@ -15,6 +15,7 @@ class SaveRequest(BaseModel):
     sentences: Optional[list] = None
     versions: Optional[list] = None
     manual_mode: bool = False
+    version_name: Optional[str] = None
     last_version_name: Optional[str] = None
     current_version_name: Optional[str] = None
     is_publish: bool = False
