@@ -2235,23 +2235,38 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
     else:
         # Non-owner grader save: merge grades into active version
         if existing_session:
+            # Sync existing versions list to incoming session so they are preserved
+            session_data["versions"] = json.loads(json.dumps(existing_session.get("versions") or []))
+            curr_ver_name = existing_session.get("current_version_name") or "Initial"
+            session_data["current_version_name"] = curr_ver_name
+
+            # Place incoming client sentences into the active version of the versions list
+            for v in session_data.get("versions") or []:
+                if v.get("name") == curr_ver_name:
+                    v["sentences"] = session_data.get("sentences") or []
+                    break
+
             try:
-                _merge_existing_suggestions(target_session, existing_session)
+                _merge_existing_suggestions(session_data, existing_session)
             except Exception:
                 pass
             try:
-                _merge_existing_sentence_comments(target_session, existing_session)
+                _merge_existing_sentence_comments(session_data, existing_session)
             except Exception:
                 pass
 
-        _apply_collaborative_grades(target_session, existing_session, user)
+        _apply_collaborative_grades(session_data, existing_session, user)
 
-        # Sync grader's merged sentences into active published version
-        curr_ver_name = target_session.get("current_version_name") or "Initial"
-        for v in target_session.get("versions") or []:
+        # Sync the fully merged sentences into the active version in session_data["versions"]
+        curr_ver_name = session_data.get("current_version_name") or "Initial"
+        for v in session_data.get("versions") or []:
             if v.get("name") == curr_ver_name:
-                v["sentences"] = target_session.get("sentences") or []
+                v["sentences"] = session_data.get("sentences") or []
                 break
+
+        # Save fully merged version back to the target_session
+        target_session["sentences"] = session_data.get("sentences") or []
+        target_session["versions"] = session_data.get("versions") or []
 
     # Recalculate stats & normalize metadata for all versions
     owner_user_id = str(target_session.get("owner_user_id") or user.get("id", "")).strip()
