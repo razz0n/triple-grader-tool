@@ -817,8 +817,10 @@ def _apply_collaborative_grades(
                     triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name")
                     triple["removal_reason"] = triple.get("removal_reason", "")
 
-                if isinstance(existing_triple.get("suggestions"), list):
-                    triple["suggestions"] = existing_triple.get("suggestions", [])
+                triple["suggestions"] = _merge_suggestions_lists(
+                    triple.get("suggestions") or [],
+                    existing_triple.get("suggestions") or []
+                )
 
                 triple["triple_comments"] = _merge_triple_comments(
                     triple.get("triple_comments"),
@@ -1332,6 +1334,50 @@ def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -
     return sentences
 
 
+def _merge_suggestions_lists(incoming_sugs: list, existing_sugs: list) -> list:
+    merged_sugs = {}
+    
+    # Pre-populate with existing suggestions
+    for sug in existing_sugs or []:
+        sug_id = str(sug.get("id") or "").strip()
+        if sug_id:
+            merged_sugs[sug_id] = json.loads(json.dumps(sug))
+            
+    # Merge incoming suggestions
+    for sug in incoming_sugs or []:
+        sug_id = str(sug.get("id") or "").strip()
+        if not sug_id:
+            continue
+            
+        if sug_id in merged_sugs:
+            existing_sug = merged_sugs[sug_id]
+            existing_sug["subject"] = sug.get("subject", existing_sug.get("subject"))
+            existing_sug["predicate"] = sug.get("predicate", existing_sug.get("predicate"))
+            existing_sug["object"] = sug.get("object", existing_sug.get("object"))
+            existing_sug["reason"] = sug.get("reason", existing_sug.get("reason"))
+            existing_sug["status"] = sug.get("status", existing_sug.get("status"))
+            
+            incoming_votes = sug.get("votes") or {}
+            existing_votes = existing_sug.get("votes") or {}
+            merged_votes = dict(existing_votes)
+            for user_key, vote_val in incoming_votes.items():
+                merged_votes[user_key] = vote_val
+            existing_sug["votes"] = merged_votes
+            
+            incoming_replies = sug.get("replies") or []
+            existing_replies = existing_sug.get("replies") or []
+            merged_replies = {str(r.get("id")): r for r in existing_replies if r.get("id")}
+            for r in incoming_replies:
+                rid = str(r.get("id") or "").strip()
+                if rid:
+                    merged_replies[rid] = r
+            existing_sug["replies"] = sorted(merged_replies.values(), key=lambda x: str(x.get("created_at") or ""))
+        else:
+            merged_sugs[sug_id] = json.loads(json.dumps(sug))
+            
+    return sorted(merged_sugs.values(), key=lambda x: str(x.get("created_at") or ""))
+
+
 def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
     """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
     if "versions" not in incoming_session:
@@ -1394,9 +1440,10 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
                 if not existing_triple:
                     continue
 
-                existing_suggestions = existing_triple.get("suggestions")
-                if isinstance(existing_suggestions, list):
-                    triple["suggestions"] = _normalize_suggestions(existing_suggestions)
+                triple["suggestions"] = _merge_suggestions_lists(
+                    triple.get("suggestions") or [],
+                    existing_triple.get("suggestions") or []
+                )
 
 
 def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:

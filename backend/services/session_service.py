@@ -20,6 +20,45 @@ from .normalization import (
 )
 
 
+def _merge_suggestions_lists(incoming_sugs: list, existing_sugs: list) -> list:
+    merged_sugs = {}
+    for sug in existing_sugs or []:
+        sug_id = str(sug.get("id") or "").strip()
+        if sug_id:
+            merged_sugs[sug_id] = json.loads(json.dumps(sug))
+    for sug in incoming_sugs or []:
+        sug_id = str(sug.get("id") or "").strip()
+        if not sug_id:
+            continue
+        if sug_id in merged_sugs:
+            existing_sug = merged_sugs[sug_id]
+            existing_sug["subject"] = sug.get("subject", existing_sug.get("subject"))
+            existing_sug["predicate"] = sug.get("predicate", existing_sug.get("predicate"))
+            existing_sug["object"] = sug.get("object", existing_sug.get("object"))
+            existing_sug["reason"] = sug.get("reason", existing_sug.get("reason"))
+            existing_sug["status"] = sug.get("status", existing_sug.get("status"))
+            
+            incoming_votes = sug.get("votes") or {}
+            existing_votes = existing_sug.get("votes") or {}
+            merged_votes = dict(existing_votes)
+            for user_key, vote_val in incoming_votes.items():
+                merged_votes[user_key] = vote_val
+            existing_sug["votes"] = merged_votes
+            
+            incoming_replies = sug.get("replies") or []
+            existing_replies = existing_sug.get("replies") or []
+            merged_replies = {str(r.get("id")): r for r in existing_replies if r.get("id")}
+            for r in incoming_replies:
+                rid = str(r.get("id") or "").strip()
+                if rid:
+                    merged_replies[rid] = r
+            existing_sug["replies"] = sorted(merged_replies.values(), key=lambda x: str(x.get("created_at") or ""))
+        else:
+            merged_sugs[sug_id] = json.loads(json.dumps(sug))
+    return sorted(merged_sugs.values(), key=lambda x: str(x.get("created_at") or ""))
+
+
+
 def sentence_groups_to_draft_sentences(sentence_groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Convert parser sentence groups into a saved draft sentence list.
@@ -214,8 +253,10 @@ def apply_collaborative_grades(
                 triple["subject"] = existing_triple.get("subject", triple.get("subject"))
                 triple["predicate"] = existing_triple.get("predicate", triple.get("predicate"))
                 triple["object"] = existing_triple.get("object", triple.get("object"))
-                if isinstance(existing_triple.get("suggestions"), list):
-                    triple["suggestions"] = existing_triple.get("suggestions", [])
+                triple["suggestions"] = _merge_suggestions_lists(
+                    triple.get("suggestions") or [],
+                    existing_triple.get("suggestions") or []
+                )
             
             existing_grades = normalize_grades_by_user(
                 existing_triple.get("grades_by_user"),
@@ -288,11 +329,10 @@ def merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessio
             if not existing_triple:
                 continue
             
-            existing_suggestions = existing_triple.get("suggestions")
-            if isinstance(existing_suggestions, list):
-                # Suggestion writes are already persisted server-side by dedicated endpoints.
-                # Preserve them to avoid stale client payloads wiping comments/posts.
-                triple["suggestions"] = existing_suggestions
+            triple["suggestions"] = _merge_suggestions_lists(
+                triple.get("suggestions") or [],
+                existing_triple.get("suggestions") or []
+            )
 
 
 def merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
