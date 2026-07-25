@@ -39,6 +39,7 @@ export default function TripleCard({
   index,
   diffHint = null,
   isNewInVersion = false,
+  draftDiffHint = null,
   onSeeChanges,
 }) {
   const { showAlert } = useDialog();
@@ -191,6 +192,21 @@ export default function TripleCard({
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Draft Diff Modification Details */}
+      {draftDiffHint && (
+        <div className="mb-3.5 px-3.5 py-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl text-xs font-semibold text-amber-900 dark:text-amber-350 flex flex-col gap-1.5 text-left">
+          <span className="flex items-center gap-1.5 font-bold">
+            <Info size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+            Unpublished Draft Modifications:
+          </span>
+          <ul className="list-disc pl-4.5 space-y-0.5 font-medium text-slate-700 dark:text-slate-350">
+            {draftDiffHint.map((hint, i) => (
+              <li key={i}>{hint}</li>
+            ))}
+          </ul>
         </div>
       )}
 

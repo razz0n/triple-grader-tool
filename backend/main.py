@@ -2192,6 +2192,56 @@ def _publish_new_version(
     return session
 
 
+def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences: list) -> bool:
+    existing_triples = {}
+    for s in existing_sentences:
+        for t in s.get("triples", []):
+            tid = str(t.get("id") or "").strip()
+            if tid:
+                existing_triples[tid] = t
+
+    incoming_triples = {}
+    for s in incoming_sentences:
+        for t in s.get("triples", []):
+            tid = str(t.get("id") or "").strip()
+            if tid:
+                incoming_triples[tid] = t
+
+    for tid, incoming_t in incoming_triples.items():
+        existing_t = existing_triples.get(tid)
+        if not existing_t:
+            # Manual addition by owner
+            if not incoming_t.get("is_new_suggestion", False):
+                return True
+        else:
+            # Existing triple text change manually by owner
+            text_changed = (
+                incoming_t.get("subject") != existing_t.get("subject")
+                or incoming_t.get("predicate") != existing_t.get("predicate")
+                or incoming_t.get("object") != existing_t.get("object")
+            )
+            if text_changed:
+                has_approved_sug = False
+                for sug in existing_t.get("suggestions", []):
+                    if (
+                        sug.get("subject") == incoming_t.get("subject")
+                        and sug.get("predicate") == incoming_t.get("predicate")
+                        and sug.get("object") == incoming_t.get("object")
+                    ):
+                        has_approved_sug = True
+                        break
+                if not has_approved_sug:
+                    return True
+
+    for tid, existing_t in existing_triples.items():
+        if tid not in incoming_triples:
+            # Manual deletion by owner
+            if not existing_t.get("marked_for_removal", False):
+                return True
+
+    return False
+
+
 @app.post("/api/save")
 async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current_user)):
     """Persist a graded session or publish a new version to storage."""
@@ -2230,12 +2280,33 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
             user=user
         )
     elif is_owner:
-        # Working draft save for owner: save to owner_draft without altering frozen published versions
-        if body.sentences:
-            target_session["owner_draft"] = {
-                "updated_at": datetime.utcnow().isoformat(),
-                "sentences": body.sentences,
-            }
+        # Check if the owner has manual CRUD/modifications
+        existing_sentences = existing_session.get("sentences", []) if existing_session else []
+        if _has_owner_manual_modifications(body.sentences or [], existing_sentences):
+            # Save to owner_draft as a working draft (requires publish)
+            if body.sentences:
+                target_session["owner_draft"] = {
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "sentences": body.sentences,
+                }
+            if body.current_version_name:
+                target_session["current_version_name"] = body.current_version_name
+        else:
+            # No manual modifications (only suggestion/deletion approvals, comments, or grades).
+            # Save directly to the active version's sentences
+            if body.sentences:
+                target_session["sentences"] = body.sentences
+                # Also update the active version inside versions list
+                curr_ver_name = target_session.get("current_version_name") or "Initial"
+                for v in target_session.get("versions") or []:
+                    if v.get("name") == curr_ver_name:
+                        v["sentences"] = body.sentences
+                        break
+            
+            # Clear owner draft since the decisions are now direct changes on the active version
+            target_session["owner_draft"] = None
+            if body.current_version_name:
+                target_session["current_version_name"] = body.current_version_name
     else:
         # Non-owner grader save: merge grades into active version
         if existing_session:

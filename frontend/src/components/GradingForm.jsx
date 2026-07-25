@@ -470,31 +470,60 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [textualInfoModalOpen, setTextualInfoModalOpen] = useState(false);
 
   const getTripleDiffAndNewFlag = (triple) => {
-    if (versionsList.length <= 1 || triple.is_new_suggestion) return { diffHint: null, isNewInVersion: false };
-    
+    let diffHint = null;
+    let isNewInVersion = false;
+    let draftDiffHint = null;
+
     const idx = versionsList.findIndex((v) => v.name === currentVersionName);
-    if (idx <= 0) return { diffHint: null, isNewInVersion: false };
     
-    const prevVersion = versionsList[idx - 1];
-    const prevSent = (prevVersion.sentences || []).find((s) => s.id === current.id);
-    if (!prevSent) return { diffHint: null, isNewInVersion: true };
-    
-    const prevTriple = (prevSent.triples || []).find((t) => t.id === triple.id);
-    if (!prevTriple) return { diffHint: null, isNewInVersion: true };
-    
-    const subjectChanged = prevTriple.subject !== triple.subject;
-    const predicateChanged = prevTriple.predicate !== triple.predicate;
-    const objectChanged = prevTriple.object !== triple.object;
-    
-    if (subjectChanged || predicateChanged || objectChanged) {
-      const hints = [];
-      if (subjectChanged) hints.push(`Subject changed from '${prevTriple.subject}' to '${triple.subject}'`);
-      if (predicateChanged) hints.push(`Predicate changed from '${prevTriple.predicate}' to '${triple.predicate}'`);
-      if (objectChanged) hints.push(`Object changed from '${prevTriple.object}' to '${triple.object}'`);
-      return { diffHint: hints, isNewInVersion: false };
+    // Check for unpublished draft modifications within the same version name
+    if (idx !== -1) {
+      const currentPublishedVersion = versionsList[idx];
+      const pubSent = (currentPublishedVersion.sentences || []).find((s) => s.id === current.id);
+      if (pubSent) {
+        const pubTriple = (pubSent.triples || []).find((t) => t.id === triple.id);
+        if (pubTriple) {
+          const subjectChanged = pubTriple.subject !== triple.subject;
+          const predicateChanged = pubTriple.predicate !== triple.predicate;
+          const objectChanged = pubTriple.object !== triple.object;
+          if (subjectChanged || predicateChanged || objectChanged) {
+            const hints = [];
+            if (subjectChanged) hints.push(`Subject edited in draft: '${pubTriple.subject}' -> '${triple.subject}'`);
+            if (predicateChanged) hints.push(`Predicate edited in draft: '${pubTriple.predicate}' -> '${triple.predicate}'`);
+            if (objectChanged) hints.push(`Object edited in draft: '${pubTriple.object}' -> '${triple.object}'`);
+            draftDiffHint = hints;
+          }
+        } else if (!triple.is_new_suggestion) {
+          draftDiffHint = ["Newly added in draft"];
+        }
+      }
     }
-    
-    return { diffHint: null, isNewInVersion: false };
+
+    if (versionsList.length > 1 && !triple.is_new_suggestion && idx > 0) {
+      const prevVersion = versionsList[idx - 1];
+      const prevSent = (prevVersion.sentences || []).find((s) => s.id === current.id);
+      if (!prevSent) {
+        isNewInVersion = true;
+      } else {
+        const prevTriple = (prevSent.triples || []).find((t) => t.id === triple.id);
+        if (!prevTriple) {
+          isNewInVersion = true;
+        } else {
+          const subjectChanged = prevTriple.subject !== triple.subject;
+          const predicateChanged = prevTriple.predicate !== triple.predicate;
+          const objectChanged = prevTriple.object !== triple.object;
+          if (subjectChanged || predicateChanged || objectChanged) {
+            const hints = [];
+            if (subjectChanged) hints.push(`Subject changed from '${prevTriple.subject}' to '${triple.subject}'`);
+            if (predicateChanged) hints.push(`Predicate changed from '${prevTriple.predicate}' to '${triple.predicate}'`);
+            if (objectChanged) hints.push(`Object changed from '${prevTriple.object}' to '${triple.object}'`);
+            diffHint = hints;
+          }
+        }
+      }
+    }
+
+    return { diffHint, isNewInVersion, draftDiffHint };
   };
 
   const getTripleHistory = (tripleId) => {
@@ -1504,7 +1533,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       if (!isTabFocused || hasUnsavedChangesRef.current || savingRef.current) return;
 
       try {
-        const response = await loadSession(initialSessionId);
+        const response = await loadSession(initialSessionId, currentVersionName);
         if (response && Array.isArray(response.sentences)) {
           setSentences((prev) =>
             prev.map((s) => {
@@ -1602,7 +1631,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [initialSessionId]);
+  }, [initialSessionId, currentVersionName, currentUserId, currentUserName]);
 
   const markChanged = () => {
     hasUnsavedChangesRef.current = true;
@@ -3661,6 +3690,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       onApproveDeletion={onApproveDeletion}
                       diffHint={getTripleDiffAndNewFlag(t).diffHint}
                       isNewInVersion={getTripleDiffAndNewFlag(t).isNewInVersion}
+                      draftDiffHint={getTripleDiffAndNewFlag(t).draftDiffHint}
                       onSeeChanges={(lbl) => {
                         setHistoryTripleId(t.id);
                         setHistoryTripleLabel(lbl);
