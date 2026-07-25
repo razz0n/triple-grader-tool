@@ -2069,6 +2069,10 @@ def _publish_new_version(
     prev_version = versions[-1] if versions else None
     prev_sentences = prev_version.get("sentences", []) if prev_version else []
 
+    # Preserve all comments, suggestions, and final grades in the previous version's sentences
+    if prev_version:
+        prev_version["sentences"] = json.loads(json.dumps(incoming_sentences))
+
     # Map previous triples by ID
     prev_triple_map: Dict[str, Dict[str, Any]] = {}
     for s in prev_sentences:
