@@ -475,9 +475,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let draftDiffHint = null;
 
     const idx = versionsList.findIndex((v) => v.name === currentVersionName);
+    const latestVersionName = versionsList[versionsList.length - 1]?.name;
     
-    // Check for unpublished draft modifications within the same version name
-    if (idx !== -1) {
+    // Check for unpublished draft modifications only on the latest version
+    if (currentVersionName === latestVersionName && idx !== -1) {
       const currentPublishedVersion = versionsList[idx];
       const pubSent = (currentPublishedVersion.sentences || []).find((s) => s.id === current.id);
       if (pubSent) {
@@ -787,6 +788,71 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const hasUnsavedChangesRef        = useRef(false);
   const savingRef                   = useRef(false);
   const latestPayloadRef            = useRef(null);
+  // Reset sentences state when version or initial sentences change
+  useEffect(() => {
+    setSentences(
+      initialSentences.map((s) => {
+        const completenessByUser = normalizeMetricByUser(s.completeness_by_user);
+        const externalRelationByUser = normalizeMetricByUser(s.external_relation_by_user);
+        const sentenceComments = normalizeSentenceComments(s.sentence_comments);
+
+        const completenessValues = Object.values(completenessByUser)
+          .map((entry) => normalizeMetricValue(entry?.value))
+          .filter((value) => value !== null);
+        const externalRelationValues = Object.values(externalRelationByUser)
+          .map((entry) => normalizeMetricValue(entry?.value))
+          .filter((value) => value !== null);
+
+        return {
+          ...s,
+          suggestion: "",
+          sentence_comments: sentenceComments,
+          comment_count: Number.isFinite(s.comment_count) ? s.comment_count : sentenceComments.length,
+          completeness:
+            normalizeMetricValue(s.completeness) ??
+            normalizeMetricValue(
+              (s.triples || []).find((t) => t.completeness !== null && t.completeness !== undefined)?.completeness
+            ) ??
+            null,
+          external_relation:
+            normalizeMetricValue(s.external_relation) ??
+            normalizeMetricValue(s.relation) ??
+            normalizeMetricValue(
+              (s.triples || []).find((t) => t.relation !== null && t.relation !== undefined)?.relation
+            ) ??
+            null,
+          completeness_by_user: completenessByUser,
+          external_relation_by_user: externalRelationByUser,
+          completeness_count: Number.isFinite(s.completeness_count)
+            ? s.completeness_count
+            : completenessValues.length,
+          completeness_average:
+            s.completeness_average ??
+            (completenessValues.length > 0
+              ? Number((completenessValues.reduce((acc, value) => acc + value, 0) / completenessValues.length).toFixed(2))
+              : null),
+          external_relation_count: Number.isFinite(s.external_relation_count)
+            ? s.external_relation_count
+            : externalRelationValues.length,
+          external_relation_average:
+            s.external_relation_average ??
+            (externalRelationValues.length > 0
+              ? Number((externalRelationValues.reduce((acc, value) => acc + value, 0) / externalRelationValues.length).toFixed(2))
+              : null),
+          triples: (s.triples || []).map((t) => ({
+            ...t,
+            grade: t.grade ?? null,
+            author: t.author || null,
+            grades_by_user: t.grades_by_user || {},
+            grade_count: Number.isFinite(t.grade_count) ? t.grade_count : undefined,
+            grade_average: t.grade_average ?? null,
+            suggestions: t.suggestions || [],
+            triple_comments: normalizeSentenceComments(t.triple_comments),
+          })),
+        };
+      })
+    );
+  }, [initialSentences, currentVersionName]);
 
   // Left sidebar & dark mode toggles
   const [sidebarOpen, setSidebarOpen] = useState(true);
