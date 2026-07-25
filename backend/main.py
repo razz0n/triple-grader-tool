@@ -1239,6 +1239,8 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
         data["has_unpublished_draft"] = True
         if data.get("current_version_name") == latest_version_name:
             data["sentences"] = owner_draft["sentences"]
+            if versions_list:
+                versions_list[-1]["sentences"] = owner_draft["sentences"]
 
     return data
 
