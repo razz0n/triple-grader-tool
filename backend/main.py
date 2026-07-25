@@ -2069,9 +2069,6 @@ def _publish_new_version(
     prev_version = versions[-1] if versions else None
     prev_sentences = prev_version.get("sentences", []) if prev_version else []
 
-    # Preserve all comments, suggestions, and final grades in the previous version's sentences
-    if prev_version:
-        prev_version["sentences"] = json.loads(json.dumps(incoming_sentences))
 
     # Map previous triples by ID
     prev_triple_map: Dict[str, Dict[str, Any]] = {}
@@ -2192,6 +2189,62 @@ def _publish_new_version(
     return session
 
 
+def _sync_collaborative_elements(target_sentences: list, source_sentences: list) -> None:
+    source_sentence_map = {s.get("id"): s for s in source_sentences if s.get("id") is not None}
+    
+    for target_sent in target_sentences:
+        sid = target_sent.get("id")
+        source_sent = source_sentence_map.get(sid)
+        if not source_sent:
+            continue
+            
+        for key in (
+            "sentence_comments",
+            "completeness_by_user",
+            "external_relation_by_user",
+            "completeness",
+            "external_relation",
+            "completeness_updated_at",
+            "external_relation_updated_at",
+            "comment_count",
+            "completeness_count",
+            "completeness_average",
+            "external_relation_count",
+            "external_relation_average",
+        ):
+            if key in source_sent:
+                target_sent[key] = json.loads(json.dumps(source_sent[key]))
+                
+        source_triple_map = {t.get("id"): t for t in source_sent.get("triples", []) if t.get("id") is not None}
+        
+        for target_triple in target_sent.get("triples", []):
+            tid = target_triple.get("id")
+            source_triple = source_triple_map.get(tid)
+            if not source_triple:
+                continue
+                
+            for key in (
+                "triple_comments",
+                "grades_by_user",
+                "grade",
+                "author",
+                "graded_at",
+                "is_new_suggestion",
+                "status",
+                "suggested_by",
+                "suggested_by_id",
+                "approved_by",
+                "approved_at",
+                "marked_for_removal",
+                "marked_for_removal_by",
+                "marked_for_removal_by_name",
+                "removal_reason",
+                "suggestions",
+            ):
+                if key in source_triple:
+                    target_triple[key] = json.loads(json.dumps(source_triple[key]))
+
+
 def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences: list) -> bool:
     existing_triples = {}
     for s in existing_sentences:
@@ -2285,6 +2338,8 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
         if _has_owner_manual_modifications(body.sentences or [], existing_sentences):
             # Save to owner_draft as a working draft (requires publish)
             if body.sentences:
+                # Sync latest collaborative elements from active version into the incoming draft
+                _sync_collaborative_elements(body.sentences, existing_sentences)
                 target_session["owner_draft"] = {
                     "updated_at": datetime.utcnow().isoformat(),
                     "sentences": body.sentences,
@@ -2342,6 +2397,10 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
         # Save fully merged version back to the target_session
         target_session["sentences"] = session_data.get("sentences") or []
         target_session["versions"] = session_data.get("versions") or []
+
+        # Sync collaborative updates into owner_draft sentences to keep it aligned
+        if target_session.get("owner_draft") and isinstance(target_session["owner_draft"], dict) and target_session["owner_draft"].get("sentences"):
+            _sync_collaborative_elements(target_session["owner_draft"]["sentences"], target_session["sentences"])
 
     # Recalculate stats & normalize metadata for all versions
     owner_user_id = str(target_session.get("owner_user_id") or user.get("id", "")).strip()
