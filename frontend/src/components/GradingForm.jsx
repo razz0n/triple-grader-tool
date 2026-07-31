@@ -33,6 +33,7 @@ import {
   Award,
   BookOpen,
   Copy,
+  FileText,
   History,
   Trash2,
   Check
@@ -3231,6 +3232,17 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             >
               {/* Sidebar Header & Filters */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 space-y-3 shrink-0">
+                {/* Filename Display */}
+                <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-200/60 dark:border-indigo-900/40 space-y-2 select-none">
+                  <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-extrabold text-[10px] uppercase tracking-wider">
+                    <FileText size={13} className="text-indigo-600 dark:text-indigo-455" />
+                    <span>Working File</span>
+                  </div>
+                  <div className="text-xs font-extrabold bg-indigo-100/50 dark:bg-indigo-950/50 border-2 border-indigo-400 dark:border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-indigo-750 dark:text-indigo-350 shadow-sm truncate text-center" title={source_filename}>
+                    {source_filename}
+                  </div>
+                </div>
+
                 {/* Version Selector Dropdown */}
                 {versionsList.length > 0 && (
                   <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-200/60 dark:border-indigo-900/40 space-y-2 select-none">
