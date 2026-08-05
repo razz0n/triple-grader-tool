@@ -899,6 +899,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [highlightedElementId, setHighlightedElementId] = useState(null);
   const [showPaperMetricsModal, setShowPaperMetricsModal] = useState(false);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false);
   const [pendingDownloadFormat, setPendingDownloadFormat] = useState(null);
   const notificationsRef = useRef(null);
@@ -3200,6 +3201,16 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <span className="hidden md:inline">Indicators</span>
           </button>
 
+          {/* 5b. Inter-Rater Agreement Button */}
+          <button
+            onClick={() => setShowAgreementModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+            title="View Inter-Rater Agreement & Kappa Results"
+          >
+            <Users size={14} />
+            <span className="hidden md:inline">Agreement</span>
+          </button>
+
           {/* 6. Notifications Trigger */}
           <div className="relative" ref={notificationsRef}>
             <button
@@ -4294,6 +4305,159 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                   className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl hover:bg-slate-55 active:scale-95 transition-all cursor-pointer"
                 >
                   Close Metrics
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── DEDICATED INTER-RATER KAPPA AGREEMENT MODAL ── */}
+      <AnimatePresence>
+        {showAgreementModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowAgreementModal(false)}
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full relative overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shadow-xs">
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <span>Inter-Rater Agreement &amp; Kappa Reliability</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      Quadratic Weighted Reliability Scores across Graders
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAgreementModal(false)}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                
+                {/* Method Badges */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 flex items-center gap-3">
+                    <Award size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Overall Combined Reliability</span>
+                      <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        {paperMetrics.overallKappaStr}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 flex items-center gap-3">
+                    <Users size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Raw Percentage Agreement</span>
+                      <span className="text-sm font-extrabold text-indigo-700 dark:text-indigo-400 tabular-nums">
+                        {paperMetrics.agreementPct}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4 Metric Cards */}
+                <div className="space-y-3 pt-1">
+                  <h4 className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">
+                    Separate Metric Reliability Breakdown
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Triple Quality Kappa */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                        1. Triple Quality Grades
+                      </span>
+                      <div className="text-base font-extrabold text-slate-850 dark:text-slate-100 tabular-nums">
+                        {paperMetrics.tripleKappaStr}
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Inter-rater agreement on candidate triple quality scores (0–10).
+                      </p>
+                    </div>
+
+                    {/* Sentence Completeness Kappa */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                        2. Sentence Completeness
+                      </span>
+                      <div className="text-base font-extrabold text-slate-850 dark:text-slate-100 tabular-nums">
+                        {paperMetrics.completenessKappaStr}
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Inter-rater agreement on sentence completeness scores (0–10).
+                      </p>
+                    </div>
+
+                    {/* External Relation Kappa */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                        3. External Relation Mapping
+                      </span>
+                      <div className="text-base font-extrabold text-slate-850 dark:text-slate-100 tabular-nums">
+                        {paperMetrics.relationKappaStr}
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Inter-rater agreement on external relation schema mapping (0–10).
+                      </p>
+                    </div>
+
+                    {/* Overall Combined Kappa */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                        4. Combined Overall Kappa
+                      </span>
+                      <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        {paperMetrics.overallKappaStr}
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Unified inter-rater reliability across all co-rated elements.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Note */}
+                <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex items-start gap-2.5 text-left">
+                  <AlertCircle size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-400">
+                    <strong>Quadratic Weighting Note:</strong> Uses <em>Cohen's Kappa</em> for 2 raters ($k=2$) and <em>Fleiss' Kappa</em> for 3+ raters ($k&gt;2$). Quadratic distance weighting ($w_{ij} = 1 - (i-j)^2/100$) penalizes large rating gaps proportionately while allowing minor 1-point score variations.
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/30 border-t border-slate-100 dark:border-slate-800/80 flex justify-end shrink-0">
+                <button
+                  onClick={() => setShowAgreementModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
+                >
+                  Close Agreement
                 </button>
               </div>
             </motion.div>
