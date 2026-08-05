@@ -725,6 +725,9 @@ def evaluate_session(
             "has_text": bool((s.get("text") or "").strip()),
         })
 
+    from services.metrics_service import compute_session_kappa_metrics
+    kappa_metrics = compute_session_kappa_metrics(session)
+
     return {
         "session_id": session.get("session_id", ""),
         "source_filename": session.get("source_filename", ""),
@@ -734,6 +737,7 @@ def evaluate_session(
         "per_sentence": openie_results,
         "macro": openie_summary["macro"],
         "micro": openie_summary["micro"],
+        "kappa_metrics": kappa_metrics,
         # Dual evaluation sections
         "openie_evaluation": {
             "per_sentence": openie_results,

@@ -1094,7 +1094,124 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       });
     });
     const agreementPct = multiGradeTriples > 0 ? ((agreedTriples / multiGradeTriples) * 100).toFixed(1) + "%" : "N/A";
-    
+
+    // Quadratic Weighted Kappa inter-rater reliability calculation helper
+    const calcWeightedKappa = (itemsList) => {
+      const valid = itemsList.filter((item) => Object.keys(item).length >= 2);
+      if (valid.length === 0) return "N/A (Requires >= 2 raters)";
+      
+      const allRaters = new Set();
+      valid.forEach((item) => Object.keys(item).forEach((r) => allRaters.add(r)));
+      const kCount = allRaters.size;
+      if (kCount < 2) return "N/A (Requires >= 2 raters)";
+
+      let totalObservedWeight = 0;
+      let totalPairs = 0;
+      const catCounts = Array(11).fill(0);
+      let totalRatingsCount = 0;
+
+      valid.forEach((item) => {
+        const vals = Object.values(item).map(Number).filter((v) => !isNaN(v));
+        const m = vals.length;
+        if (m < 2) return;
+
+        let itemWeightSum = 0;
+        let itemPairCount = 0;
+        for (let i = 0; i < m; i++) {
+          catCounts[vals[i]]++;
+          totalRatingsCount++;
+          for (let j = i + 1; j < m; j++) {
+            const diffSq = Math.pow(vals[i] - vals[j], 2);
+            const w = 1.0 - diffSq / 100.0;
+            itemWeightSum += w;
+            itemPairCount++;
+          }
+        }
+        if (itemPairCount > 0) {
+          totalObservedWeight += itemWeightSum / itemPairCount;
+          totalPairs++;
+        }
+      });
+
+      if (totalPairs === 0 || totalRatingsCount === 0) return "N/A";
+
+      const po = totalObservedWeight / totalPairs;
+      let pe = 0;
+      const catProbs = catCounts.map((cnt) => cnt / totalRatingsCount);
+
+      for (let c1 = 0; c1 <= 10; c1++) {
+        for (let c2 = 0; c2 <= 10; c2++) {
+          const diffSq = Math.pow(c1 - c2, 2);
+          const w = 1.0 - diffSq / 100.0;
+          pe += w * catProbs[c1] * catProbs[c2];
+        }
+      }
+
+      let kappa = Math.abs(1.0 - pe) < 1e-9 ? (Math.abs(po - 1.0) < 1e-9 ? 1.0 : 0.0) : (po - pe) / (1.0 - pe);
+      kappa = Math.max(-1.0, Math.min(1.0, kappa));
+      const label = kCount === 2 ? "Cohen's" : "Fleiss'";
+      return `${kappa.toFixed(2)} (${label}, k=${kCount})`;
+    };
+
+    const tripleItems = [];
+    const completenessItems = [];
+    const relationItems = [];
+    const overallItems = [];
+
+    sentences.forEach((s) => {
+      if (s.completeness_by_user && typeof s.completeness_by_user === "object") {
+        const item = {};
+        Object.entries(s.completeness_by_user).forEach(([uId, entry]) => {
+          const v = entry?.value !== undefined ? entry.value : entry;
+          if (v !== null && v !== undefined && v !== "") {
+            const num = Number(v);
+            if (!isNaN(num)) item[uId] = num;
+          }
+        });
+        if (Object.keys(item).length >= 2) {
+          completenessItems.push(item);
+          overallItems.push(item);
+        }
+      }
+
+      if (s.external_relation_by_user && typeof s.external_relation_by_user === "object") {
+        const item = {};
+        Object.entries(s.external_relation_by_user).forEach(([uId, entry]) => {
+          const v = entry?.value !== undefined ? entry.value : entry;
+          if (v !== null && v !== undefined && v !== "") {
+            const num = Number(v);
+            if (!isNaN(num)) item[uId] = num;
+          }
+        });
+        if (Object.keys(item).length >= 2) {
+          relationItems.push(item);
+          overallItems.push(item);
+        }
+      }
+
+      (s.triples || []).forEach((t) => {
+        if (!t.marked_for_removal && t.grades_by_user && typeof t.grades_by_user === "object") {
+          const item = {};
+          Object.entries(t.grades_by_user).forEach(([uId, entry]) => {
+            const g = entry?.grade !== undefined ? entry.grade : entry;
+            if (g !== null && g !== undefined && g !== "") {
+              const num = Number(g);
+              if (!isNaN(num)) item[uId] = num;
+            }
+          });
+          if (Object.keys(item).length >= 2) {
+            tripleItems.push(item);
+            overallItems.push(item);
+          }
+        }
+      });
+    });
+
+    const tripleKappaStr = calcWeightedKappa(tripleItems);
+    const completenessKappaStr = calcWeightedKappa(completenessItems);
+    const relationKappaStr = calcWeightedKappa(relationItems);
+    const overallKappaStr = calcWeightedKappa(overallItems);
+
     let acceptedWithoutChange = 0;
     let modifiedAfterReview = 0;
     sentences.forEach((s) => {
@@ -1184,6 +1301,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       numUsers,
       calibrationPct,
       agreementPct,
+      tripleKappaStr,
+      completenessKappaStr,
+      relationKappaStr,
+      overallKappaStr,
       acceptedWithoutChange,
       acceptedPct,
       modifiedAfterReview,
@@ -4102,8 +4223,24 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                         <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.evalF1}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-semibold text-left">Reviewer agreement on candidate-triple decisions</td>
+                        <td className="px-4 py-3 font-semibold text-left">Reviewer raw agreement on candidate-triple decisions</td>
                         <td className="px-4 py-3 text-right font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{paperMetrics.agreementPct}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold text-left">Triple Quality Inter-Rater Reliability (Kappa)</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">{paperMetrics.tripleKappaStr}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold text-left">Sentence Completeness Inter-Rater Reliability (Kappa)</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">{paperMetrics.completenessKappaStr}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold text-left">External Relation Inter-Rater Reliability (Kappa)</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">{paperMetrics.relationKappaStr}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold text-left">Overall Combined Inter-Rater Reliability (Kappa)</td>
+                        <td className="px-4 py-3 text-right font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">{paperMetrics.overallKappaStr}</td>
                       </tr>
                       <tr>
                         <td className="px-4 py-3 font-semibold text-left">Triples accepted without change</td>

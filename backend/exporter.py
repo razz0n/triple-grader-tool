@@ -260,6 +260,9 @@ class _GradingPDF(FPDF):
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
 
+from services.metrics_service import compute_session_kappa_metrics
+
+
 def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
     from datetime import datetime
     sentences = session.get("sentences", [])
@@ -370,6 +373,13 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
                     if len(set(grades)) == 1:
                         agreed_count += 1
     agreement_str = f"{agreed_count / total_multi_vote * 100:.1f}%" if total_multi_vote > 0 else "N/A"
+
+    # Compute Quadratic Weighted Kappa Inter-Rater Reliability metrics
+    kappa_metrics = compute_session_kappa_metrics(session)
+    triple_kappa_str = kappa_metrics["triple_kappa"]["formatted_str"]
+    completeness_kappa_str = kappa_metrics["completeness_kappa"]["formatted_str"]
+    relation_kappa_str = kappa_metrics["relation_kappa"]["formatted_str"]
+    overall_kappa_str = kappa_metrics["overall_kappa"]["formatted_str"]
     
     # Accepted without change
     accepted_without_change = 0
@@ -428,6 +438,11 @@ def _calculate_paper_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
         "calibration_pct": calibration_pct,
         "eval_f1": eval_f1,
         "agreement_str": agreement_str,
+        "triple_kappa_str": triple_kappa_str,
+        "completeness_kappa_str": completeness_kappa_str,
+        "relation_kappa_str": relation_kappa_str,
+        "overall_kappa_str": overall_kappa_str,
+        "kappa_metrics": kappa_metrics,
         "accepted_without_change": accepted_without_change,
         "accepted_without_change_pct": accepted_without_change_pct,
         "modified_after_review": modified_after_review,
@@ -467,7 +482,11 @@ def to_pdf(session: Dict[str, Any]) -> bytes:
         ("Number of annotators and reviewers", str(metrics["num_users"])),
         ("Percentage of sentences in calibration phase", f"{metrics['calibration_pct']:.1f}%"),
         ("Pilot-stage triple overlap / match results", metrics["eval_f1"]),
-        ("Reviewer agreement on candidate-triple decisions", metrics["agreement_str"]),
+        ("Reviewer raw agreement on candidate-triple decisions", metrics["agreement_str"]),
+        ("Triple Quality Inter-Rater Reliability (Kappa)", metrics["triple_kappa_str"]),
+        ("Sentence Completeness Inter-Rater Reliability (Kappa)", metrics["completeness_kappa_str"]),
+        ("External Relation Inter-Rater Reliability (Kappa)", metrics["relation_kappa_str"]),
+        ("Overall Combined Inter-Rater Reliability (Kappa)", metrics["overall_kappa_str"]),
         ("Triples accepted without change (Count / %)", f"{metrics['accepted_without_change']} / {metrics['accepted_without_change_pct']:.1f}%"),
         ("Triples modified after review (Count / %)", f"{metrics['modified_after_review']} / {metrics['modified_after_review_pct']:.1f}%"),
         ("Number of rejected triples", str(metrics["num_rejected_triples"])),
