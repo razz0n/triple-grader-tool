@@ -4445,7 +4445,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex items-start gap-2.5 text-left">
                   <AlertCircle size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-400">
-                    <strong>Quadratic Weighting Note:</strong> Uses <em>Cohen's Kappa</em> for 2 raters ($k=2$) and <em>Fleiss' Kappa</em> for 3+ raters ($k&gt;2$). Quadratic distance weighting ($w_{ij} = 1 - (i-j)^2/100$) penalizes large rating gaps proportionately while allowing minor 1-point score variations.
+                    <strong>Quadratic Weighting Note:</strong> Uses <em>Cohen's Kappa</em> for 2 raters (k=2) and <em>Fleiss' Kappa</em> for 3+ raters (k &gt; 2). Quadratic distance weighting (w = 1 - (i - j)² / 100) penalizes large rating gaps proportionately while allowing minor 1-point score variations.
                   </p>
                 </div>
 
