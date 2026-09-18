@@ -743,16 +743,22 @@ def _apply_collaborative_grades(
             if metric_user_id not in merged_external:
                 merged_external[metric_user_id] = payload
 
-        my_external = _normalize_sentence_metric_value(
-            sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation")
-        )
+        raw_ext = sentence.get("external_relation")
+        raw_rel = sentence.get("relation")
+        if raw_rel is not None and (raw_ext is None or raw_rel != (existing_sentence or {}).get("external_relation")):
+            my_external = _normalize_sentence_metric_value(raw_rel)
+        else:
+            my_external = _normalize_sentence_metric_value(raw_ext if raw_ext is not None else raw_rel)
+
         if not user_can_grade:
             merged_external.pop(user_id, None)
             sentence["external_relation"] = None
+            sentence["relation"] = None
             sentence.pop("external_relation_updated_at", None)
         elif my_external is None:
             merged_external.pop(user_id, None)
             sentence["external_relation"] = None
+            sentence["relation"] = None
             sentence.pop("external_relation_updated_at", None)
         else:
             merged_external[user_id] = {
@@ -762,6 +768,7 @@ def _apply_collaborative_grades(
                 "updated_at": now_iso,
             }
             sentence["external_relation"] = my_external
+            sentence["relation"] = my_external
             sentence["external_relation_updated_at"] = now_iso
         sentence["external_relation_by_user"] = merged_external
 
@@ -968,7 +975,7 @@ def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
     return _sentence_list_stats(session_data.get("sentences", []), owner_fallback_user_id)
 
 
-def _find_target_triple_and_sentence(session: Dict[str, Any], version_name: Optional[str], sentence_id: int, triple_id: str) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+def _find_target_triple_and_sentence(session: Dict[str, Any], version_name: Optional[str], sentence_id: Any, triple_id: str) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     if "versions" not in session:
         session["versions"] = [
             {
@@ -991,14 +998,24 @@ def _find_target_triple_and_sentence(session: Dict[str, Any], version_name: Opti
     sentences = selected_version.get("sentences", []) if selected_version else session.get("sentences", [])
     
     for s in sentences:
-        if s.get("id") == sentence_id:
+        sid = str(s.get("id") or s.get("sentence_id") or "")
+        target_sid = str(sentence_id)
+        sid_clean = sid.lstrip("s").lstrip("0") or "0" if sid.startswith("s") else sid
+        tgt_clean = target_sid.lstrip("s").lstrip("0") or "0" if target_sid.startswith("s") else target_sid
+        if (
+            sid == target_sid
+            or sid_clean == tgt_clean
+            or (target_sid.isdigit() and sid == f"s{int(target_sid):04d}")
+            or (sid.isdigit() and target_sid == f"s{int(sid):04d}")
+        ):
             for t in s.get("triples", []):
-                if t.get("id") == triple_id:
+                tid = str(t.get("id") or t.get("triple_id") or "")
+                if tid == str(triple_id):
                     return s, t
     return None, None
 
 
-def _find_target_sentence(session: Dict[str, Any], version_name: Optional[str], sentence_id: int) -> Optional[Dict[str, Any]]:
+def _find_target_sentence(session: Dict[str, Any], version_name: Optional[str], sentence_id: Any) -> Optional[Dict[str, Any]]:
     if "versions" not in session:
         session["versions"] = [
             {
@@ -1021,7 +1038,9 @@ def _find_target_sentence(session: Dict[str, Any], version_name: Optional[str], 
     sentences = selected_version.get("sentences", []) if selected_version else session.get("sentences", [])
     
     for s in sentences:
-        if s.get("id") == sentence_id:
+        sid = str(s.get("id") or s.get("sentence_id") or "")
+        target_sid = str(sentence_id)
+        if sid == target_sid or (target_sid.isdigit() and sid == f"s{int(target_sid):04d}"):
             return s
     return None
 
@@ -2343,8 +2362,8 @@ def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences
 
     for tid, existing_t in existing_triples.items():
         if tid not in incoming_triples:
-            # Manual deletion by owner
-            if not existing_t.get("marked_for_removal", False):
+            # Manual deletion by owner (ignore marked for removal, corrected triples, or suggestions)
+            if not existing_t.get("marked_for_removal", False) and not existing_t.get("is_corrected", False) and not existing_t.get("is_new_suggestion", False):
                 return True
 
     return False
@@ -3357,7 +3376,7 @@ async def edit_suggestion(body: EditSuggestionRequest, user: Dict[str, Any] = De
 @app.delete("/api/suggestions/{session_id}/{sentence_id}/{triple_id}/{suggestion_id}")
 async def delete_suggestion(
     session_id: str,
-    sentence_id: int,
+    sentence_id: str,
     triple_id: str,
     suggestion_id: str,
     version_name: Optional[str] = Query(default=None),
@@ -3365,6 +3384,7 @@ async def delete_suggestion(
 ):
     """Delete a suggestion (only the author can delete)."""
     user_name = display_name(user)
+    user_id = str(user.get("id") or "").strip()
     json_path, session = _load_session_for_access(session_id)
     
     sentence, triple = _find_target_triple_and_sentence(session, version_name, sentence_id, triple_id)
@@ -3373,8 +3393,9 @@ async def delete_suggestion(
 
     suggestions = triple.get("suggestions", [])
     for i, sug in enumerate(suggestions):
-        if sug.get("id") == suggestion_id:
-            if sug.get("author") != user_name:
+        if str(sug.get("id") or sug.get("suggestion_id")) == str(suggestion_id):
+            sug_author = str(sug.get("author") or sug.get("user") or sug.get("author_id") or "").strip()
+            if sug_author and sug_author != user_name and sug_author != user_id and sug_author != user.get("username"):
                 raise HTTPException(status_code=403, detail="Only the author can delete this suggestion.")
             suggestions.pop(i)
             _save_loaded_session(json_path, session)
@@ -3706,6 +3727,69 @@ async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApp
             "predicate": corrected_triple["predicate"],
             "object": corrected_triple["object"],
             "status": "approved",
+        },
+    }
+
+
+@app.post("/api/sessions/{session_id}/unapprove")
+async def unapprove_session_suggestion_workflow(session_id: str, body: WorkflowApproveRequest):
+    """
+    RESTful unapproval endpoint for suggestion.
+    Reverts suggestion.status = pending, original triple status = active,
+    and removes the generated corrected triple.
+    """
+    json_path, session = _load_session_for_access(session_id)
+
+    target_suggestion = None
+    target_triple = None
+    target_sentence = None
+
+    sentences = session.get("sentences", [])
+    for sent in sentences:
+        for t in sent.get("triples", []):
+            for sug in t.get("suggestions", []):
+                if str(sug.get("id") or sug.get("suggestion_id")) == str(body.suggestion_id):
+                    target_suggestion = sug
+                    target_triple = t
+                    target_sentence = sent
+                    break
+            if target_suggestion:
+                break
+        if target_suggestion:
+            break
+
+    if not target_suggestion or not target_triple:
+        raise HTTPException(status_code=404, detail=f"Suggestion {body.suggestion_id} not found.")
+
+    target_suggestion["status"] = "pending"
+    target_suggestion.pop("approved_by", None)
+    target_suggestion.pop("approved_at", None)
+
+    # Revert original triple to active
+    target_triple["status"] = "active"
+    target_triple.pop("superseded", None)
+    target_triple.pop("superseded_by", None)
+
+    # Remove corrected triple from sentence
+    if target_sentence is not None:
+        target_sentence["triples"] = [
+            t for t in target_sentence.get("triples", [])
+            if not (t.get("is_corrected") and (
+                t.get("source_triple_id") == target_triple.get("id")
+                or t.get("parent_suggestion_id") == target_suggestion.get("id")
+                or t.get("id") == f"{target_triple.get('id')}_corrected"
+            ))
+        ]
+
+    _save_loaded_session(json_path, session)
+
+    return {
+        "ok": True,
+        "suggestion_id": target_suggestion.get("id"),
+        "status": "pending",
+        "original_triple": {
+            "id": target_triple.get("id"),
+            "status": "active",
         },
     }
 
@@ -4146,6 +4230,18 @@ async def mark_triple_removal(body: MarkTripleRemovalRequest, user: Dict[str, An
     triple["marked_for_removal"] = body.marked
     triple["removal_reason"] = "Not needed" if body.marked else None
 
+    # Also sync to top-level sentences if distinct
+    for s in session.get("sentences", []):
+        sid = str(s.get("id") or s.get("sentence_id") or "")
+        target_sid = str(sentence.get("id") or sentence.get("sentence_id") or "")
+        if sid == target_sid:
+            for t in s.get("triples", []):
+                tid = str(t.get("id") or t.get("triple_id") or "")
+                target_tid = str(triple.get("id") or triple.get("triple_id") or "")
+                if tid == target_tid:
+                    t["marked_for_removal"] = body.marked
+                    t["removal_reason"] = triple.get("removal_reason")
+
     _save_loaded_session(json_path, session)
 
     return {"ok": True}
@@ -4349,6 +4445,12 @@ async def download_evaluation(
 # ---------------------------------------------------------------------------
 if _FRONTEND_DIST.is_dir():
     app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="static")
+else:
+    from fastapi.responses import RedirectResponse
+
+    @app.get("/", include_in_schema=False)
+    async def root_redirect():
+        return RedirectResponse(url="/docs")
 
 
 # ---------------------------------------------------------------------------

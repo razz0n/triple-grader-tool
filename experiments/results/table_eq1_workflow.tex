@@ -1,0 +1,33 @@
+% EQ1 Lifecycle & Workflow Verification Results
+\begin{table}[htbp]
+\centering
+\small
+\caption{Empirical verification of collaborative state transitions, role constraints, and schema fidelity under HTTP REST API execution (EQ1).}
+\label{tab:eq1_workflow}
+\begin{tabular}{llcccc}
+\hline
+\textbf{ID} & \textbf{Scenario Description} & \textbf{Category} & \textbf{Fidelity} & \textbf{Latency (ms)} & \textbf{Result} \\
+\hline
+T01 & Import valid file & Valid Transition & 100.0\% & 22.1 & \textbf{Pass} \\
+T02 & Reviewer saves grade & Valid Transition & 100.0\% & 44.8 & \textbf{Pass} \\
+T03 & Non-owner saves grade & Valid Transition & 100.0\% & 43.0 & \textbf{Pass} \\
+T04 & Clear a grade & Valid Transition & 100.0\% & 97.2 & \textbf{Pass} \\
+T05 & Save completeness & relation & Valid Transition & 100.0\% & 70.2 & \textbf{Pass} \\
+T06 & Create correction suggestion & Valid Transition & 100.0\% & 27.2 & \textbf{Pass} \\
+T07 & Suggestion voting & self-vote rejection & Invalid Action Rejection & 100.0\% & 40.3 & \textbf{Pass} \\
+T08 & Suggestion author permissions & Invalid Action Rejection & 100.0\% & 39.0 & \textbf{Pass} \\
+T09 & Owner approves suggestion & Valid Transition & 100.0\% & 41.3 & \textbf{Pass} \\
+T10 & Owner unapproves suggestion & Valid Transition & 100.0\% & 65.8 & \textbf{Pass} \\
+T11 & Mark triple for removal & Valid Transition & 100.0\% & 41.2 & \textbf{Pass} \\
+T12 & Add missing triple & Valid Transition & 100.0\% & 70.5 & \textbf{Pass} \\
+T13 & Sentence comments & replies & Valid Transition & 100.0\% & 21.5 & \textbf{Pass} \\
+T14 & Publish version isolation & Valid Transition & 100.0\% & 67.0 & \textbf{Pass} \\
+T15 & Delete version protection & Invalid Action Rejection & 100.0\% & 51.1 & \textbf{Pass} \\
+T16 & Multi-format export integrity & Valid Transition & 100.0\% & 21.6 & \textbf{Pass} \\
+T17 & Concurrent save simulation & Valid Transition & 100.0\% & 72.3 & \textbf{Pass} \\
+T18 & Malformed identifiers & Invalid Action Rejection & 100.0\% & 22.3 & \textbf{Pass} \\
+\hline
+\multicolumn{6}{l}{\textbf{Summary:} VTA = 100.0\%, IARR = 100.0\%, Mean Field Fidelity = 100.00\%} \\
+\hline
+\end{tabular}
+\end{table}
