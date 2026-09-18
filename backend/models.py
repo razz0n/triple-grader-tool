@@ -173,3 +173,45 @@ class DeleteAccountRequest(BaseModel):
     security_answer: str = Field(min_length=1, max_length=255)
 
 
+class CreateSessionRequest(BaseModel):
+    """Request model for creating a session via REST API."""
+    id: Optional[str] = None
+    session_id: Optional[str] = None
+    filename: Optional[str] = "benchmark_session.json"
+    user: Optional[str] = "owner"
+    owner_name: Optional[str] = None
+    owner_user_id: Optional[str] = None
+    sentences: Optional[list] = None
+
+
+class WorkflowSuggestionRequest(BaseModel):
+    """Request model for RESTful suggestion creation."""
+    triple_id: str
+    user: str
+    subject: str
+    predicate: str
+    object: str
+    suggestion_id: Optional[str] = None
+    comment: Optional[str] = None
+    reason: Optional[str] = None
+    sentence_id: Optional[str] = None
+
+
+class WorkflowVoteRequest(BaseModel):
+    """Request model for RESTful suggestion voting."""
+    suggestion_id: str
+    user: str
+    vote: str = "approve"
+    triple_id: Optional[str] = None
+    sentence_id: Optional[str] = None
+
+
+class WorkflowApproveRequest(BaseModel):
+    """Request model for RESTful suggestion approval."""
+    suggestion_id: str
+    user: str = "owner"
+    triple_id: Optional[str] = None
+    sentence_id: Optional[str] = None
+
+
+

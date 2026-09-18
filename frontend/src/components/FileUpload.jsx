@@ -710,9 +710,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
 
                           const avgBadge =
                             s.total_unique_graders > 0
-                              ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"
-                              } · Avg ${s.session_average_grade != null ? Number(s.session_average_grade).toFixed(2) : "—"
-                              }/10`
+                              ? `${s.total_unique_graders} grader${s.total_unique_graders === 1 ? "" : "s"}`
                               : null;
 
                           const isRecent = s.uploaded_at && (Date.now() - new Date(s.uploaded_at + "Z").getTime() < 24 * 60 * 60 * 1000);

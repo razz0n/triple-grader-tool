@@ -70,10 +70,16 @@ from models import (
     GetSecurityQuestionRequest,
     ResetPasswordWithQuestionRequest,
     DeleteAccountRequest,
+    CreateSessionRequest,
+    WorkflowSuggestionRequest,
+    WorkflowVoteRequest,
+    WorkflowApproveRequest,
 )
 from parser import parse_file_rich
 from services import (
     apply_collaborative_grades,
+    build_adjudicated_gold_set,
+    include_in_adjudicated_gold,
     calculate_average,
     calculate_session_activity_for_user,
     calculate_session_grading_stats,
@@ -182,7 +188,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 
 def _session_path_for_user(user_id: str, session_id: str) -> Path:
-    if not session_id.replace("-", "").isalnum():
+    if not session_id.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid session ID.")
     user_dir = SESSIONS_ROOT / user_id
     user_dir.mkdir(exist_ok=True)
@@ -190,7 +196,7 @@ def _session_path_for_user(user_id: str, session_id: str) -> Path:
 
 
 def _find_existing_session_path(session_id: str) -> Optional[Path]:
-    if not session_id.replace("-", "").isalnum():
+    if not session_id.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid session ID.")
     if use_database_storage():
         return None
@@ -948,7 +954,7 @@ def _sentence_list_stats(sentences: list, owner_fallback_user_id: str) -> Dict[s
     return {
         "total_triples": total_triples,
         "graded_triples": graded_triples,
-        "session_average_grade": overall_avg,
+        "session_average_grade": None,
         "is_completed_grading": is_completed,
         "total_grade_entries": total_grade_entries,
         "total_unique_graders": len(grader_summary_rows),
@@ -2678,7 +2684,7 @@ def _project_session_for_view(
                 if v is not None
             ])
 
-    data["session_average_grade"] = _avg_or_none(overall_triple_grades)
+    data["session_average_grade"] = None
     data["is_completed_grading"] = total_triples > 0 and graded_triples == total_triples
     data["graded_triples"] = graded_triples
     data["total_triples"] = total_triples
@@ -3462,6 +3468,286 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
             }
 
     raise HTTPException(status_code=404, detail="Suggestion not found.")
+
+
+# ---------------------------------------------------------------------------
+# RESTful Benchmark Session & Curation Workflow Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/api/sessions")
+async def create_session_workflow(body: Optional[CreateSessionRequest] = None):
+    """
+    RESTful session creation endpoint.
+    Creates or registers a benchmark session.
+    """
+    session_id = (body.id or body.session_id) if body else None
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
+    owner_user = (body.user or body.owner_name or "owner") if body else "owner"
+    owner_user_id = (body.owner_user_id or "owner_001") if body else "owner_001"
+    filename = (body.filename or "benchmark_session.json") if body else "benchmark_session.json"
+    sentences = (body.sentences or []) if body else []
+
+    session_payload = {
+        "id": session_id,
+        "session_id": session_id,
+        "source_filename": filename,
+        "filename": filename,
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "owner_user_id": owner_user_id,
+        "owner_name": owner_user,
+        "sentences": sentences,
+        "versions": [{
+            "name": "Initial",
+            "created_at": datetime.utcnow().isoformat(),
+            "created_by": owner_user,
+            "sentences": sentences,
+        }],
+        "current_version_name": "Initial",
+    }
+
+    _save_loaded_session(None, session_payload, owner_user_id=owner_user_id)
+    return {
+        "id": session_id,
+        "session_id": session_id,
+        "ok": True,
+        "owner": owner_user,
+        "filename": filename,
+    }
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session_workflow(session_id: str):
+    """
+    RESTful session retrieval endpoint.
+    """
+    json_path, session = _load_session_for_access(session_id)
+    if "id" not in session:
+        session["id"] = session.get("session_id", session_id)
+    return session
+
+
+@app.post("/api/sessions/{session_id}/suggestions")
+async def add_session_suggestion_workflow(session_id: str, body: WorkflowSuggestionRequest):
+    """
+    RESTful suggestion submission endpoint for a session.
+    """
+    json_path, session = _load_session_for_access(session_id)
+
+    target_triple = None
+    target_sentence = None
+    sentences = session.get("sentences", [])
+    for sent in sentences:
+        for t in sent.get("triples", []):
+            if str(t.get("id") or t.get("triple_id")) == str(body.triple_id):
+                target_triple = t
+                target_sentence = sent
+                break
+        if target_triple:
+            break
+
+    if not target_triple:
+        raise HTTPException(status_code=404, detail=f"Triple {body.triple_id} not found in session.")
+
+    suggestion_id = body.suggestion_id or f"s{uuid.uuid4().hex[:6]}"
+    user_name = body.user or "reviewer"
+
+    new_suggestion = {
+        "id": suggestion_id,
+        "suggestion_id": suggestion_id,
+        "triple_id": body.triple_id,
+        "author": user_name,
+        "user": user_name,
+        "subject": body.subject,
+        "predicate": body.predicate,
+        "object": body.object,
+        "comment": body.comment or body.reason or "",
+        "status": "pending",
+        "created_at": datetime.utcnow().isoformat(),
+        "votes": {},
+    }
+
+    if "suggestions" not in target_triple:
+        target_triple["suggestions"] = []
+    target_triple["suggestions"].append(new_suggestion)
+
+    _save_loaded_session(json_path, session)
+
+    return {
+        "ok": True,
+        "id": suggestion_id,
+        "suggestion_id": suggestion_id,
+        "triple_id": body.triple_id,
+        "status": "pending",
+    }
+
+
+@app.post("/api/sessions/{session_id}/vote")
+async def vote_session_suggestion_workflow(session_id: str, body: WorkflowVoteRequest):
+    """
+    RESTful voting endpoint for a suggestion.
+    Enforces self-voting restriction.
+    """
+    json_path, session = _load_session_for_access(session_id)
+
+    target_suggestion = None
+    sentences = session.get("sentences", [])
+    for sent in sentences:
+        for t in sent.get("triples", []):
+            for sug in t.get("suggestions", []):
+                if str(sug.get("id") or sug.get("suggestion_id")) == str(body.suggestion_id):
+                    target_suggestion = sug
+                    break
+            if target_suggestion:
+                break
+        if target_suggestion:
+            break
+
+    if not target_suggestion:
+        raise HTTPException(status_code=404, detail=f"Suggestion {body.suggestion_id} not found.")
+
+    voter = body.user.strip()
+    author = str(target_suggestion.get("author") or target_suggestion.get("user") or "").strip()
+    if voter and author and voter.lower() == author.lower():
+        raise HTTPException(status_code=400, detail="Reviewers cannot vote on their own suggestions.")
+
+    if "votes" not in target_suggestion:
+        target_suggestion["votes"] = {}
+    target_suggestion["votes"][voter] = body.vote
+
+    _save_loaded_session(json_path, session)
+
+    return {
+        "ok": True,
+        "suggestion_id": body.suggestion_id,
+        "user": voter,
+        "vote": body.vote,
+        "votes": target_suggestion["votes"],
+    }
+
+
+@app.post("/api/sessions/{session_id}/approve")
+async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApproveRequest):
+    """
+    RESTful approval endpoint for suggestion.
+    Updates suggestion.status = approved, approved_by = owner,
+    original triple = superseded, corrected triple active.
+    """
+    json_path, session = _load_session_for_access(session_id)
+
+    target_suggestion = None
+    target_triple = None
+    target_sentence = None
+
+    sentences = session.get("sentences", [])
+    for sent in sentences:
+        for t in sent.get("triples", []):
+            for sug in t.get("suggestions", []):
+                if str(sug.get("id") or sug.get("suggestion_id")) == str(body.suggestion_id):
+                    target_suggestion = sug
+                    target_triple = t
+                    target_sentence = sent
+                    break
+            if target_suggestion:
+                break
+        if target_suggestion:
+            break
+
+    if not target_suggestion or not target_triple:
+        raise HTTPException(status_code=404, detail=f"Suggestion {body.suggestion_id} not found.")
+
+    approver = body.user or "owner"
+
+    target_suggestion["status"] = "approved"
+    target_suggestion["approved_by"] = approver
+    target_suggestion["approved_at"] = datetime.utcnow().isoformat()
+
+    # Original triple superseded
+    target_triple["status"] = "superseded"
+    target_triple["superseded"] = True
+
+    # Corrected triple active in sentence
+    corrected_triple_id = f"{target_triple.get('id') or 't001'}_corrected"
+    corrected_triple = {
+        "id": corrected_triple_id,
+        "triple_id": corrected_triple_id,
+        "subject": target_suggestion.get("subject"),
+        "predicate": target_suggestion.get("predicate"),
+        "object": target_suggestion.get("object"),
+        "status": "approved",
+        "is_new_suggestion": True,
+        "is_corrected": True,
+        "source_triple_id": target_triple.get("id"),
+        "parent_suggestion_id": target_suggestion.get("id"),
+        "author": target_suggestion.get("author") or target_suggestion.get("user"),
+        "approved_by": approver,
+        "suggestions": [],
+    }
+
+    if target_sentence is not None:
+        target_sentence["triples"].append(corrected_triple)
+    target_triple["superseded_by"] = corrected_triple_id
+
+    _save_loaded_session(json_path, session)
+
+    return {
+        "ok": True,
+        "suggestion_id": target_suggestion.get("id"),
+        "status": "approved",
+        "approved_by": approver,
+        "original_triple": {
+            "id": target_triple.get("id"),
+            "status": "superseded",
+        },
+        "corrected_triple": {
+            "id": corrected_triple_id,
+            "subject": corrected_triple["subject"],
+            "predicate": corrected_triple["predicate"],
+            "object": corrected_triple["object"],
+            "status": "approved",
+        },
+    }
+
+
+@app.get("/api/sessions/{session_id}/export/json")
+async def export_session_workflow_json(session_id: str):
+    """Export adjudicated gold set as JSON."""
+    json_path, session = _load_session_for_access(session_id)
+    gold = build_adjudicated_gold_set(session)
+    return {
+        "session_id": session_id,
+        "count": len(gold),
+        "triples": gold,
+    }
+
+
+@app.get("/api/sessions/{session_id}/export/csv")
+async def export_session_workflow_csv(session_id: str):
+    """Export adjudicated gold set as CSV."""
+    import csv
+    import io
+    from fastapi.responses import Response
+
+    json_path, session = _load_session_for_access(session_id)
+    gold = build_adjudicated_gold_set(session)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["sentence_id", "source_sentence", "triple_id", "subject", "predicate", "object", "status"])
+    for t in gold:
+        writer.writerow([
+            t.get("sentence_id", ""),
+            t.get("source_sentence", ""),
+            t.get("id") or t.get("triple_id", ""),
+            t.get("subject", ""),
+            t.get("predicate", ""),
+            t.get("object", ""),
+            t.get("status", "approved"),
+        ])
+    return Response(content=output.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": f"attachment; filename={session_id}_adjudicated_gold.csv"
+    })
 
 
 # ---------------------------------------------------------------------------

@@ -50,10 +50,14 @@ def is_valid_username(username: str) -> bool:
 
 
 def display_name(user: Dict[str, Any]) -> str:
-    """Get display name for user."""
+    """Get anonymized display name for user. Never returns or leaks email addresses."""
+    username = norm_username(user.get("username", ""))
+    if username and "@" not in username:
+        return username
     name = (user.get("name") or "").strip()
-    if name:
+    if name and "@" not in name:
         return name
-    email = user.get("email", "")
-    local = email.split("@", 1)[0] if "@" in email else "User"
-    return local or "User"
+    user_id = str(user.get("id") or "").replace("-", "")
+    if user_id:
+        return f"user_{user_id[:8]}"
+    return "user_anon"

@@ -627,7 +627,7 @@ def project_session_for_view(
                 if v is not None
             ])
     
-    data["session_average_grade"] = calculate_average(overall_triple_grades)
+    data["session_average_grade"] = None
     data["is_completed_grading"] = total_triples > 0 and graded_triples == total_triples
     data["graded_triples"] = graded_triples
     data["total_triples"] = total_triples

@@ -322,7 +322,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const canApproveSuggestions = can_approve ?? !!is_owner;
   const readOnly = !canEditSession && !canSuggestTriples;
   const currentUserId = currentUser?.id || "";
-  const currentUserName = currentUser?.name || currentUser?.username || currentUser?.email || "User";
+  const currentUserName = currentUser?.username || (currentUser?.name && !currentUser.name.includes("@") ? currentUser.name : (currentUser?.id ? `user_${String(currentUser.id).slice(0, 8)}` : "user_anon"));
 
   // Version-based history states
   const [currentVersionName, setCurrentVersionName] = useState(uploadData.current_version_name || "Initial");
@@ -3818,8 +3818,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-850">
                 <span className="text-slate-700 dark:text-slate-200">{graderSummary.totalUniqueGraders}</span> Active Graders
-                <span className="mx-2 text-slate-200 dark:text-slate-800">|</span>
-                Avg Score: <span className="text-indigo-600 dark:text-indigo-400">{graderSummary.overallAverage != null ? graderSummary.overallAverage.toFixed(2) : "—"}/10</span>
               </div>
             </div>
 
@@ -3843,8 +3841,6 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                       <span>{row.user_name}{isMe ? " (you)" : ""}</span>
                       <span className="text-slate-300 dark:text-slate-805">&bull;</span>
                       <span className="text-[10px] opacity-75">{row.graded_triples} Triples Graded</span>
-                      <span className="text-slate-300 dark:text-slate-805">&bull;</span>
-                      <span className="font-bold">{row.average_grade != null ? row.average_grade.toFixed(2) : "—"}/10</span>
                     </span>
                   );
                 })}

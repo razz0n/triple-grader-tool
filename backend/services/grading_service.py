@@ -117,7 +117,7 @@ def calculate_session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, A
     return {
         "total_triples": total_triples,
         "graded_triples": graded_triples,
-        "session_average_grade": overall_avg,
+        "session_average_grade": None,
         "is_completed_grading": is_completed,
         "total_grade_entries": total_grade_entries,
         "total_unique_graders": len(grader_summary_rows),

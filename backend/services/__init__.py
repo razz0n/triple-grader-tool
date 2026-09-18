@@ -14,6 +14,10 @@ from .normalization import (
     normalize_sentence_metric_by_user,
     normalize_sentence_metric_value,
 )
+from .adjudicated_gold import (
+    build_adjudicated_gold_set,
+    include_in_adjudicated_gold,
+)
 from .session_service import (
     apply_collaborative_grades,
     can_approve_session,
@@ -53,4 +57,7 @@ __all__ = [
     "sentence_groups_to_draft_sentences",
     "session_for_user_view",
     "with_session_access_flags",
+    # Adjudicated gold
+    "include_in_adjudicated_gold",
+    "build_adjudicated_gold_set",
 ]
