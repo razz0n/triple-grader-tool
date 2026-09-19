@@ -54,3 +54,4 @@ frontend/.env
 
 # Local documents and datasets
 documents/
+experiments/scratch/
