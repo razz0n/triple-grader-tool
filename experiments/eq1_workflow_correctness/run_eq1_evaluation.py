@@ -124,7 +124,7 @@ def run_evaluation() -> Dict[str, Any]:
         })
 
         status_str = "PASS" if passed else "FAIL"
-        print(f"{test_id:<8} | {category:<24} | {status_str:<6} | {fidelity * 100:>6.1f}% | {elapsed_ms:>10.2f}ms | {desc}")
+        print(f"{test_id:<8} | {category:<24} | {status_str:<6} | {fidelity * 100:>6.1f}% | {elapsed_ms:>10.2f}ms | {desc}", flush=True)
 
     # Compute high-level metrics
     valid_transitions = [r for r in detailed_results if r["category"] == "Valid Transition"]
