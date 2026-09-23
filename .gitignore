@@ -54,4 +54,9 @@ frontend/.env
 
 # Local documents and datasets
 documents/
-experiments/scratch/
+research paper/
+
+# Experiments (local only; never tracked in git)
+experiments/
+experiment/
+

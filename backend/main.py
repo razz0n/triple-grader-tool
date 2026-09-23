@@ -9,6 +9,7 @@ Endpoints:
   GET  /api/sessions            → list saved sessions
 """
 
+import copy
 import hashlib
 import html
 import json
@@ -16,7 +17,7 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -1263,9 +1264,7 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
     if is_owner and isinstance(owner_draft, dict) and owner_draft.get("sentences"):
         data["has_unpublished_draft"] = True
         if data.get("current_version_name") == latest_version_name:
-            data["sentences"] = owner_draft["sentences"]
-            if versions_list:
-                versions_list[-1]["sentences"] = owner_draft["sentences"]
+            data["sentences"] = copy.deepcopy(owner_draft["sentences"])
 
     return data
 
@@ -2229,7 +2228,8 @@ def _publish_new_version(
         "name": new_version_name,
         "created_at": now_iso,
         "created_by": user_display,
-        "sentences": published_sentences,
+        "sentences": copy.deepcopy(published_sentences),
+        "is_published": True,
     }
 
     if "versions" not in session or not isinstance(session["versions"], list):
@@ -2418,6 +2418,12 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
                     "updated_at": datetime.utcnow().isoformat(),
                     "sentences": body.sentences,
                 }
+                target_session["sentences"] = body.sentences
+                curr_ver_name = target_session.get("current_version_name") or "Initial"
+                for v in target_session.get("versions") or []:
+                    if v.get("name") == curr_ver_name and not v.get("is_published"):
+                        v["sentences"] = copy.deepcopy(body.sentences)
+                        break
             if body.current_version_name:
                 target_session["current_version_name"] = body.current_version_name
         else:
@@ -2425,11 +2431,11 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
             # Save directly to the active version's sentences
             if body.sentences:
                 target_session["sentences"] = body.sentences
-                # Also update the active version inside versions list
+                # Also update the active version inside versions list if it's not a published milestone
                 curr_ver_name = target_session.get("current_version_name") or "Initial"
                 for v in target_session.get("versions") or []:
-                    if v.get("name") == curr_ver_name:
-                        v["sentences"] = body.sentences
+                    if v.get("name") == curr_ver_name and not v.get("is_published"):
+                        v["sentences"] = copy.deepcopy(body.sentences)
                         break
             
             # Clear owner draft since the decisions are now direct changes on the active version
@@ -3841,7 +3847,7 @@ async def export_session_workflow_csv(session_id: str):
 
 class MarkTripleRemovalRequest(BaseModel):
     session_id: str
-    sentence_id: int
+    sentence_id: Union[int, str]
     triple_id: str
     marked: bool
     version_name: Optional[str] = None

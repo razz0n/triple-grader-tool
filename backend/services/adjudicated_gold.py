@@ -30,13 +30,16 @@ def build_adjudicated_gold_set(session_or_sentences: Any) -> List[Dict[str, Any]
     or list of sentences. Ensures only intended final triples appear in exports.
     """
     if isinstance(session_or_sentences, dict):
-        versions = session_or_sentences.get("versions") or []
-        curr_ver = session_or_sentences.get("current_version_name")
-        active_ver = next((v for v in versions if v.get("name") == curr_ver), None) if curr_ver else (versions[-1] if versions else None)
-        if active_ver and active_ver.get("sentences"):
-            sentences = active_ver.get("sentences", [])
-        else:
+        if session_or_sentences.get("sentences"):
             sentences = session_or_sentences.get("sentences", [])
+        else:
+            versions = session_or_sentences.get("versions") or []
+            curr_ver = session_or_sentences.get("current_version_name")
+            active_ver = next((v for v in versions if v.get("name") == curr_ver), None) if curr_ver else (versions[-1] if versions else None)
+            if active_ver and active_ver.get("sentences"):
+                sentences = active_ver.get("sentences", [])
+            else:
+                sentences = session_or_sentences.get("sentences", [])
     elif isinstance(session_or_sentences, list):
         sentences = session_or_sentences
     else:

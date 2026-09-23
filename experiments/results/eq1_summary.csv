@@ -1,5 +1,0 @@
-Metric,Observed_Value,Benchmark_Target,Status
-Valid Transition Accuracy (VTA),100.0%,100.0%,PASSED
-Invalid-Action Rejection Rate (IARR),100.0%,100.0%,PASSED
-Dynamic Field Fidelity (FF),100.00%,>=99.0%,PASSED
-Total Evaluated Scenarios,18,18,PASSED

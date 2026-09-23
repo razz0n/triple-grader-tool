@@ -35,8 +35,9 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-# Import the new evaluation logic
-from evaluate_openie_new_set import Triple, MatchResult, parse_new_set_csv, run_corenlp_openie, run_stanza_dependency_baseline, evaluate
+# Pre-experiment Blocker Fix 2: evaluate_openie_new_set was a legacy external file;
+# all dependency parsing logic is native in openie_eval.py using stanza.
+
 
 # ---------------------------------------------------------------------------
 # Lazy-load stanza pipeline (downloads models on first use, ~300 MB)
