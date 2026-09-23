@@ -134,13 +134,23 @@ function TripleRow({ triple, included, onToggle, onSaveEdit, onDelete }) {
               />
             </div>
           ) : (
-            <span className="flex flex-wrap items-center gap-1.5 leading-relaxed">
-              <Badge color="blue">{triple.subject}</Badge>
-              <span className="text-slate-400 font-semibold">&rarr;</span>
-              <Badge color="green">{triple.predicate}</Badge>
-              <span className="text-slate-400 font-semibold">&rarr;</span>
-              <Badge color="purple">{triple.object}</Badge>
-            </span>
+            <div className="flex flex-col gap-1">
+              <span className="flex flex-wrap items-center gap-1.5 leading-relaxed">
+                <Badge color={triple.is_placeholder ? "amber" : "blue"}>{triple.subject}</Badge>
+                <span className="text-slate-400 font-semibold">&rarr;</span>
+                <Badge color={triple.is_placeholder ? "amber" : "green"}>{triple.predicate}</Badge>
+                <span className="text-slate-400 font-semibold">&rarr;</span>
+                <Badge color={triple.is_placeholder ? "amber" : "purple"}>{triple.object}</Badge>
+                {triple.is_placeholder && (
+                  <Badge color="amber">Placeholder</Badge>
+                )}
+              </span>
+              {triple.note && (
+                <span className="text-[11px] text-amber-700 dark:text-amber-400 italic">
+                  {triple.note}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -671,17 +681,31 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
       );
       if (!selectedVersion) return;
 
-      const triples = selectedVersion.triples
+      let triples = selectedVersion.triples
         .filter((t) => g.includedTripleIds.has(t.id))
         .map((t, i) => ({
           id: `${sentId}_${i + 1}`,
           subject: t.subject,
           predicate: t.predicate,
           object: t.object,
+          is_placeholder: !!t.is_placeholder,
+          note: t.note || "",
           grade: null,
         }));
 
-      if (triples.length === 0) return;
+      if (triples.length === 0) {
+        triples = [
+          {
+            id: `${sentId}_1`,
+            subject: "[No Triples]",
+            predicate: "[None]",
+            object: "[None]",
+            is_placeholder: true,
+            note: "No triples provided in source file. Please use 'Suggest New Triple' to add annotations.",
+            grade: null,
+          },
+        ];
+      }
 
       sentences.push({
         id: sentId,
@@ -696,7 +720,7 @@ export default function ReviewStep({ uploadData, onConfirm, onReset }) {
     });
 
     if (sentences.length === 0) {
-      showAlert("Please select or add at least one sentence with triples before publishing.", "Validation Error");
+      showAlert("Please select or add at least one sentence before publishing.", "Validation Error");
       return;
     }
 

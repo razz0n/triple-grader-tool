@@ -75,12 +75,11 @@ function _validateJsonUpload(payload) {
     if (!version || typeof version !== "object" || Array.isArray(version)) {
       throw new Error(`${path} must be an object.`);
     }
-    if (!Array.isArray(version.triples) || version.triples.length === 0) {
-      throw new Error(`${path} must contain at least one triple.`);
+    if (Array.isArray(version.triples)) {
+      version.triples.forEach((triple, ti) => {
+        validateTriple(triple, `${path}, triple #${ti + 1}`);
+      });
     }
-    version.triples.forEach((triple, ti) => {
-      validateTriple(triple, `${path}, triple #${ti + 1}`);
-    });
   };
 
   if (Array.isArray(payload.sentence_groups)) {
@@ -117,12 +116,11 @@ function _validateJsonUpload(payload) {
     if (!sentenceText) {
       throw new Error(`Sentence #${si + 1} is missing required sentence text.`);
     }
-    if (!Array.isArray(sentence.triples) || sentence.triples.length === 0) {
-      throw new Error(`Sentence #${si + 1} must contain at least one triple.`);
+    if (Array.isArray(sentence.triples)) {
+      sentence.triples.forEach((triple, ti) => {
+        validateTriple(triple, `Sentence #${si + 1}, triple #${ti + 1}`);
+      });
     }
-    sentence.triples.forEach((triple, ti) => {
-      validateTriple(triple, `Sentence #${si + 1}, triple #${ti + 1}`);
-    });
   });
 }
 

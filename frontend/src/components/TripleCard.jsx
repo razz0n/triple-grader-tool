@@ -225,6 +225,19 @@ export default function TripleCard({
         </div>
       )}
 
+      {/* Empty Triple / Placeholder Alert */}
+      {(triple?.is_placeholder || triple?.subject === "[No Triples]") && (
+        <div className="mb-3.5 px-3.5 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-250 dark:border-amber-900/50 rounded-xl text-xs font-semibold text-amber-900 dark:text-amber-300 flex items-start gap-2 text-left">
+          <Info size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold">No Triples Found in Source File:</span>
+            <span className="font-normal ml-1">
+              {triple?.note || "This sentence was uploaded without candidate triples. Use \"Suggest New Triple\" below to propose annotations."}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* New in version alert */}
       {(isNewInVersion || triple?.is_new_in_version) && !diffHint && (
         <div className="mb-3.5 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-250 dark:border-emerald-900/50 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 text-left">

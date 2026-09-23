@@ -15,6 +15,9 @@ def include_in_adjudicated_gold(triple: Dict[str, Any]) -> bool:
     if triple.get("is_new_suggestion") or triple.get("is_suggested"):
         return str(triple.get("status", "")).lower() == "approved"
 
+    if triple.get("is_placeholder"):
+        return False
+
     if triple.get("marked_for_removal", False):
         return False
 

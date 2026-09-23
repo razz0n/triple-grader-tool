@@ -1335,10 +1335,20 @@ def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -
                 "predicate": predicate,
                 "object": obj,
                 "grade": None,
+                "is_placeholder": bool(triple.get("is_placeholder", False)),
+                "note": str(triple.get("note") or ""),
             })
 
         if not triples:
-            continue
+            triples.append({
+                "id": f"{sentence_id}_1",
+                "subject": "[No Triples]",
+                "predicate": "[None]",
+                "object": "[None]",
+                "grade": None,
+                "is_placeholder": True,
+                "note": "No triples provided in source file. Please use 'Suggest New Triple' to add annotations.",
+            })
 
         sentence_text = str(group.get("sentence_text") or "").strip()
         if not sentence_text and isinstance(selected_version, dict):
@@ -1923,28 +1933,40 @@ def _json_to_sentence_groups(payload: Dict[str, Any]) -> list[Dict[str, Any]]:
             raise ValueError(f"Sentence #{idx} is missing required sentence text.")
 
         triples = sentence.get("triples")
-        if not isinstance(triples, list) or not triples:
-            raise ValueError(f"Sentence #{idx} must contain at least one triple.")
+        if not isinstance(triples, list):
+            triples = []
 
         version_triples = []
-        for ti, triple in enumerate(triples, start=1):
-            if not isinstance(triple, dict):
-                raise ValueError(f"Sentence #{idx}, triple #{ti} must be an object.")
-
-            subject = str(triple.get("subject") or "").strip()
-            predicate = str(triple.get("predicate") or "").strip()
-            obj = str(triple.get("object") or "").strip()
-            if not subject or not predicate or not obj:
-                raise ValueError(
-                    f"Sentence #{idx}, triple #{ti} must include non-empty subject, predicate, and object."
-                )
-
+        if not triples:
             version_triples.append({
-                "id": str(triple.get("id") or f"{idx}_1_{ti}"),
-                "subject": subject,
-                "predicate": predicate,
-                "object": obj,
+                "id": f"{idx}_1_1",
+                "subject": "[No Triples]",
+                "predicate": "[None]",
+                "object": "[None]",
+                "is_placeholder": True,
+                "note": "No triples provided in source file. Please use 'Suggest New Triple' to add annotations.",
             })
+        else:
+            for ti, triple in enumerate(triples, start=1):
+                if not isinstance(triple, dict):
+                    raise ValueError(f"Sentence #{idx}, triple #{ti} must be an object.")
+
+                subject = str(triple.get("subject") or "").strip()
+                predicate = str(triple.get("predicate") or "").strip()
+                obj = str(triple.get("object") or "").strip()
+                if not subject or not predicate or not obj:
+                    raise ValueError(
+                        f"Sentence #{idx}, triple #{ti} must include non-empty subject, predicate, and object."
+                    )
+
+                version_triples.append({
+                    "id": str(triple.get("id") or f"{idx}_1_{ti}"),
+                    "subject": subject,
+                    "predicate": predicate,
+                    "object": obj,
+                    "is_placeholder": bool(triple.get("is_placeholder", False)),
+                    "note": str(triple.get("note") or ""),
+                })
 
         groups.append({
             "group_id": idx,
@@ -1989,21 +2011,31 @@ def _validate_sentence_groups(sentence_groups: list[Dict[str, Any]]) -> list[Dic
                 raise ValueError(f"Sentence group #{gi}, version #{vi} must be an object.")
 
             triples = version.get("triples")
-            if not isinstance(triples, list) or not triples:
-                raise ValueError(f"Sentence group #{gi}, version #{vi} must contain at least one triple.")
+            if not isinstance(triples, list):
+                triples = []
 
-            for ti, triple in enumerate(triples, start=1):
-                if not isinstance(triple, dict):
-                    raise ValueError(
-                        f"Sentence group #{gi}, version #{vi}, triple #{ti} must be an object."
-                    )
-                subject = str(triple.get("subject") or "").strip()
-                predicate = str(triple.get("predicate") or "").strip()
-                obj = str(triple.get("object") or "").strip()
-                if not subject or not predicate or not obj:
-                    raise ValueError(
-                        f"Sentence group #{gi}, version #{vi}, triple #{ti} must include non-empty subject, predicate, and object."
-                    )
+            if not triples:
+                version["triples"] = [{
+                    "id": f"{gi}_{vi}_1",
+                    "subject": "[No Triples]",
+                    "predicate": "[None]",
+                    "object": "[None]",
+                    "is_placeholder": True,
+                    "note": "No triples provided in source file. Please use 'Suggest New Triple' to add annotations.",
+                }]
+            else:
+                for ti, triple in enumerate(triples, start=1):
+                    if not isinstance(triple, dict):
+                        raise ValueError(
+                            f"Sentence group #{gi}, version #{vi}, triple #{ti} must be an object."
+                        )
+                    subject = str(triple.get("subject") or "").strip()
+                    predicate = str(triple.get("predicate") or "").strip()
+                    obj = str(triple.get("object") or "").strip()
+                    if not subject or not predicate or not obj:
+                        raise ValueError(
+                            f"Sentence group #{gi}, version #{vi}, triple #{ti} must include non-empty subject, predicate, and object."
+                        )
 
     return sentence_groups
 
