@@ -59,4 +59,6 @@ research paper/
 # Experiments (local only; never tracked in git)
 experiments/
 experiment/
+experiment_2/
+*.zip
 
