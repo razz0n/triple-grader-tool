@@ -354,6 +354,18 @@ def _normalize_grades_by_user(
 
     if isinstance(raw_grades, dict):
         for key, payload in raw_grades.items():
+            if isinstance(payload, (int, float)):
+                grade = _normalize_grade_value(payload)
+                if grade is not None:
+                    u_id = str(key).strip()
+                    if u_id:
+                        normalized[u_id] = {
+                            "user_id": u_id,
+                            "user_name": u_id,
+                            "grade": grade,
+                            "graded_at": None,
+                        }
+                continue
             if not isinstance(payload, dict):
                 continue
             grade = _normalize_grade_value(payload.get("grade"))
@@ -1216,11 +1228,18 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
             for triple in sentence.get("triples", []):
                 triple["triple_comments"] = _normalize_sentence_comments(triple.get("triple_comments"))
                 triple["suggestions"] = _normalize_suggestions(triple.get("suggestions"))
-                grades_by_user = triple.get("grades_by_user") if isinstance(triple.get("grades_by_user"), dict) else {}
+                grades_by_user = _normalize_grades_by_user(
+                    triple.get("grades_by_user"),
+                    fallback_grade=triple.get("grade"),
+                    fallback_author=str(triple.get("author") or ""),
+                    fallback_user_id=owner_fallback_user_id,
+                    fallback_graded_at=triple.get("graded_at"),
+                )
+                triple["grades_by_user"] = grades_by_user
                 grade_values = [
                     float(payload.get("grade"))
                     for payload in grades_by_user.values()
-                    if _normalize_grade_value(payload.get("grade")) is not None
+                    if isinstance(payload, dict) and _normalize_grade_value(payload.get("grade")) is not None
                 ]
                 current_user_grade = grades_by_user.get(user_id) if user_id else None
 

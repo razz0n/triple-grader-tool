@@ -720,11 +720,18 @@ def session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dict
         )
         
         for triple in sentence.get("triples", []):
-            grades_by_user = triple.get("grades_by_user") if isinstance(triple.get("grades_by_user"), dict) else {}
+            grades_by_user = normalize_grades_by_user(
+                triple.get("grades_by_user"),
+                fallback_grade=triple.get("grade"),
+                fallback_author=str(triple.get("author") or ""),
+                fallback_user_id=owner_fallback_user_id,
+                fallback_graded_at=triple.get("graded_at"),
+            )
+            triple["grades_by_user"] = grades_by_user
             grade_values = [
                 float(payload.get("grade"))
                 for payload in grades_by_user.values()
-                if normalize_grade_value(payload.get("grade")) is not None
+                if isinstance(payload, dict) and normalize_grade_value(payload.get("grade")) is not None
             ]
             current_user_grade = grades_by_user.get(user_id) if user_id else None
             

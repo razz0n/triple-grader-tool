@@ -64,6 +64,18 @@ def normalize_grades_by_user(
     
     if isinstance(raw_grades, dict):
         for key, payload in raw_grades.items():
+            if isinstance(payload, (int, float)):
+                grade = normalize_grade_value(payload)
+                if grade is not None:
+                    u_id = str(key).strip()
+                    if u_id:
+                        normalized[u_id] = {
+                            "user_id": u_id,
+                            "user_name": u_id,
+                            "grade": grade,
+                            "graded_at": None,
+                        }
+                continue
             if not isinstance(payload, dict):
                 continue
             
