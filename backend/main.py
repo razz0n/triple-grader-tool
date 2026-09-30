@@ -1285,6 +1285,8 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
     if is_owner and isinstance(owner_draft, dict) and owner_draft.get("sentences"):
         data["has_unpublished_draft"] = True
         if data.get("current_version_name") == latest_version_name:
+            if selected_version and selected_version.get("sentences"):
+                _sync_collaborative_elements(owner_draft["sentences"], selected_version["sentences"])
             data["sentences"] = copy.deepcopy(owner_draft["sentences"])
 
     return data
@@ -2342,10 +2344,10 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
             if key in source_sent:
                 target_sent[key] = json.loads(json.dumps(source_sent[key]))
                 
-        source_triple_map = {t.get("id"): t for t in source_sent.get("triples", []) if t.get("id") is not None}
+        source_triple_map = {str(t.get("id") or t.get("triple_id") or "").strip(): t for t in source_sent.get("triples", []) if t.get("id") is not None or t.get("triple_id") is not None}
         
         for target_triple in target_sent.get("triples", []):
-            tid = target_triple.get("id")
+            tid = str(target_triple.get("id") or target_triple.get("triple_id") or "").strip()
             source_triple = source_triple_map.get(tid)
             if not source_triple:
                 continue
@@ -2360,6 +2362,7 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
                 "status",
                 "suggested_by",
                 "suggested_by_id",
+                "suggested_by_name",
                 "approved_by",
                 "approved_at",
                 "marked_for_removal",
@@ -2370,6 +2373,13 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
             ):
                 if key in source_triple:
                     target_triple[key] = json.loads(json.dumps(source_triple[key]))
+
+        # Also preserve any collaborative suggested triples from source_sent not yet in target_sent
+        target_triple_ids = {str(t.get("id") or t.get("triple_id") or "").strip() for t in target_sent.get("triples", [])}
+        for source_triple in source_sent.get("triples", []):
+            stid = str(source_triple.get("id") or source_triple.get("triple_id") or "").strip()
+            if stid and stid not in target_triple_ids:
+                target_sent.setdefault("triples", []).append(copy.deepcopy(source_triple))
 
 
 def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences: list) -> bool:
