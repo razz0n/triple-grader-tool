@@ -659,20 +659,47 @@ def _normalize_suggestions(raw_suggestions: Any) -> list[Dict[str, Any]]:
 def _merge_triple_comments(
     incoming_comments: Any,
     existing_comments: Any,
+    user_id: Optional[str] = None,
+    is_owner: bool = False,
 ) -> list[Dict[str, Any]]:
     norm_incoming = _normalize_sentence_comments(incoming_comments)
     norm_existing = _normalize_sentence_comments(existing_comments)
 
-    merged_by_id = {str(c.get("id")): c for c in norm_existing if c.get("id")}
+    incoming_ids = {str(c.get("id") or "").strip() for c in norm_incoming if str(c.get("id") or "").strip()}
+    norm_user_id = str(user_id or "").strip()
+
+    merged_by_id: Dict[str, Dict[str, Any]] = {}
+    for c in norm_existing:
+        cid = str(c.get("id") or "").strip()
+        if not cid:
+            continue
+        c_user = str(c.get("user_id") or "").strip()
+        # If the author of this comment (or session owner) omitted it from incoming, it was intentionally deleted
+        if (is_owner or (norm_user_id and c_user == norm_user_id)) and cid not in incoming_ids:
+            continue
+        merged_by_id[cid] = c
+
     for c in norm_incoming:
-        cid = str(c.get("id"))
+        cid = str(c.get("id") or "").strip()
         if cid:
             if cid in merged_by_id:
                 existing_r = merged_by_id[cid].get("replies") or []
                 incoming_r = c.get("replies") or []
-                merged_replies_dict = {str(r.get("id")): r for r in existing_r}
+                incoming_r_ids = {str(r.get("id") or "").strip() for r in incoming_r if str(r.get("id") or "").strip()}
+                merged_replies_dict = {}
+                for r in existing_r:
+                    rid = str(r.get("id") or "").strip()
+                    if not rid:
+                        continue
+                    r_user = str(r.get("user_id") or "").strip()
+                    # Do not resurrect replies deleted by author or owner
+                    if (is_owner or (norm_user_id and r_user == norm_user_id)) and rid not in incoming_r_ids:
+                        continue
+                    merged_replies_dict[rid] = r
                 for r in incoming_r:
-                    merged_replies_dict[str(r.get("id"))] = r
+                    rid = str(r.get("id") or "").strip()
+                    if rid:
+                        merged_replies_dict[rid] = r
                 c["replies"] = sorted(merged_replies_dict.values(), key=lambda row: str(row.get("created_at") or ""))
             merged_by_id[cid] = c
 
@@ -871,12 +898,16 @@ def _apply_collaborative_grades(
 
                 triple["suggestions"] = _merge_suggestions_lists(
                     triple.get("suggestions") or [],
-                    existing_triple.get("suggestions") or []
+                    existing_triple.get("suggestions") or [],
+                    user_id=user_id,
+                    is_owner=is_owner_user,
                 )
 
                 triple["triple_comments"] = _merge_triple_comments(
                     triple.get("triple_comments"),
-                    existing_triple.get("triple_comments")
+                    existing_triple.get("triple_comments"),
+                    user_id=user_id,
+                    is_owner=is_owner_user,
                 )
             else:
                 triple["triple_comments"] = _normalize_sentence_comments(triple.get("triple_comments"))
@@ -1417,14 +1448,27 @@ def _sentence_groups_to_draft_sentences(sentence_groups: list[Dict[str, Any]]) -
     return sentences
 
 
-def _merge_suggestions_lists(incoming_sugs: list, existing_sugs: list) -> list:
+def _merge_suggestions_lists(
+    incoming_sugs: list,
+    existing_sugs: list,
+    user_id: Optional[str] = None,
+    is_owner: bool = False,
+) -> list:
+    incoming_ids = {str(sug.get("id") or "").strip() for sug in incoming_sugs or [] if str(sug.get("id") or "").strip()}
+    norm_user_id = str(user_id or "").strip()
+
     merged_sugs = {}
     
-    # Pre-populate with existing suggestions
+    # Pre-populate with existing suggestions that were not deleted
     for sug in existing_sugs or []:
         sug_id = str(sug.get("id") or "").strip()
-        if sug_id:
-            merged_sugs[sug_id] = json.loads(json.dumps(sug))
+        if not sug_id:
+            continue
+        sug_author_id = str(sug.get("user_id") or sug.get("suggested_by_id") or "").strip()
+        # If deleted by author or owner, do not resurrect
+        if (is_owner or (norm_user_id and sug_author_id == norm_user_id)) and sug_id not in incoming_ids:
+            continue
+        merged_sugs[sug_id] = json.loads(json.dumps(sug))
             
     # Merge incoming suggestions
     for sug in incoming_sugs or []:
@@ -1461,8 +1505,12 @@ def _merge_suggestions_lists(incoming_sugs: list, existing_sugs: list) -> list:
     return sorted(merged_sugs.values(), key=lambda x: str(x.get("created_at") or ""))
 
 
-def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
-    """Keep suggestions persisted via suggestion endpoints when owner performs a full save."""
+def _merge_existing_suggestions(
+    incoming_session: Dict[str, Any],
+    existing_session: Dict[str, Any],
+    user: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Keep suggestions and triple comments persisted across full-session saves without resurrecting deleted items."""
     if "versions" not in incoming_session:
         incoming_session["versions"] = [
             {
@@ -1486,6 +1534,9 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
         ]
         existing_session["last_version_name"] = "Initial"
         existing_session["current_version_name"] = "Initial"
+
+    user_id = str((user or {}).get("id") or "").strip()
+    is_owner = _is_session_owner(incoming_session, None, user) if user else False
 
     existing_versions = {
         v.get("name"): v
@@ -1525,16 +1576,24 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
 
                 triple["suggestions"] = _merge_suggestions_lists(
                     triple.get("suggestions") or [],
-                    existing_triple.get("suggestions") or []
+                    existing_triple.get("suggestions") or [],
+                    user_id=user_id,
+                    is_owner=is_owner,
                 )
                 triple["triple_comments"] = _merge_triple_comments(
                     triple.get("triple_comments"),
-                    existing_triple.get("triple_comments")
+                    existing_triple.get("triple_comments"),
+                    user_id=user_id,
+                    is_owner=is_owner,
                 )
 
 
-def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing_session: Dict[str, Any]) -> None:
-    """Preserve and merge sentence comment threads across full-session saves."""
+def _merge_existing_sentence_comments(
+    incoming_session: Dict[str, Any],
+    existing_session: Dict[str, Any],
+    user: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Preserve and merge sentence comment threads across full-session saves without resurrecting deleted items."""
     if "versions" not in incoming_session:
         incoming_session["versions"] = [
             {
@@ -1561,6 +1620,8 @@ def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing
 
     owner_fallback_user_id = str(existing_session.get("owner_user_id") or "").strip()
     owner_fallback_user_name = str(existing_session.get("owner_name") or "").strip()
+    user_id = str((user or {}).get("id") or "").strip()
+    is_owner = _is_session_owner(incoming_session, None, user) if user else False
 
     existing_versions = {
         v.get("name"): v
@@ -1573,13 +1634,13 @@ def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing
         existing_version = existing_versions.get(version_name)
 
         existing_sentences = {
-            s.get("id"): s
+            str(s.get("id")): s
             for s in (existing_version or {}).get("sentences", [])
             if s.get("id") is not None
         }
 
         for sentence in version.get("sentences", []):
-            sentence_id = sentence.get("id")
+            sentence_id = str(sentence.get("id") or "")
             existing_sentence = existing_sentences.get(sentence_id)
 
             incoming_comments = _normalize_sentence_comments(
@@ -1605,11 +1666,16 @@ def _merge_existing_sentence_comments(incoming_session: Dict[str, Any], existing
                 fallback_created_at=existing_sentence.get("comment_created_at"),
             )
 
-            merged_by_id: Dict[str, Dict[str, Any]] = {
-                str(comment.get("id") or ""): comment
-                for comment in existing_comments
-                if str(comment.get("id") or "").strip()
-            }
+            incoming_ids = {str(comment.get("id") or "").strip() for comment in incoming_comments if str(comment.get("id") or "").strip()}
+            merged_by_id: Dict[str, Dict[str, Any]] = {}
+            for comment in existing_comments:
+                cid = str(comment.get("id") or "").strip()
+                if not cid:
+                    continue
+                c_user = str(comment.get("user_id") or "").strip()
+                if (is_owner or (user_id and c_user == user_id)) and cid not in incoming_ids:
+                    continue
+                merged_by_id[cid] = comment
 
             for comment in incoming_comments:
                 comment_id = str(comment.get("id") or "").strip()
@@ -2548,11 +2614,11 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
                     break
 
             try:
-                _merge_existing_suggestions(session_data, existing_session)
+                _merge_existing_suggestions(session_data, existing_session, user=user)
             except Exception:
                 pass
             try:
-                _merge_existing_sentence_comments(session_data, existing_session)
+                _merge_existing_sentence_comments(session_data, existing_session, user=user)
             except Exception:
                 pass
 

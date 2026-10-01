@@ -431,12 +431,6 @@ export default function TripleSuggestions({
                 placeholder="Object"
                 className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
               />
-              <textarea
-                value={formData.reason}
-                onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
-                placeholder="Reason or discussion context (optional)"
-                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs bg-slate-50/50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-700 focus:border-transparent transition-all h-16 resize-none dark:text-white leading-normal"
-              />
             </div>
             <div className="flex gap-2 justify-end pt-1">
               <button
@@ -552,12 +546,6 @@ export default function TripleSuggestions({
                         placeholder="Object"
                         className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-950 dark:text-white"
                       />
-                      <textarea
-                        value={editFormData.reason}
-                        onChange={(e) => setEditFormData((prev) => ({ ...prev, reason: e.target.value }))}
-                        placeholder="Reason (optional)"
-                        className="w-full border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 h-12 resize-none dark:text-white"
-                      />
                       <div className="flex gap-1.5 justify-end">
                         <button
                           onClick={cancelEditSuggestion}
@@ -589,11 +577,6 @@ export default function TripleSuggestions({
                         </span>
                       </div>
 
-                      {sug.reason && (
-                        <div className="text-slate-500 dark:text-slate-400 italic mb-2 pl-1.5 border-l border-slate-200 dark:border-slate-800">
-                          "{sug.reason}"
-                        </div>
-                      )}
                       {sug.status === "approved" && (
                         <div className="text-emerald-700 dark:text-emerald-450 text-[10px] mb-2 font-bold select-none">
                           Approved by {sug.approved_by || "owner"}
