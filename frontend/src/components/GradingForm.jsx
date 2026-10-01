@@ -1740,23 +1740,31 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 completeness_average: match.completeness_average,
                 external_relation_count: match.external_relation_count,
                 external_relation_average: match.external_relation_average,
-                triples: (match.triples || []).map((t) => {
-                  const localT = s.triples.find((lt) => lt.id === t.id);
-                  const normalizedT = {
-                    ...t,
-                    triple_comments: normalizeSentenceComments(t.triple_comments),
-                  };
-                  return localT
-                    ? {
-                        ...normalizedT,
-                        is_editing: localT.is_editing,
-                        suggestions: (t.suggestions || []).map((sug) => {
-                          const localSug = (localT.suggestions || []).find((ls) => ls.id === sug.id);
-                          return localSug ? { ...sug, is_editing: localSug.is_editing } : sug;
-                        }),
-                      }
-                    : normalizedT;
-                }),
+                triples: [
+                  ...(match.triples || []).map((t) => {
+                    const localT = (s.triples || []).find((lt) => String(lt.id) === String(t.id));
+                    const normalizedT = {
+                      ...t,
+                      triple_comments: normalizeSentenceComments(t.triple_comments),
+                    };
+                    return localT
+                      ? {
+                          ...normalizedT,
+                          is_editing: localT.is_editing,
+                          suggestions: (t.suggestions || []).map((sug) => {
+                            const localSug = (localT.suggestions || []).find((ls) => String(ls.id) === String(sug.id));
+                            return localSug ? { ...sug, is_editing: localSug.is_editing } : sug;
+                          }),
+                        }
+                      : normalizedT;
+                  }),
+                  // Preserve any local pending suggestions not yet reflected in match.triples
+                  ...(s.triples || []).filter(
+                    (lt) =>
+                      lt.is_new_suggestion &&
+                      !(match.triples || []).some((mt) => String(mt.id) === String(lt.id))
+                  ),
+                ],
               };
             })
           );
@@ -1795,6 +1803,10 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             });
             fetchUpdates();
           } else if (msg.type === "session_updated") {
+            // Ignore updates broadcast by our own save to avoid race condition self-reloads
+            if (msg.updated_by && String(msg.updated_by).trim() === String(currentUserId).trim()) {
+              return;
+            }
             fetchUpdates();
           }
         } catch (e) {
@@ -2432,22 +2444,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
     markChanged();
     const reason = isMarked ? "Requested removal" : "";
-    setSentences((prev) =>
-      prev.map((s, idx) => {
-        if (idx !== currentIdx) return s;
-        const updatedTriples = s.triples.map((t) => {
-          if (t.id !== tripleId) return t;
-          return {
-            ...t,
-            marked_for_removal: isMarked,
-            removal_reason: reason,
-            marked_for_removal_by: isMarked ? currentUserId : null,
-            marked_for_removal_by_name: isMarked ? currentUserName : null,
-          };
-        });
-        return { ...s, triples: updatedTriples };
-      })
-    );
+    const nextSentences = sentences.map((s, idx) => {
+      if (idx !== currentIdx) return s;
+      const updatedTriples = s.triples.map((t) => {
+        if (t.id !== tripleId) return t;
+        return {
+          ...t,
+          marked_for_removal: isMarked,
+          removal_reason: reason,
+          marked_for_removal_by: isMarked ? currentUserId : null,
+          marked_for_removal_by_name: isMarked ? currentUserName : null,
+        };
+      });
+      return { ...s, triples: updatedTriples };
+    });
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const onApproveDeletion = (tripleId) => {
@@ -2482,6 +2494,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           is_new_suggestion: !isOwner,
           status: isOwner ? "approved" : "pending",
           suggested_by: isOwner ? null : currentUserName,
+          suggested_by_id: isOwner ? null : currentUserId,
           marked_for_removal: false,
           removal_reason: "",
           triple_comments: [],
@@ -2511,12 +2524,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       );
     } else {
       markChanged();
-      setSentences((prev) =>
-        prev.map((s, idx) => {
-          if (idx !== currentIdx) return s;
-          return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
-        })
-      );
+      const nextSentences = sentences.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        return { ...s, triples: s.triples.filter((t) => t.id !== tripleId) };
+      });
+      setSentences(nextSentences);
+      saveStateInstantly(nextSentences);
     }
   };
 
@@ -2556,22 +2569,22 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       );
     } else {
       markChanged();
-      setSentences((prev) =>
-        prev.map((s, idx) => {
-          if (idx !== currentIdx) return s;
-          const updatedTriples = s.triples.map((t) => {
-            if (t.id !== tripleId) return t;
-            return {
-              ...t,
-              subject: payload.subject,
-              predicate: payload.predicate,
-              object: payload.object,
-              is_editing: false,
-            };
-          });
-          return { ...s, triples: updatedTriples };
-        })
-      );
+      const nextSentences = sentences.map((s, idx) => {
+        if (idx !== currentIdx) return s;
+        const updatedTriples = s.triples.map((t) => {
+          if (t.id !== tripleId) return t;
+          return {
+            ...t,
+            subject: payload.subject,
+            predicate: payload.predicate,
+            object: payload.object,
+            is_editing: false,
+          };
+        });
+        return { ...s, triples: updatedTriples };
+      });
+      setSentences(nextSentences);
+      saveStateInstantly(nextSentences);
     }
   };
 

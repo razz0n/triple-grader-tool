@@ -689,16 +689,24 @@ def _apply_collaborative_grades(
     now_iso = datetime.utcnow().isoformat()
     user_can_grade = not _is_session_owner(existing_session or incoming_session, None, user)
 
+    # Look up sentences from the active version if available in existing_session
+    existing_sentences_list = (existing_session or {}).get("sentences", [])
+    curr_ver_name = (existing_session or {}).get("current_version_name") or "Initial"
+    for v in (existing_session or {}).get("versions", []) or []:
+        if v.get("name") == curr_ver_name:
+            existing_sentences_list = v.get("sentences") or existing_sentences_list
+            break
+
     existing_sentences = {
-        s.get("id"): s
-        for s in (existing_session or {}).get("sentences", [])
+        str(s.get("id")): s
+        for s in existing_sentences_list
         if s.get("id") is not None
     }
     owner_fallback_user_id = str((existing_session or {}).get("owner_user_id") or "").strip()
     owner_fallback_user_name = str((existing_session or {}).get("owner_name") or "").strip()
 
     for sentence in incoming_session.get("sentences", []):
-        existing_sentence = existing_sentences.get(sentence.get("id"))
+        existing_sentence = existing_sentences.get(str(sentence.get("id")))
 
         existing_completeness = _normalize_sentence_metric_by_user(
             (existing_sentence or {}).get("completeness_by_user"),
@@ -788,7 +796,7 @@ def _apply_collaborative_grades(
         sentence["external_relation_by_user"] = merged_external
 
         existing_triples = {
-            t.get("id"): t
+            str(t.get("id")): t
             for t in (existing_sentence or {}).get("triples", [])
             if t.get("id") is not None
         }
@@ -796,7 +804,7 @@ def _apply_collaborative_grades(
         is_owner_user = _is_session_owner(existing_session or incoming_session, None, user)
 
         for triple in sentence.get("triples", []):
-            triple_id = triple.get("id")
+            triple_id = str(triple.get("id") or "")
             existing_triple = existing_triples.get(triple_id, {})
 
             if existing_triple:
@@ -805,11 +813,21 @@ def _apply_collaborative_grades(
                     triple["predicate"] = triple.get("predicate") if triple.get("predicate") is not None else existing_triple.get("predicate", "")
                     triple["object"] = triple.get("object") if triple.get("object") is not None else existing_triple.get("object", "")
                 else:
-                    # Triple text and suggestion threads are collaborative shared state;
-                    # preserve the latest server copy to avoid stale client overwrites for non-owners.
-                    triple["subject"] = existing_triple.get("subject", triple.get("subject"))
-                    triple["predicate"] = existing_triple.get("predicate", triple.get("predicate"))
-                    triple["object"] = existing_triple.get("object", triple.get("object"))
+                    # Allow the grader who suggested a triple to update its fields while it is pending approval
+                    is_my_suggestion = (
+                        bool(existing_triple.get("is_new_suggestion") or triple.get("is_new_suggestion"))
+                        and str(existing_triple.get("suggested_by_id") or triple.get("suggested_by_id") or "").strip() == user_id
+                        and existing_triple.get("status") != "approved"
+                    )
+                    if is_my_suggestion:
+                        triple["subject"] = triple.get("subject") if triple.get("subject") is not None else existing_triple.get("subject", "")
+                        triple["predicate"] = triple.get("predicate") if triple.get("predicate") is not None else existing_triple.get("predicate", "")
+                        triple["object"] = triple.get("object") if triple.get("object") is not None else existing_triple.get("object", "")
+                    else:
+                        # Canonical triple text is collaborative shared state; preserve the latest server copy
+                        triple["subject"] = existing_triple.get("subject", triple.get("subject"))
+                        triple["predicate"] = existing_triple.get("predicate", triple.get("predicate"))
+                        triple["object"] = existing_triple.get("object", triple.get("object"))
                 
                 for key in ("is_new_suggestion", "status", "suggested_by", "suggested_by_id", "approved_by", "approved_at"):
                     if is_owner_user:
@@ -836,14 +854,20 @@ def _apply_collaborative_grades(
                         triple["removal_reason"] = existing_reason
                     else:
                         triple["marked_for_removal"] = triple.get("marked_for_removal", False)
-                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by")
-                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name")
-                        triple["removal_reason"] = triple.get("removal_reason", "")
+                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by") if triple.get("marked_for_removal") else None
+                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name") if triple.get("marked_for_removal") else None
+                        triple["removal_reason"] = triple.get("removal_reason", "") if triple.get("marked_for_removal") else ""
                 else:
-                    triple["marked_for_removal"] = triple.get("marked_for_removal", False)
-                    triple["marked_for_removal_by"] = triple.get("marked_for_removal_by")
-                    triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name")
-                    triple["removal_reason"] = triple.get("removal_reason", "")
+                    if triple.get("marked_for_removal"):
+                        triple["marked_for_removal"] = True
+                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by") or user_id
+                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name") or user_name
+                        triple["removal_reason"] = triple.get("removal_reason") or "Requested removal"
+                    else:
+                        triple["marked_for_removal"] = False
+                        triple["marked_for_removal_by"] = None
+                        triple["marked_for_removal_by_name"] = None
+                        triple["removal_reason"] = ""
 
                 triple["suggestions"] = _merge_suggestions_lists(
                     triple.get("suggestions") or [],
@@ -1476,25 +1500,25 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
             continue
 
         existing_sentences = {
-            s.get("id"): s
+            str(s.get("id")): s
             for s in existing_version.get("sentences", [])
             if s.get("id") is not None
         }
 
         for sentence in version.get("sentences", []):
-            sentence_id = sentence.get("id")
+            sentence_id = str(sentence.get("id") or "")
             existing_sentence = existing_sentences.get(sentence_id)
             if not existing_sentence:
                 continue
 
             existing_triples = {
-                t.get("id"): t
+                str(t.get("id")): t
                 for t in existing_sentence.get("triples", [])
                 if t.get("id") is not None
             }
 
             for triple in sentence.get("triples", []):
-                triple_id = triple.get("id")
+                triple_id = str(triple.get("id") or "")
                 existing_triple = existing_triples.get(triple_id)
                 if not existing_triple:
                     continue
@@ -1502,6 +1526,10 @@ def _merge_existing_suggestions(incoming_session: Dict[str, Any], existing_sessi
                 triple["suggestions"] = _merge_suggestions_lists(
                     triple.get("suggestions") or [],
                     existing_triple.get("suggestions") or []
+                )
+                triple["triple_comments"] = _merge_triple_comments(
+                    triple.get("triple_comments"),
+                    existing_triple.get("triple_comments")
                 )
 
 
@@ -2556,6 +2584,7 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
     await manager.broadcast(body.session_id, {
         "type": "version_published" if is_publish else "session_updated",
         "version_name": target_session.get("current_version_name"),
+        "updated_by": str(user.get("id") or "").strip(),
     })
 
     stats = _session_grading_stats(target_session)
