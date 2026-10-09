@@ -364,7 +364,7 @@ export default function FileUpload({ onUploadSuccess, onLoadSession, onStartManu
             <UploadCloud size={28} className="animate-pulse" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-            Ontology Triple Grader
+            TripleGrader
           </h1>
           <p className="mt-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
             Collaboratively review, grade, and refine semantic triples with automated file processing or a fresh manual builder session.

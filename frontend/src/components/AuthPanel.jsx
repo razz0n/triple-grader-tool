@@ -212,7 +212,7 @@ export default function AuthPanel({ onAuthenticated }) {
             <Shield size={24} className="animate-pulse" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-900 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
-            Ontology Triple Grader
+            TripleGrader
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
             {mode === "login"

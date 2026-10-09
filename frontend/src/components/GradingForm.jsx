@@ -3048,7 +3048,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             </div>
             <div className="min-w-0">
               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
-                <span className="truncate">Ontology Grader</span>
+                <span className="truncate">TripleGrader</span>
                 <span className="bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 text-[9px] px-1.5 py-0.5 rounded-lg font-bold tracking-wider uppercase shrink-0">v2.0</span>
               </div>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[120px] sm:max-w-[150px]">{source_filename}</p>

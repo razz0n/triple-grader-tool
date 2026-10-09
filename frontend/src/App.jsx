@@ -482,7 +482,7 @@ export default function App() {
             <div className="space-y-2">
               <h3 className="text-lg font-extrabold text-slate-850 dark:text-white tracking-tight">New Update Available!</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-2">
-                A new version of the Ontology Triple Grader tool has been deployed. Please reload the page to sync and use the latest features.
+                A new version of TripleGrader has been deployed. Please reload the page to sync and use the latest features.
               </p>
             </div>
             <button
