@@ -61,4 +61,12 @@ experiments/
 experiment/
 experiment_2/
 *.zip
+evaluation_ontology_tool/
+Web_Based_Collaborative_Tool_for_Ontology_Triple_Grading_and_Inter_Rater_Evaluation/
+prompt and fewshots example/
+experiment_3/
+research_paper_2026-10-08_edited/
+benchmark_evaluation/
+research_paper_2026-10-05/
+benchmark_evaluation
 
