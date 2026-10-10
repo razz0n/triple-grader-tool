@@ -1,0 +1,972 @@
+{
+  "experiment_id": "EQ2_E2_d10_seed42",
+  "reference_sha256": "8be593990969fff6b3aa580d384a9c5ed72c38d6956208a2386694850173c4a7",
+  "error_type": "E2",
+  "corruption_name": "predicate_replacement",
+  "density": 0.1,
+  "seed": 42,
+  "total_eligible_triples": 316,
+  "injected_count": 32,
+  "changes": [
+    {
+      "sentence_id": "s0037",
+      "triple_id": "t00309",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "breach_001",
+        "is_of",
+        "Code_001"
+      ],
+      "after": [
+        "breach_001",
+        "compromises",
+        "Code_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0037",
+          "triple_id": "t00309",
+          "subject": "breach_001",
+          "predicate": "is_of",
+          "object": "Code_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00309"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0037",
+      "triple_id": "t00303",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "software_engineers",
+        "has",
+        "usage_constraint_008"
+      ],
+      "after": [
+        "software_engineers",
+        "compromises",
+        "usage_constraint_008"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0037",
+          "triple_id": "t00303",
+          "subject": "software_engineers",
+          "predicate": "has",
+          "object": "usage_constraint_008",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00303"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0036",
+      "triple_id": "t00302",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "usage_constraint_007",
+        "domain",
+        "principle_8"
+      ],
+      "after": [
+        "usage_constraint_007",
+        "overrides",
+        "principle_8"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0036",
+          "triple_id": "t00302",
+          "subject": "usage_constraint_007",
+          "predicate": "domain",
+          "object": "principle_8",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00302"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0034",
+      "triple_id": "t00288",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "related_documents_003",
+        "is_worked_on_by",
+        "software_engineers"
+      ],
+      "after": [
+        "related_documents_003",
+        "compromises",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0034",
+          "triple_id": "t00288",
+          "subject": "related_documents_003",
+          "predicate": "is_worked_on_by",
+          "object": "software_engineers",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00288"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0034",
+      "triple_id": "t00280",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "software_engineers",
+        "shall",
+        "improve_knowledge_001"
+      ],
+      "after": [
+        "software_engineers",
+        "conflicts_with",
+        "improve_knowledge_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0034",
+          "triple_id": "t00280",
+          "subject": "software_engineers",
+          "predicate": "shall",
+          "object": "improve_knowledge_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00280"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0031",
+      "triple_id": "t00259",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "improve_ability_001",
+        "is_for",
+        "create_software_001"
+      ],
+      "after": [
+        "improve_ability_001",
+        "conflicts_with",
+        "create_software_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0031",
+          "triple_id": "t00259",
+          "subject": "improve_ability_001",
+          "predicate": "is_for",
+          "object": "create_software_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00259"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0027",
+      "triple_id": "t00230",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "opinions_002",
+        "is_of",
+        "other_professionals_001"
+      ],
+      "after": [
+        "opinions_002",
+        "supersedes_without_notice",
+        "other_professionals_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0027",
+          "triple_id": "t00230",
+          "subject": "opinions_002",
+          "predicate": "is_of",
+          "object": "other_professionals_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00230"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0026",
+      "triple_id": "t00217",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "usage_constraint_006",
+        "domain",
+        "principle_7"
+      ],
+      "after": [
+        "usage_constraint_006",
+        "opposes",
+        "principle_7"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0026",
+          "triple_id": "t00217",
+          "subject": "usage_constraint_006",
+          "predicate": "domain",
+          "object": "principle_7",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00217"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0026",
+      "triple_id": "t00215",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "career_001",
+        "is_of",
+        "colleagues_002"
+      ],
+      "after": [
+        "career_001",
+        "violates",
+        "colleagues_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0026",
+          "triple_id": "t00215",
+          "subject": "career_001",
+          "predicate": "is_of",
+          "object": "colleagues_002",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00215"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0022",
+      "triple_id": "t00175",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "software_engineers",
+        "shall",
+        "credit_001"
+      ],
+      "after": [
+        "software_engineers",
+        "undermines",
+        "credit_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0022",
+          "triple_id": "t00175",
+          "subject": "software_engineers",
+          "predicate": "shall",
+          "object": "credit_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00175"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0021",
+      "triple_id": "t00173",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "assist_001",
+        "has_target",
+        "colleagues_002"
+      ],
+      "after": [
+        "assist_001",
+        "invalidates",
+        "colleagues_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0021",
+          "triple_id": "t00173",
+          "subject": "assist_001",
+          "predicate": "has_target",
+          "object": "colleagues_002",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00173"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "triple_id": "t00143",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "condition_004",
+        "cannot_reasonably_be",
+        "disclosed"
+      ],
+      "after": [
+        "condition_004",
+        "compromises",
+        "disclosed"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0016",
+          "triple_id": "t00143",
+          "subject": "condition_004",
+          "predicate": "cannot_reasonably_be",
+          "object": "disclosed",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00143"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "triple_id": "t00141",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "usage_constraint_004",
+        "has_constraint_type",
+        "condition_004"
+      ],
+      "after": [
+        "usage_constraint_004",
+        "overrides",
+        "condition_004"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0016",
+          "triple_id": "t00141",
+          "subject": "usage_constraint_004",
+          "predicate": "has_constraint_type",
+          "object": "condition_004",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00141"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0014",
+      "triple_id": "t00126",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "evaluation_001",
+        "has_target",
+        "related_documents_001"
+      ],
+      "after": [
+        "evaluation_001",
+        "compromises",
+        "related_documents_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0014",
+          "triple_id": "t00126",
+          "subject": "evaluation_001",
+          "predicate": "has_target",
+          "object": "related_documents_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00126"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00120",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "usage_constraint_002",
+        "may_have",
+        "condition_002"
+      ],
+      "after": [
+        "usage_constraint_002",
+        "invalidates",
+        "condition_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0013",
+          "triple_id": "t00120",
+          "subject": "usage_constraint_002",
+          "predicate": "may_have",
+          "object": "condition_002",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00120"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00115",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "within_competence",
+        "is_of",
+        "software_engineers"
+      ],
+      "after": [
+        "within_competence",
+        "opposes",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0013",
+          "triple_id": "t00115",
+          "subject": "within_competence",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00115"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00113",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "documents_001",
+        "has_condition",
+        "condition_002"
+      ],
+      "after": [
+        "documents_001",
+        "supersedes_without_notice",
+        "condition_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0013",
+          "triple_id": "t00113",
+          "subject": "documents_001",
+          "predicate": "has_condition",
+          "object": "condition_002",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00113"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00112",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "prepared_under_supervision",
+        "is_of",
+        "software_engineers"
+      ],
+      "after": [
+        "prepared_under_supervision",
+        "conflicts_with",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0013",
+          "triple_id": "t00112",
+          "subject": "prepared_under_supervision",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00112"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00111",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "condition_001",
+        "is",
+        "prepared_under_supervision"
+      ],
+      "after": [
+        "condition_001",
+        "supersedes_without_notice",
+        "prepared_under_supervision"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0013",
+          "triple_id": "t00111",
+          "subject": "condition_001",
+          "predicate": "is",
+          "object": "prepared_under_supervision",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00111"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0012",
+      "triple_id": "t00102",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "need_001",
+        "has_purpose",
+        "support_001"
+      ],
+      "after": [
+        "need_001",
+        "neglects",
+        "support_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0012",
+          "triple_id": "t00102",
+          "subject": "need_001",
+          "predicate": "has_purpose",
+          "object": "support_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00102"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0009",
+      "triple_id": "t00082",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "all_judgements",
+        "includes",
+        "consideration_001"
+      ],
+      "after": [
+        "all_judgements",
+        "compromises",
+        "consideration_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0009",
+          "triple_id": "t00082",
+          "subject": "all_judgements",
+          "predicate": "includes",
+          "object": "consideration_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00082"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0009",
+      "triple_id": "t00080",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "all_judgements",
+        "includes",
+        "examine_001"
+      ],
+      "after": [
+        "all_judgements",
+        "violates",
+        "examine_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0009",
+          "triple_id": "t00080",
+          "subject": "all_judgements",
+          "predicate": "includes",
+          "object": "examine_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00080"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00072",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "decisions_003",
+        "are_made_by",
+        "software_engineers"
+      ],
+      "after": [
+        "decisions_003",
+        "neglects",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0008",
+          "triple_id": "t00072",
+          "subject": "decisions_003",
+          "predicate": "are_made_by",
+          "object": "software_engineers",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00072"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00058",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "examine_001",
+        "has_target",
+        "treatment_001"
+      ],
+      "after": [
+        "examine_001",
+        "opposes",
+        "treatment_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0008",
+          "triple_id": "t00058",
+          "subject": "examine_001",
+          "predicate": "has_target",
+          "object": "treatment_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00058"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00053",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "influence_001",
+        "has_action",
+        "consider_broadly_001"
+      ],
+      "after": [
+        "influence_001",
+        "compromises",
+        "consider_broadly_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0008",
+          "triple_id": "t00053",
+          "subject": "influence_001",
+          "predicate": "has_action",
+          "object": "consider_broadly_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00053"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0007",
+      "triple_id": "t00048",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "thoughtful_consideration_001",
+        "applies_to",
+        "fundamental_principles"
+      ],
+      "after": [
+        "thoughtful_consideration_001",
+        "neglects",
+        "fundamental_principles"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0007",
+          "triple_id": "t00048",
+          "subject": "thoughtful_consideration_001",
+          "predicate": "applies_to",
+          "object": "fundamental_principles",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00048"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0006",
+      "triple_id": "t00045",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "act_001",
+        "is_given",
+        "circumstances"
+      ],
+      "after": [
+        "act_001",
+        "compromises",
+        "circumstances"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0006",
+          "triple_id": "t00045",
+          "subject": "act_001",
+          "predicate": "is_given",
+          "object": "circumstances",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00045"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "triple_id": "t00017",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "list_001",
+        "has",
+        "clauses"
+      ],
+      "after": [
+        "list_001",
+        "overrides",
+        "clauses"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0002",
+          "triple_id": "t00017",
+          "subject": "list_001",
+          "predicate": "has",
+          "object": "clauses",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00017"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "triple_id": "t00016",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "list_001",
+        "has",
+        "principles"
+      ],
+      "after": [
+        "list_001",
+        "opposes",
+        "principles"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0002",
+          "triple_id": "t00016",
+          "subject": "list_001",
+          "predicate": "has",
+          "object": "principles",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00016"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00014",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "errors_001",
+        "can_be",
+        "comission"
+      ],
+      "after": [
+        "errors_001",
+        "undermines",
+        "comission"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0001",
+          "triple_id": "t00014",
+          "subject": "errors_001",
+          "predicate": "can_be",
+          "object": "comission",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00014"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00013",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "errors_001",
+        "can_be",
+        "omission"
+      ],
+      "after": [
+        "errors_001",
+        "conflicts_with",
+        "omission"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0001",
+          "triple_id": "t00013",
+          "subject": "errors_001",
+          "predicate": "can_be",
+          "object": "omission",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00013"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00004",
+      "corruption_type": "predicate_replacement",
+      "before": [
+        "justification_001",
+        "targets",
+        "errors_001"
+      ],
+      "after": [
+        "justification_001",
+        "disregards",
+        "errors_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "create_suggestion",
+          "sentence_id": "s0001",
+          "triple_id": "t00004",
+          "subject": "justification_001",
+          "predicate": "targets",
+          "object": "errors_001",
+          "comment": "Oracle repair: restore ground-truth predicate"
+        },
+        {
+          "action": "approve_suggestion",
+          "triple_id": "t00004"
+        }
+      ]
+    }
+  ]
+}

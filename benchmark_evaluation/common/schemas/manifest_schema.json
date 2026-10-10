@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ManifestSchema",
+  "type": "object",
+  "required": ["experiment_id", "reference_sha256", "error_type", "density", "seed", "changes"],
+  "properties": {
+    "experiment_id": { "type": "string" },
+    "reference_sha256": { "type": "string" },
+    "error_type": { "type": "string" },
+    "corruption_name": { "type": "string" },
+    "density": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "seed": { "type": "integer" },
+    "total_eligible_triples": { "type": "integer" },
+    "injected_count": { "type": "integer" },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sentence_id", "triple_id", "inverse_actions"],
+        "properties": {
+          "sentence_id": { "type": "string" },
+          "triple_id": { "type": "string" },
+          "corruption_type": { "type": "string" },
+          "before": { "type": ["array", "null"] },
+          "after": { "type": ["array", "null"] },
+          "inverse_actions": { "type": "array" }
+        }
+      }
+    }
+  }
+}

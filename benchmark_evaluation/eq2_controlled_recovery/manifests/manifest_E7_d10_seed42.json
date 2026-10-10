@@ -1,0 +1,652 @@
+{
+  "experiment_id": "EQ2_E7_d10_seed42",
+  "reference_sha256": "8be593990969fff6b3aa580d384a9c5ed72c38d6956208a2386694850173c4a7",
+  "error_type": "E7",
+  "corruption_name": "duplicate_triple",
+  "density": 0.1,
+  "seed": 42,
+  "total_eligible_triples": 316,
+  "injected_count": 32,
+  "changes": [
+    {
+      "sentence_id": "s0037",
+      "triple_id": "t00309_dup",
+      "original_triple_id": "t00309",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "breach_001",
+        "is_of",
+        "Code_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0037",
+          "triple_id": "t00309_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0037",
+      "triple_id": "t00303_dup",
+      "original_triple_id": "t00303",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "software_engineers",
+        "has",
+        "usage_constraint_008"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0037",
+          "triple_id": "t00303_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0036",
+      "triple_id": "t00302_dup",
+      "original_triple_id": "t00302",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "usage_constraint_007",
+        "domain",
+        "principle_8"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0036",
+          "triple_id": "t00302_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0034",
+      "triple_id": "t00288_dup",
+      "original_triple_id": "t00288",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "related_documents_003",
+        "is_worked_on_by",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0034",
+          "triple_id": "t00288_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0034",
+      "triple_id": "t00280_dup",
+      "original_triple_id": "t00280",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "software_engineers",
+        "shall",
+        "improve_knowledge_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0034",
+          "triple_id": "t00280_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0031",
+      "triple_id": "t00259_dup",
+      "original_triple_id": "t00259",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "improve_ability_001",
+        "is_for",
+        "create_software_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0031",
+          "triple_id": "t00259_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0027",
+      "triple_id": "t00230_dup",
+      "original_triple_id": "t00230",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "opinions_002",
+        "is_of",
+        "other_professionals_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0027",
+          "triple_id": "t00230_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0026",
+      "triple_id": "t00217_dup",
+      "original_triple_id": "t00217",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "usage_constraint_006",
+        "domain",
+        "principle_7"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0026",
+          "triple_id": "t00217_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0026",
+      "triple_id": "t00215_dup",
+      "original_triple_id": "t00215",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "career_001",
+        "is_of",
+        "colleagues_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0026",
+          "triple_id": "t00215_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0022",
+      "triple_id": "t00175_dup",
+      "original_triple_id": "t00175",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "software_engineers",
+        "shall",
+        "credit_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0022",
+          "triple_id": "t00175_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0021",
+      "triple_id": "t00173_dup",
+      "original_triple_id": "t00173",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "assist_001",
+        "has_target",
+        "colleagues_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0021",
+          "triple_id": "t00173_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "triple_id": "t00143_dup",
+      "original_triple_id": "t00143",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "condition_004",
+        "cannot_reasonably_be",
+        "disclosed"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0016",
+          "triple_id": "t00143_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "triple_id": "t00141_dup",
+      "original_triple_id": "t00141",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "usage_constraint_004",
+        "has_constraint_type",
+        "condition_004"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0016",
+          "triple_id": "t00141_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0014",
+      "triple_id": "t00126_dup",
+      "original_triple_id": "t00126",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "evaluation_001",
+        "has_target",
+        "related_documents_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0014",
+          "triple_id": "t00126_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00120_dup",
+      "original_triple_id": "t00120",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "usage_constraint_002",
+        "may_have",
+        "condition_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0013",
+          "triple_id": "t00120_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00115_dup",
+      "original_triple_id": "t00115",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "within_competence",
+        "is_of",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0013",
+          "triple_id": "t00115_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00113_dup",
+      "original_triple_id": "t00113",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "documents_001",
+        "has_condition",
+        "condition_002"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0013",
+          "triple_id": "t00113_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00112_dup",
+      "original_triple_id": "t00112",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "prepared_under_supervision",
+        "is_of",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0013",
+          "triple_id": "t00112_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "triple_id": "t00111_dup",
+      "original_triple_id": "t00111",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "condition_001",
+        "is",
+        "prepared_under_supervision"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0013",
+          "triple_id": "t00111_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0012",
+      "triple_id": "t00102_dup",
+      "original_triple_id": "t00102",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "need_001",
+        "has_purpose",
+        "support_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0012",
+          "triple_id": "t00102_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0009",
+      "triple_id": "t00082_dup",
+      "original_triple_id": "t00082",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "all_judgements",
+        "includes",
+        "consideration_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0009",
+          "triple_id": "t00082_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0009",
+      "triple_id": "t00080_dup",
+      "original_triple_id": "t00080",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "all_judgements",
+        "includes",
+        "examine_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0009",
+          "triple_id": "t00080_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00072_dup",
+      "original_triple_id": "t00072",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "decisions_003",
+        "are_made_by",
+        "software_engineers"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0008",
+          "triple_id": "t00072_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00058_dup",
+      "original_triple_id": "t00058",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "examine_001",
+        "has_target",
+        "treatment_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0008",
+          "triple_id": "t00058_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0008",
+      "triple_id": "t00053_dup",
+      "original_triple_id": "t00053",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "influence_001",
+        "has_action",
+        "consider_broadly_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0008",
+          "triple_id": "t00053_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0007",
+      "triple_id": "t00048_dup",
+      "original_triple_id": "t00048",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "thoughtful_consideration_001",
+        "applies_to",
+        "fundamental_principles"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0007",
+          "triple_id": "t00048_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0006",
+      "triple_id": "t00045_dup",
+      "original_triple_id": "t00045",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "act_001",
+        "is_given",
+        "circumstances"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0006",
+          "triple_id": "t00045_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "triple_id": "t00017_dup",
+      "original_triple_id": "t00017",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "list_001",
+        "has",
+        "clauses"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0002",
+          "triple_id": "t00017_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "triple_id": "t00016_dup",
+      "original_triple_id": "t00016",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "list_001",
+        "has",
+        "principles"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0002",
+          "triple_id": "t00016_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00014_dup",
+      "original_triple_id": "t00014",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "errors_001",
+        "can_be",
+        "comission"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0001",
+          "triple_id": "t00014_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00013_dup",
+      "original_triple_id": "t00013",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "errors_001",
+        "can_be",
+        "omission"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0001",
+          "triple_id": "t00013_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0001",
+      "triple_id": "t00004_dup",
+      "original_triple_id": "t00004",
+      "corruption_type": "duplicate_triple",
+      "before": null,
+      "after": [
+        "justification_001",
+        "targets",
+        "errors_001"
+      ],
+      "inverse_actions": [
+        {
+          "action": "mark_for_removal",
+          "sentence_id": "s0001",
+          "triple_id": "t00004_dup",
+          "reason": "Oracle repair: remove redundant duplicate copy"
+        }
+      ]
+    }
+  ]
+}

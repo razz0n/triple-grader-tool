@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TripleSchema",
+  "type": "object",
+  "required": ["subject", "predicate", "object"],
+  "properties": {
+    "id": { "type": "string" },
+    "triple_id": { "type": "string" },
+    "sentence_id": { "type": "string" },
+    "subject": { "type": "string", "minLength": 1 },
+    "predicate": { "type": "string", "minLength": 1 },
+    "object": { "type": "string", "minLength": 1 },
+    "polarity": { "type": "string", "enum": ["affirmative", "negative"] },
+    "modality": { "type": "string" },
+    "status": { "type": "string" },
+    "source_system": { "type": "string" }
+  }
+}

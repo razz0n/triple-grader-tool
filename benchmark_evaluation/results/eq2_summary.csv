@@ -1,0 +1,11 @@
+error_type,corruption_name,density,runs,mean_precision,mean_recall,mean_f1,mean_repair_recall,mean_preservation,exact_restoration_rate
+E1,subject_replacement,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E10,compound_conflict_case,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E2,predicate_replacement,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E3,object_replacement,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E4,subject_object_swap,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E5,missing_triple,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E6,spurious_triple,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E7,duplicate_triple,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E8,malformed_triple,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%
+E9,representation_variant,10%,1,100.00%,100.00%,100.00%,100.00%,100.00%,100.0%

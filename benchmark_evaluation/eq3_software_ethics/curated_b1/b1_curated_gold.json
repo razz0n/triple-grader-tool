@@ -1,0 +1,640 @@
+{
+  "benchmark_name": "B1_Curated_Gold_Benchmark",
+  "total_sentences": 15,
+  "total_triples": 66,
+  "sentences": [
+    {
+      "sentence_id": "s0001",
+      "sentence": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.",
+      "section": "Paragraph 1",
+      "triples": [
+        {
+          "id": "1_1",
+          "subject": "individual_parts",
+          "predicate": "used_in",
+          "object": "isolation_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_5ea889f6",
+          "subject": "individual_parts",
+          "predicate": "is_of",
+          "object": "Code_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_c4ef4e10",
+          "subject": "isolation_001",
+          "predicate": "used_to",
+          "object": "justify_errors",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_824ef229",
+          "subject": "errors",
+          "predicate": "is_of",
+          "object": "omission",
+          "grade": 8.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_4833c424",
+          "subject": "errors",
+          "predicate": "is_of",
+          "object": "commission",
+          "grade": 8.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_71ce8acd",
+          "subject": "individual_parts",
+          "predicate": "not_intended_for",
+          "object": "isolation_001",
+          "grade": 9.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "sentence": "The list of Principles and Clauses is not exhaustive.",
+      "section": "Paragraph 1",
+      "triples": [
+        {
+          "id": "2_1",
+          "subject": "list_001",
+          "predicate": "is_not",
+          "object": "exhaustive",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_1183201a",
+          "subject": "list_001",
+          "predicate": "is_of",
+          "object": "principles",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_2c0839f2",
+          "subject": "list_001",
+          "predicate": "is_of",
+          "object": "clauses",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0003",
+      "sentence": "The Clauses should not be read as separating the acceptable from the unacceptable in professional conduct in all practical situations.",
+      "section": "Paragraph 1",
+      "triples": [
+        {
+          "id": "3_1",
+          "subject": "clauses",
+          "predicate": "should_not_be_read_as",
+          "object": "separating_acceptable_from_unacceptable_in_professional_conduct_in_all_practical_situations",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0004",
+      "sentence": "The Code is not a simple ethical algorithm that generates ethical decisions.",
+      "section": "Paragraph 1",
+      "triples": [
+        {
+          "id": "4_1",
+          "subject": "Code_001",
+          "predicate": "is_not",
+          "object": "ethical_algorithm_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "4_2",
+          "subject": "ethical_algorithm_001",
+          "predicate": "generates",
+          "object": "ethical_decisions",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_40ab1a16",
+          "subject": "ethical_algorithm_001",
+          "predicate": "is",
+          "object": "simple",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0005",
+      "sentence": "In some situations standards may be in tension with each other or with standards from other sources.",
+      "section": "Paragraph 2",
+      "triples": [
+        {
+          "id": "5_1",
+          "subject": "standards_001",
+          "predicate": "may_be_in_tension_with",
+          "object": "each_other",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "5_2",
+          "subject": "standards_001",
+          "predicate": "may_be_in_tension_with",
+          "object": "standards_002",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_6b17d5bb",
+          "subject": "standards_001",
+          "predicate": "is_in",
+          "object": "some_situations",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_b3ee2a96",
+          "subject": "standards_002",
+          "predicate": "is_from",
+          "object": "other_sources",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0006",
+      "sentence": "These situations require the software engineer to use ethical judgment to act in a manner which is most consistent with the spirit of the Code of Ethics and Professional Practice, given the circumstances",
+      "section": "Paragraph 2",
+      "triples": [
+        {
+          "id": "6_1",
+          "subject": "situations_001",
+          "predicate": "require",
+          "object": "software_engineers",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "6_2",
+          "subject": "software_engineers",
+          "predicate": "shall_use",
+          "object": "ethical_judgment_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "6_3",
+          "subject": "ethical_judgment_001",
+          "predicate": "used_for",
+          "object": "act_001",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "6_4",
+          "subject": "act_001",
+          "predicate": "shall_be_most_consistent_with",
+          "object": "spirit",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "6_5",
+          "subject": "act_001",
+          "predicate": "is_given",
+          "object": "circumstances",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_e1fcf094",
+          "subject": "spirit",
+          "predicate": "is_of",
+          "object": "code_001",
+          "grade": 9.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0007",
+      "sentence": "Ethical tensions can best be addressed by thoughtful consideration of fundamental principles, rather than blind reliance on detailed regulations.",
+      "section": "Paragraph 2",
+      "triples": [
+        {
+          "id": "7_1",
+          "subject": "ethical_tensions",
+          "predicate": "can_best_be_addressed_by",
+          "object": "thoughtful_consideration_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "7_2",
+          "subject": "thoughtful_consideration_001",
+          "predicate": "is_of",
+          "object": "fundamental_principles",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "7_3",
+          "subject": "blind_reliance",
+          "predicate": "is_on",
+          "object": "detailed_regulations",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "7_4",
+          "subject": "ethical_tensions",
+          "predicate": "not_addressed_by",
+          "object": "blind_reliance",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0010",
+      "sentence": "Principle 4: JUDGMENT",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "8_1",
+          "subject": "principle_4",
+          "predicate": "is",
+          "object": "Judgment",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_4ae00c08",
+          "subject": "principle_4",
+          "predicate": "is_in",
+          "object": "Code_001",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0011",
+      "sentence": "Software engineers shall maintain integrity and independence in their professional judgment.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "9_1",
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "integrity",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "9_2",
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "independence",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "9_3",
+          "subject": "integrity",
+          "predicate": "is_in",
+          "object": "professional_judgment",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "9_4",
+          "subject": "independence",
+          "predicate": "is_in",
+          "object": "professional_judgment",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0012",
+      "sentence": "4.01. Temper all technical judgments by the need to support and maintain human values.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "10_1",
+          "subject": "software_engineers",
+          "predicate": "shall_temper",
+          "object": "technical_judgments",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "10_2",
+          "subject": "technical_judgments",
+          "predicate": "tempered_by",
+          "object": "need_to_support_human_values",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "10_3",
+          "subject": "technical_judgements",
+          "predicate": "tempered_by",
+          "object": "need_to_maintain_human_values",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_651b02c6",
+          "subject": "technical_judgments",
+          "predicate": "are",
+          "object": "all",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "sentence": "4.02. Only endorse documents either prepared under their supervision or within their areas of competence and with which they are in agreement.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "11_1",
+          "subject": "software_engineers",
+          "predicate": "shall_endorse",
+          "object": "documents_001",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "11_2",
+          "subject": "documents_001",
+          "predicate": "prepared_under",
+          "object": "supervision",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "11_3",
+          "subject": "documents_001",
+          "predicate": "within",
+          "object": "areas_of_competence",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "11_4",
+          "subject": "documents_001",
+          "predicate": "are",
+          "object": "only",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_273cead1",
+          "subject": "software_engineers",
+          "predicate": "are_in_agreement_with",
+          "object": "documents_001",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0014",
+      "sentence": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "12_1",
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "professional_objectivity",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "12_2",
+          "subject": "professional_objectivity",
+          "predicate": "is_for",
+          "object": "evaluation_001",
+          "grade": 8.0,
+          "status": "approved"
+        },
+        {
+          "id": "12_3",
+          "subject": "evaluation_001",
+          "predicate": "is_of",
+          "object": "software",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_ee04a3aa",
+          "subject": "evaluation_001",
+          "predicate": "is_of",
+          "object": "related_documents",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0015",
+      "sentence": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "13_1",
+          "subject": "software_engineers",
+          "predicate": "shall_not_engage_in",
+          "object": "deceptive_financial_practices",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "13_2",
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "bribery",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "13_3",
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "double_billing",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "13_4",
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "other_improper_financial_practices",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "sentence": "4.05. Disclose to all concerned parties those conflicts of interest that cannot reasonably be avoided or escaped.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "14_1",
+          "subject": "software_engineers",
+          "predicate": "shall_disclose_to",
+          "object": "conflicts_of_interest_001",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "14_2",
+          "subject": "conflicts_of_interest_001",
+          "predicate": "cannot_reasonably_be",
+          "object": "avoided",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_d6bae660",
+          "subject": "conflicts_of_interest_001",
+          "predicate": "disclosed_to_all",
+          "object": "concerned_parties",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_aa48a667",
+          "subject": "conflicts_of_interest_001",
+          "predicate": "cannot_reasonably_be",
+          "object": "escaped",
+          "grade": 10.0,
+          "status": "approved"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0017",
+      "sentence": "4.06. Refuse to participate, as members or advisors, in a private, governmental or professional body concerned with software related issues, in which they, their employers or their clients have undisclosed potential conflicts of interest.",
+      "section": "Judgment (Principle 4)",
+      "triples": [
+        {
+          "id": "15_1",
+          "subject": "software_engineers",
+          "predicate": "shall_refuse_to",
+          "object": "participation_001",
+          "grade": 10.0,
+          "status": "approved"
+        },
+        {
+          "id": "15_2",
+          "subject": "participation_001",
+          "predicate": "concerned_with",
+          "object": "software_related_issues",
+          "grade": 8.0,
+          "status": "approved"
+        },
+        {
+          "id": "15_3",
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "15_4",
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "employers",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "15_5",
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "clients",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_2f25c9aa",
+          "subject": "participation_001",
+          "predicate": "is_as",
+          "object": "members",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_eda2caff",
+          "subject": "participation_001",
+          "predicate": "is_as",
+          "object": "advisors",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_17885c5e",
+          "subject": "participation_001",
+          "predicate": "is_in",
+          "object": "private_body",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_cb1945bb",
+          "subject": "participation_001",
+          "predicate": "is_in",
+          "object": "governmental_body",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_e18e8d51",
+          "subject": "participation_001",
+          "predicate": "has",
+          "object": "conflict_of_interest_002",
+          "grade": 7.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_633b9cd6",
+          "subject": "conflict_of_interest_002",
+          "predicate": "is",
+          "object": "undisclosed",
+          "grade": 9.0,
+          "status": "approved"
+        },
+        {
+          "id": "suggested_b627ca5b",
+          "subject": "conflict_of_interest_002",
+          "predicate": "has",
+          "object": "potential",
+          "grade": 7.0,
+          "status": "approved"
+        }
+      ]
+    }
+  ]
+}
