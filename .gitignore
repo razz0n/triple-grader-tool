@@ -69,4 +69,11 @@ research_paper_2026-10-08_edited/
 benchmark_evaluation/
 research_paper_2026-10-05/
 benchmark_evaluation
+*.docx
+*.doc
+reports/
 
+# Temporary files and scratch scripts
+temp/
+scratch/
+.agents/
