@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:20:48.916142+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "fc75a0ed0f72b1b4764aa92fb1f26b1090f6d0511a1c9f60f8e9bc011eb019fd",
+  "target": {
+    "sentence_id": "SEN:10003542",
+    "sentence": "Phenylhydrazine treatment was associated with upregulation of Lcn2 gene expression in the liver and elevation of serum Lcn2 protein levels."
+  },
+  "response": {
+    "id": "chatcmpl-52eef6ec-2be1-4c7f-902a-4bc52c748b01",
+    "object": "chat.completion",
+    "created": 1791937248,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:phenylhydrazine) increases r(MGI:Lcn2)\",\n  \"a(CHEBI:phenylhydrazine) increases p(MGI:Lcn2)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.095532809,
+      "prompt_tokens": 4613,
+      "prompt_time": 0.373352738,
+      "completion_tokens": 48,
+      "completion_time": 0.095487546,
+      "total_tokens": 4661,
+      "total_time": 0.468840284
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwgz2xefvrtke0m9nyknqk",
+      "seed": 619888341
+    },
+    "service_tier": "on_demand"
+  }
+}

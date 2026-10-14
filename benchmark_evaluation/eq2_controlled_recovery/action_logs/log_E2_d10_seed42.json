@@ -1,0 +1,348 @@
+{
+  "experiment_id": "EQ2_E2_d10_seed42",
+  "session_id": "eq2_e2_d10_seed42_123d5d",
+  "error_type": "E2",
+  "density": 0.1,
+  "seed": 42,
+  "timestamp_start": 1791984813.4367971,
+  "actions_executed": [
+    {
+      "step": "POST /api/sessions",
+      "status_code": 200,
+      "latency_ms": 70.83
+    },
+    {
+      "step": "POST /suggestions (t00309)",
+      "status_code": 200,
+      "latency_ms": 92.52
+    },
+    {
+      "step": "POST /approve (sug_t00309_0)",
+      "status_code": 200,
+      "latency_ms": 136.62
+    },
+    {
+      "step": "POST /suggestions (t00303)",
+      "status_code": 200,
+      "latency_ms": 99.07
+    },
+    {
+      "step": "POST /approve (sug_t00303_1)",
+      "status_code": 200,
+      "latency_ms": 97.41
+    },
+    {
+      "step": "POST /suggestions (t00302)",
+      "status_code": 200,
+      "latency_ms": 103.97
+    },
+    {
+      "step": "POST /approve (sug_t00302_2)",
+      "status_code": 200,
+      "latency_ms": 72.72
+    },
+    {
+      "step": "POST /suggestions (t00288)",
+      "status_code": 200,
+      "latency_ms": 90.83
+    },
+    {
+      "step": "POST /approve (sug_t00288_3)",
+      "status_code": 200,
+      "latency_ms": 83.05
+    },
+    {
+      "step": "POST /suggestions (t00280)",
+      "status_code": 200,
+      "latency_ms": 89.76
+    },
+    {
+      "step": "POST /approve (sug_t00280_4)",
+      "status_code": 200,
+      "latency_ms": 98.78
+    },
+    {
+      "step": "POST /suggestions (t00259)",
+      "status_code": 200,
+      "latency_ms": 81.89
+    },
+    {
+      "step": "POST /approve (sug_t00259_5)",
+      "status_code": 200,
+      "latency_ms": 97.58
+    },
+    {
+      "step": "POST /suggestions (t00230)",
+      "status_code": 200,
+      "latency_ms": 83.95
+    },
+    {
+      "step": "POST /approve (sug_t00230_6)",
+      "status_code": 200,
+      "latency_ms": 82.02
+    },
+    {
+      "step": "POST /suggestions (t00217)",
+      "status_code": 200,
+      "latency_ms": 94.02
+    },
+    {
+      "step": "POST /approve (sug_t00217_7)",
+      "status_code": 200,
+      "latency_ms": 71.16
+    },
+    {
+      "step": "POST /suggestions (t00215)",
+      "status_code": 200,
+      "latency_ms": 72.84
+    },
+    {
+      "step": "POST /approve (sug_t00215_8)",
+      "status_code": 200,
+      "latency_ms": 71.96
+    },
+    {
+      "step": "POST /suggestions (t00175)",
+      "status_code": 200,
+      "latency_ms": 97.16
+    },
+    {
+      "step": "POST /approve (sug_t00175_9)",
+      "status_code": 200,
+      "latency_ms": 73.73
+    },
+    {
+      "step": "POST /suggestions (t00173)",
+      "status_code": 200,
+      "latency_ms": 73.58
+    },
+    {
+      "step": "POST /approve (sug_t00173_10)",
+      "status_code": 200,
+      "latency_ms": 81.45
+    },
+    {
+      "step": "POST /suggestions (t00143)",
+      "status_code": 200,
+      "latency_ms": 71.58
+    },
+    {
+      "step": "POST /approve (sug_t00143_11)",
+      "status_code": 200,
+      "latency_ms": 75.82
+    },
+    {
+      "step": "POST /suggestions (t00141)",
+      "status_code": 200,
+      "latency_ms": 108.55
+    },
+    {
+      "step": "POST /approve (sug_t00141_12)",
+      "status_code": 200,
+      "latency_ms": 85.78
+    },
+    {
+      "step": "POST /suggestions (t00126)",
+      "status_code": 200,
+      "latency_ms": 73.13
+    },
+    {
+      "step": "POST /approve (sug_t00126_13)",
+      "status_code": 200,
+      "latency_ms": 82.15
+    },
+    {
+      "step": "POST /suggestions (t00120)",
+      "status_code": 200,
+      "latency_ms": 75.6
+    },
+    {
+      "step": "POST /approve (sug_t00120_14)",
+      "status_code": 200,
+      "latency_ms": 76.28
+    },
+    {
+      "step": "POST /suggestions (t00115)",
+      "status_code": 200,
+      "latency_ms": 84.87
+    },
+    {
+      "step": "POST /approve (sug_t00115_15)",
+      "status_code": 200,
+      "latency_ms": 120.8
+    },
+    {
+      "step": "POST /suggestions (t00113)",
+      "status_code": 200,
+      "latency_ms": 113.53
+    },
+    {
+      "step": "POST /approve (sug_t00113_16)",
+      "status_code": 200,
+      "latency_ms": 81.69
+    },
+    {
+      "step": "POST /suggestions (t00112)",
+      "status_code": 200,
+      "latency_ms": 85.01
+    },
+    {
+      "step": "POST /approve (sug_t00112_17)",
+      "status_code": 200,
+      "latency_ms": 96.51
+    },
+    {
+      "step": "POST /suggestions (t00111)",
+      "status_code": 200,
+      "latency_ms": 112.49
+    },
+    {
+      "step": "POST /approve (sug_t00111_18)",
+      "status_code": 200,
+      "latency_ms": 104.66
+    },
+    {
+      "step": "POST /suggestions (t00102)",
+      "status_code": 200,
+      "latency_ms": 102.82
+    },
+    {
+      "step": "POST /approve (sug_t00102_19)",
+      "status_code": 200,
+      "latency_ms": 78.16
+    },
+    {
+      "step": "POST /suggestions (t00082)",
+      "status_code": 200,
+      "latency_ms": 95.34
+    },
+    {
+      "step": "POST /approve (sug_t00082_20)",
+      "status_code": 200,
+      "latency_ms": 90.88
+    },
+    {
+      "step": "POST /suggestions (t00080)",
+      "status_code": 200,
+      "latency_ms": 77.42
+    },
+    {
+      "step": "POST /approve (sug_t00080_21)",
+      "status_code": 200,
+      "latency_ms": 77.13
+    },
+    {
+      "step": "POST /suggestions (t00072)",
+      "status_code": 200,
+      "latency_ms": 82.56
+    },
+    {
+      "step": "POST /approve (sug_t00072_22)",
+      "status_code": 200,
+      "latency_ms": 69.69
+    },
+    {
+      "step": "POST /suggestions (t00058)",
+      "status_code": 200,
+      "latency_ms": 74.8
+    },
+    {
+      "step": "POST /approve (sug_t00058_23)",
+      "status_code": 200,
+      "latency_ms": 96.67
+    },
+    {
+      "step": "POST /suggestions (t00053)",
+      "status_code": 200,
+      "latency_ms": 75.6
+    },
+    {
+      "step": "POST /approve (sug_t00053_24)",
+      "status_code": 200,
+      "latency_ms": 75.74
+    },
+    {
+      "step": "POST /suggestions (t00048)",
+      "status_code": 200,
+      "latency_ms": 77.2
+    },
+    {
+      "step": "POST /approve (sug_t00048_25)",
+      "status_code": 200,
+      "latency_ms": 70.53
+    },
+    {
+      "step": "POST /suggestions (t00045)",
+      "status_code": 200,
+      "latency_ms": 77.01
+    },
+    {
+      "step": "POST /approve (sug_t00045_26)",
+      "status_code": 200,
+      "latency_ms": 105.28
+    },
+    {
+      "step": "POST /suggestions (t00017)",
+      "status_code": 200,
+      "latency_ms": 100.87
+    },
+    {
+      "step": "POST /approve (sug_t00017_27)",
+      "status_code": 200,
+      "latency_ms": 96.11
+    },
+    {
+      "step": "POST /suggestions (t00016)",
+      "status_code": 200,
+      "latency_ms": 93.39
+    },
+    {
+      "step": "POST /approve (sug_t00016_28)",
+      "status_code": 200,
+      "latency_ms": 112.41
+    },
+    {
+      "step": "POST /suggestions (t00014)",
+      "status_code": 200,
+      "latency_ms": 98.62
+    },
+    {
+      "step": "POST /approve (sug_t00014_29)",
+      "status_code": 200,
+      "latency_ms": 88.9
+    },
+    {
+      "step": "POST /suggestions (t00013)",
+      "status_code": 200,
+      "latency_ms": 87.44
+    },
+    {
+      "step": "POST /approve (sug_t00013_30)",
+      "status_code": 200,
+      "latency_ms": 89.32
+    },
+    {
+      "step": "POST /suggestions (t00004)",
+      "status_code": 200,
+      "latency_ms": 92.72
+    },
+    {
+      "step": "POST /approve (sug_t00004_31)",
+      "status_code": 200,
+      "latency_ms": 111.85
+    },
+    {
+      "step": "GET /export/json",
+      "status_code": 200,
+      "latency_ms": 83.0
+    }
+  ],
+  "errors": [],
+  "total_duration_ms": 5903.54,
+  "timestamp_end": 1791984819.340381,
+  "total_actions": 64,
+  "correct_actions": 64,
+  "http_requests": 67,
+  "failed_http_requests": [],
+  "exported_triple_count": 316
+}

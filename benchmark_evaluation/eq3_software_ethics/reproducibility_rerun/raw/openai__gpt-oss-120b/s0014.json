@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T13:19:44.331387+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "b69ea517d79d74f36525e1a387ef30a03095624c642230913d52162813e6cac8",
+  "target": {
+    "sentence_id": "s0014",
+    "sentence": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate."
+  },
+  "response": {
+    "id": "chatcmpl-df15f5ea-5efb-4469-9152-dc43548ef41a",
+    "object": "chat.completion",
+    "created": 1791983983,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"professional_objectivity\"\n  },\n  {\n    \"subject\": \"professional_objectivity\",\n    \"predicate\": \"is_with_respect_to\",\n    \"object\": \"software_or_related_documents\"\n  },\n  {\n    \"subject\": \"software_or_related_documents\",\n    \"predicate\": \"are_to_be_evaluated_by\",\n    \"object\": \"software_engineers\"\n  }\n]",
+          "reasoning": "We need to produce triples similar to examples. Input: \"4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.\"\n\nWe need to infer subject: likely \"software_engineers\" (as in other clauses). The clause number 4.03 belongs to Principle 4 (maybe \"Integrity\"?). In examples, subject is \"software_engineers\". So we produce triples:\n\n1. subject: software_engineers, predicate: shall_maintain, object: professional_objectivity\n\nBut also with respect to any software or related documents they are asked to evaluate.\n\nSo maybe two triples:\n\n- software_engineers shall_maintain professional_objectivity\n\n- professional_objectivity is_with_respect_to software_or_related_documents\n\n- software_or_related_documents are_asked_to_evaluate_by software_engineers (or they are asked to evaluate)\n\nWe need to follow style: predicate often includes \"shall_\" for obligations. Example 4.03: \"Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.\"\n\nThus triple 1: subject software_engineers, predicate \"shall_maintain\", object \"professional_objectivity\"\n\nTriple 2: subject \"professional_objectivity\", predicate \"is_with_respect_to\", object \"software_or_related_documents\"\n\nTriple 3: subject \"software_or_related_documents\", predicate \"are_asked_to_evaluate_by\", object \"software_engineers\"\n\nOr maybe \"software_engineers\" as subject again.\n\nCheck examples: In Example 6, they used \"software_engineers\" as subject for \"shall_assist\". They also used separate triples for \"colleagues\" etc.\n\nIn Example 8, they used \"colleagues\" predicate \"be_fully_aware_of\" object \"current_standard_work_practices\". So they used \"be_fully_aware_of\". For \"with respect to\", they used \"is_with_respect_to\"? Not seen in examples. Could use \"is_with_respect_to\". Or \"is_respect_to\". Let's follow pattern: maybe \"is_with_respect_to\". Example 7 used \"is_for\". So \"is_with_respect_to\" seems plausible.\n\nAlso \"they are asked to evaluate\" could be expressed as \"software_or_related_documents\" predicate \"are_asked_to_be_evaluated_by\" object \"software_engineers\". In examples they used \"are_of\" for relationships. For \"are asked to evaluate\", maybe \"are_to_be_evaluated_by\". Let's choose \"are_to_be_evaluated_by\". Or \"are_asked_to_be_evaluated_by\". Simpler: \"are_to_be_evaluated_by\". Use \"are_to_be_evaluated_by\". That matches pattern.\n\nNow produce JSON array with triple_id? The prompt says output ONLY a valid JSON array of objects with keys 'subject', 'predicate', and 'object'. No triple_id needed. So just list objects.\n\nThus:\n\n[\n  {\"subject\":\"software_engineers\",\"predicate\":\"shall_maintain\",\"object\":\"professional_objectivity\"},\n  {\"subject\":\"professional_objectivity\",\"predicate\":\"is_with_respect_to\",\"object\":\"software_or_related_documents\"},\n  {\"subject\":\"software_or_related_documents\",\"predicate\":\"are_to_be_evaluated_by\",\"object\":\"software_engineers\"}\n]\n\nMake sure JSON valid. Use double quotes. No trailing commas."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.175986349,
+      "prompt_tokens": 4919,
+      "prompt_time": 0.231672499,
+      "completion_tokens": 800,
+      "completion_time": 1.685422542,
+      "total_tokens": 5719,
+      "total_time": 1.917095041,
+      "completion_tokens_details": {
+        "reasoning_tokens": 687
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_854fa9be4c",
+    "x_groq": {
+      "id": "req_01m4x934y6ewwab4ffs2t6gc1x",
+      "seed": 1354043012
+    },
+    "service_tier": "on_demand"
+  }
+}

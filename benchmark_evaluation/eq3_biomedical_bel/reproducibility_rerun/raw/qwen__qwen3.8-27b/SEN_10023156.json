@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:48:51.607922+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "208d48a0b1d0af89d7d11b594a4c0fd78a343e1b36beb2c37d0a70fa17045e3c",
+  "target": {
+    "sentence_id": "SEN:10023156",
+    "sentence": "Upon tyrosine phosphorylation, Gab2 physically interacts with Shp2 tyrosine phosphatase and Grb2 adapter protein."
+  },
+  "response": {
+    "id": "chatcmpl-bb9ebfab-ecc7-4e61-a1f9-b66c39ec5925",
+    "object": "chat.completion",
+    "created": 1791938931,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:GAB2,pmod(P)) increases complex(p(HGNC:GAB2),p(HGNC:GRB2))\",\n  \"p(HGNC:GAB2,pmod(P)) increases complex(p(HGNC:GAB2),p(HGNC:PTPN11))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.050122679,
+      "prompt_tokens": 4609,
+      "prompt_time": 0.397514855,
+      "completion_tokens": 77,
+      "completion_time": 0.192639241,
+      "total_tokens": 4686,
+      "total_time": 0.590154096
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vy4a7xe27thyhdwmawcvr1",
+      "seed": 572817511
+    },
+    "service_tier": "on_demand"
+  }
+}

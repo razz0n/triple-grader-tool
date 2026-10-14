@@ -1,0 +1,18 @@
+{
+  "domain": "Software Engineering Ethics",
+  "b0_file": "frozen_b0/b0_raw_candidates.json",
+  "b1_file": "curated_b1/b1_curated_gold.json",
+  "b0_triples": 128,
+  "b1_triples": 66,
+  "sentences": 15,
+  "sha256": {
+    "candidates/candidates_chatgpt_5_6_high_sentences.json": "314c870959ae4e556f5195ca31b3ca1ae342c19880d023b8c43030e91a9053c7",
+    "candidates/candidates_gemini_3_1_pro_sentences.json": "2afe06f1bf0e97a14b9f977cad27f2a606c693cac595462b27d48b4466ff4b17",
+    "candidates/candidates_gpt_oss_120b_sentences.json": "82231834176d8db17baebf44d315247e9b7910eafd14d818a83ca6ded63d774e",
+    "candidates/candidates_qwen_38b_sentences.json": "e73f0ec46e9e1cd7a80482f060164fa46a05f5077703412ef5ac5fd8e5ab4556",
+    "frozen_b0/b0_raw_candidates.json": "b4473dd003029e09ec32971cc4ec29da4fffd712617fe49b8ef0578751479deb",
+    "curated_b1/b1_curated_gold.json": "7d42fc0d94cd2367b21b6bac15c29077abe63e4079c5adcdc50991402fac0914",
+    "prompt and fewshots/few_shot_examples.json": "980bfbf37afa482535c382a0b7f6e08f9050c7ebeb4305c169a951b9abd09ad8",
+    "prompt and fewshots/frozen_sentences.json": "4508c3d4d91e3b4b02e6b7e75860516633a4016f1f9890b8ad29d7e11f3977fd"
+  }
+}

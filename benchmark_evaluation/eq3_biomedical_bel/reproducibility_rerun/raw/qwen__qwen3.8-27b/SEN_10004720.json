@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:29:25.136715+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "9ab3e4779d3f97232c0997a0e886a7d1683677831520125f06df1853b06a723b",
+  "target": {
+    "sentence_id": "SEN:10004720",
+    "sentence": "Microarray, real-time polymerase chain reaction, and immunohistochemical analyses of skin of downless mice revealed a strong decrease of expression of X-linked inhibitor of apoptosis protein (XIAP), compared with the controls, suggesting XIAP as a target for Edar signaling."
+  },
+  "response": {
+    "id": "chatcmpl-b972a61f-e726-436a-ab73-c16a6be26e6f",
+    "object": "chat.completion",
+    "created": 1791937765,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Edar) increases r(MGI:Xiap)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.021652553,
+      "prompt_tokens": 4636,
+      "prompt_time": 0.32406614,
+      "completion_tokens": 22,
+      "completion_time": 0.042173165,
+      "total_tokens": 4658,
+      "total_time": 0.366239305
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vx0qagedxbht37xnhkvjpf",
+      "seed": 616127506
+    },
+    "service_tier": "on_demand"
+  }
+}

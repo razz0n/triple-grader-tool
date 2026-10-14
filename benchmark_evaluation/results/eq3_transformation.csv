@@ -1,6 +1,6 @@
-source_system,total_candidates,accepted_unchanged,accepted_modified,removed_rejected,merged_duplicate,added_due_to_gaps,retention_rate,modification_rate,removal_rate,precision_exact,recall_exact,f1_exact,precision_normalized,recall_normalized,f1_normalized,curation_intensity
-C1_ChatGPT_5_6_High,59,11,38,10,0,17,0.1864,0.6441,0.1695,0.1864,0.1667,0.176,0.8305,0.7424,0.784,1.1017
-C2_Gemini_3_1_Pro,49,10,35,4,0,21,0.2041,0.7143,0.0816,0.2041,0.1515,0.1739,0.9184,0.6818,0.7826,1.2245
-C3_GPT_OSS_120B,47,12,29,6,0,25,0.2553,0.617,0.1277,0.2553,0.1818,0.2124,0.8723,0.6212,0.7257,1.2766
-C4_Qwen_38B,60,13,41,6,0,12,0.2167,0.6833,0.1,0.2167,0.197,0.2063,0.9,0.8182,0.8571,0.9833
-B0_Raw_PreCuration_Union,79,12,44,23,0,31,0.1519,0.557,0.2911,0.1519,0.1818,0.1655,0.7089,0.5303,0.6067,1.2405
+source,n_candidates,exact,near_miss,unaligned,n_reference,ref_exact_covered,ref_near_covered,ref_uncovered,split_insensitive_exact
+ChatGPT-5.6-High,59,11,11,37,66,11,11,44,11
+Gemini-3.1-Pro,49,11,6,32,66,11,6,49,11
+GPT-OSS 120B,47,12,9,26,66,12,7,47,12
+Qwen 3.8 27B,60,13,13,34,66,13,13,40,13
+B0 (four-model union),128,13,23,92,66,13,19,34,13

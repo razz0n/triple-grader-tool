@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:24:22.179629+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "faded0d531f5ed462a222ed6db149b61d44e2442bac789ef990a56d909edc317",
+  "target": {
+    "sentence_id": "SEN:10004182",
+    "sentence": "Casein zymography and Western blot analysis showed an increase of MMP-12 in the aged group after environmental stressors exposure"
+  },
+  "response": {
+    "id": "chatcmpl-568f3225-af07-4c35-99fd-fd2663bc6c82",
+    "object": "chat.completion",
+    "created": 1791937462,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:\\\"environmental stressors\\\") increases p(HGNC:MMP12)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083360976,
+      "prompt_tokens": 4608,
+      "prompt_time": 0.316705421,
+      "completion_tokens": 27,
+      "completion_time": 0.051561304,
+      "total_tokens": 4635,
+      "total_time": 0.368266725
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vwqfeheqxr8es1vmb11wks",
+      "seed": 648516510
+    },
+    "service_tier": "on_demand"
+  }
+}

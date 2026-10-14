@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:36:21.385841+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "8cb04abfa1a01474afb566d68bb179506ce8570930632d61eb60053ee85ac0d4",
+  "target": {
+    "sentence_id": "SEN:10005870",
+    "sentence": "It comprises a single autophosphorylation event mapped to Ser308 within the CaM regulatory domain."
+  },
+  "response": {
+    "id": "chatcmpl-da5257dd-0170-4cc1-8aa7-3654156bd21b",
+    "object": "chat.completion",
+    "created": 1791938181,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "```json\n[]\n```"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.514944129,
+      "prompt_tokens": 4604,
+      "prompt_time": 0.399496669,
+      "completion_tokens": 7,
+      "completion_time": 0.014035507,
+      "total_tokens": 4611,
+      "total_time": 0.413532176
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_5e14805ce3",
+    "x_groq": {
+      "id": "req_01m4vxddabehs87brn19q8xyqk",
+      "seed": 1986421263
+    },
+    "service_tier": "on_demand"
+  }
+}

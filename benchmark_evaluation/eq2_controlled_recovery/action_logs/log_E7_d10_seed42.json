@@ -1,0 +1,188 @@
+{
+  "experiment_id": "EQ2_E7_d10_seed42",
+  "session_id": "eq2_e7_d10_seed42_1fb89c",
+  "error_type": "E7",
+  "density": 0.1,
+  "seed": 42,
+  "timestamp_start": 1791984874.5186803,
+  "actions_executed": [
+    {
+      "step": "POST /api/sessions",
+      "status_code": 200,
+      "latency_ms": 107.7
+    },
+    {
+      "step": "POST /mark-removal (t00309_dup)",
+      "status_code": 200,
+      "latency_ms": 93.92
+    },
+    {
+      "step": "POST /mark-removal (t00303_dup)",
+      "status_code": 200,
+      "latency_ms": 80.63
+    },
+    {
+      "step": "POST /mark-removal (t00302_dup)",
+      "status_code": 200,
+      "latency_ms": 73.62
+    },
+    {
+      "step": "POST /mark-removal (t00288_dup)",
+      "status_code": 200,
+      "latency_ms": 89.96
+    },
+    {
+      "step": "POST /mark-removal (t00280_dup)",
+      "status_code": 200,
+      "latency_ms": 101.97
+    },
+    {
+      "step": "POST /mark-removal (t00259_dup)",
+      "status_code": 200,
+      "latency_ms": 82.31
+    },
+    {
+      "step": "POST /mark-removal (t00230_dup)",
+      "status_code": 200,
+      "latency_ms": 101.93
+    },
+    {
+      "step": "POST /mark-removal (t00217_dup)",
+      "status_code": 200,
+      "latency_ms": 119.17
+    },
+    {
+      "step": "POST /mark-removal (t00215_dup)",
+      "status_code": 200,
+      "latency_ms": 139.36
+    },
+    {
+      "step": "POST /mark-removal (t00175_dup)",
+      "status_code": 200,
+      "latency_ms": 122.66
+    },
+    {
+      "step": "POST /mark-removal (t00173_dup)",
+      "status_code": 200,
+      "latency_ms": 128.32
+    },
+    {
+      "step": "POST /mark-removal (t00143_dup)",
+      "status_code": 200,
+      "latency_ms": 105.55
+    },
+    {
+      "step": "POST /mark-removal (t00141_dup)",
+      "status_code": 200,
+      "latency_ms": 116.73
+    },
+    {
+      "step": "POST /mark-removal (t00126_dup)",
+      "status_code": 200,
+      "latency_ms": 103.29
+    },
+    {
+      "step": "POST /mark-removal (t00120_dup)",
+      "status_code": 200,
+      "latency_ms": 132.9
+    },
+    {
+      "step": "POST /mark-removal (t00115_dup)",
+      "status_code": 200,
+      "latency_ms": 101.29
+    },
+    {
+      "step": "POST /mark-removal (t00113_dup)",
+      "status_code": 200,
+      "latency_ms": 80.75
+    },
+    {
+      "step": "POST /mark-removal (t00112_dup)",
+      "status_code": 200,
+      "latency_ms": 98.7
+    },
+    {
+      "step": "POST /mark-removal (t00111_dup)",
+      "status_code": 200,
+      "latency_ms": 97.38
+    },
+    {
+      "step": "POST /mark-removal (t00102_dup)",
+      "status_code": 200,
+      "latency_ms": 89.69
+    },
+    {
+      "step": "POST /mark-removal (t00082_dup)",
+      "status_code": 200,
+      "latency_ms": 89.29
+    },
+    {
+      "step": "POST /mark-removal (t00080_dup)",
+      "status_code": 200,
+      "latency_ms": 79.53
+    },
+    {
+      "step": "POST /mark-removal (t00072_dup)",
+      "status_code": 200,
+      "latency_ms": 79.21
+    },
+    {
+      "step": "POST /mark-removal (t00058_dup)",
+      "status_code": 200,
+      "latency_ms": 85.6
+    },
+    {
+      "step": "POST /mark-removal (t00053_dup)",
+      "status_code": 200,
+      "latency_ms": 85.63
+    },
+    {
+      "step": "POST /mark-removal (t00048_dup)",
+      "status_code": 200,
+      "latency_ms": 95.85
+    },
+    {
+      "step": "POST /mark-removal (t00045_dup)",
+      "status_code": 200,
+      "latency_ms": 76.06
+    },
+    {
+      "step": "POST /mark-removal (t00017_dup)",
+      "status_code": 200,
+      "latency_ms": 97.86
+    },
+    {
+      "step": "POST /mark-removal (t00016_dup)",
+      "status_code": 200,
+      "latency_ms": 133.31
+    },
+    {
+      "step": "POST /mark-removal (t00014_dup)",
+      "status_code": 200,
+      "latency_ms": 109.51
+    },
+    {
+      "step": "POST /mark-removal (t00013_dup)",
+      "status_code": 200,
+      "latency_ms": 100.42
+    },
+    {
+      "step": "POST /mark-removal (t00004_dup)",
+      "status_code": 200,
+      "latency_ms": 95.59
+    },
+    {
+      "step": "GET /export/json",
+      "status_code": 200,
+      "latency_ms": 79.81
+    }
+  ],
+  "errors": [],
+  "total_duration_ms": 3440.85,
+  "timestamp_end": 1791984877.9593458,
+  "total_actions": 32,
+  "correct_actions": 32,
+  "http_requests": 35,
+  "failed_http_requests": [],
+  "exported_triple_count": 316
+}

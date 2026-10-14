@@ -53,6 +53,34 @@ def verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
     return secrets.compare_digest(computed, hash_hex)
 
 
+_ANSWER_PREFIX = "pbkdf2$"
+
+
+def hash_security_answer(answer: str) -> str:
+    """Hash a security answer (case-insensitive, trimmed) with the same PBKDF2 scheme as passwords."""
+    hashed = hash_password(str(answer or "").strip().lower())
+    return f"{_ANSWER_PREFIX}{hashed['salt']}${hashed['hash']}"
+
+
+def is_hashed_security_answer(stored: Any) -> bool:
+    return str(stored or "").startswith(_ANSWER_PREFIX)
+
+
+def verify_security_answer(answer: str, stored: Any) -> bool:
+    """Checks an answer against a hashed value, or against a legacy plain-text value."""
+    stored = str(stored or "").strip()
+    given = str(answer or "").strip().lower()
+    if not stored or not given:
+        return False
+    if is_hashed_security_answer(stored):
+        try:
+            salt_hex, hash_hex = stored[len(_ANSWER_PREFIX):].split("$", 1)
+        except ValueError:
+            return False
+        return verify_password(given, salt_hex, hash_hex)
+    return secrets.compare_digest(given.encode("utf-8"), stored.lower().encode("utf-8"))
+
+
 def load_users() -> Dict[str, Any]:
     """Load users from storage."""
     if use_database_storage():
@@ -221,6 +249,17 @@ def revoke_token(token: str):
         if token in tokens["tokens"]:
             del tokens["tokens"][token]
             save_tokens(tokens)
+
+
+def revoke_user_tokens(user_id: str, keep_token: Optional[str] = None) -> int:
+    """Revokes every token of a user except keep_token; returns how many were revoked."""
+    tokens = load_tokens().get("tokens", {})
+    revoked = 0
+    for token, data in list(tokens.items()):
+        if str((data or {}).get("user_id") or "") == str(user_id) and token != keep_token:
+            revoke_token(token)
+            revoked += 1
+    return revoked
 
 
 async def current_user(

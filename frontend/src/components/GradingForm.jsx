@@ -1096,62 +1096,62 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     });
     const agreementPct = multiGradeTriples > 0 ? ((agreedTriples / multiGradeTriples) * 100).toFixed(1) + "%" : "N/A";
 
-    // Quadratic Weighted Kappa inter-rater reliability calculation helper
+    // Quadratic weighted kappa (mirrors backend/services/metrics_service.py).
+    // Two raters: Cohen's kappa with each rater's own score distribution for chance agreement.
+    // Three or more raters: Fleiss-type kappa with the pooled score distribution.
+    // kappa = 1 - D_o / D_e with squared score differences; N/A when undefined.
     const calcWeightedKappa = (itemsList) => {
-      const valid = itemsList.filter((item) => Object.keys(item).length >= 2);
-      if (valid.length === 0) return "N/A (Requires >= 2 raters)";
-      
+      const valid = itemsList
+        .map((item) => {
+          const row = {};
+          Object.entries(item).forEach(([rater, grade]) => {
+            const v = Number(grade);
+            if (Number.isFinite(v) && v >= 0 && v <= 10) row[rater] = v;
+          });
+          return row;
+        })
+        .filter((row) => Object.keys(row).length >= 2);
+
       const allRaters = new Set();
       valid.forEach((item) => Object.keys(item).forEach((r) => allRaters.add(r)));
       const kCount = allRaters.size;
-      if (kCount < 2) return "N/A (Requires >= 2 raters)";
+      if (kCount < 2 || valid.length < 2) return "N/A (Requires >= 2 raters on >= 2 items)";
 
-      let totalObservedWeight = 0;
-      let totalPairs = 0;
-      const catCounts = Array(11).fill(0);
-      let totalRatingsCount = 0;
-
-      valid.forEach((item) => {
-        const vals = Object.values(item).map(Number).filter((v) => !isNaN(v));
-        const m = vals.length;
-        if (m < 2) return;
-
-        let itemWeightSum = 0;
-        let itemPairCount = 0;
-        for (let i = 0; i < m; i++) {
-          catCounts[vals[i]]++;
-          totalRatingsCount++;
-          for (let j = i + 1; j < m; j++) {
-            const diffSq = Math.pow(vals[i] - vals[j], 2);
-            const w = 1.0 - diffSq / 100.0;
-            itemWeightSum += w;
-            itemPairCount++;
+      let observed;
+      let expected;
+      let label;
+      const n = valid.length;
+      if (kCount === 2) {
+        const [ra, rb] = Array.from(allRaters).sort();
+        const pairs = valid.map((item) => [item[ra], item[rb]]);
+        observed = pairs.reduce((acc, [a, b]) => acc + (a - b) ** 2, 0) / n;
+        let cross = 0;
+        pairs.forEach(([a]) => pairs.forEach(([, b]) => { cross += (a - b) ** 2; }));
+        expected = cross / (n * n);
+        label = "Cohen's";
+      } else {
+        let observedSum = 0;
+        const pooled = [];
+        valid.forEach((item) => {
+          const vals = Object.values(item);
+          const m = vals.length;
+          let pairSum = 0;
+          for (let i = 0; i < m; i++) {
+            for (let j = i + 1; j < m; j++) pairSum += (vals[i] - vals[j]) ** 2;
           }
-        }
-        if (itemPairCount > 0) {
-          totalObservedWeight += itemWeightSum / itemPairCount;
-          totalPairs++;
-        }
-      });
-
-      if (totalPairs === 0 || totalRatingsCount === 0) return "N/A";
-
-      const po = totalObservedWeight / totalPairs;
-      let pe = 0;
-      const catProbs = catCounts.map((cnt) => cnt / totalRatingsCount);
-
-      for (let c1 = 0; c1 <= 10; c1++) {
-        for (let c2 = 0; c2 <= 10; c2++) {
-          const diffSq = Math.pow(c1 - c2, 2);
-          const w = 1.0 - diffSq / 100.0;
-          pe += w * catProbs[c1] * catProbs[c2];
-        }
+          observedSum += pairSum / ((m * (m - 1)) / 2);
+          pooled.push(...vals);
+        });
+        observed = observedSum / n;
+        const mean = pooled.reduce((a, b) => a + b, 0) / pooled.length;
+        expected = (2 * pooled.reduce((acc, g) => acc + (g - mean) ** 2, 0)) / pooled.length;
+        label = "Fleiss'";
       }
 
-      let kappa = Math.abs(1.0 - pe) < 1e-9 ? (Math.abs(po - 1.0) < 1e-9 ? 1.0 : 0.0) : (po - pe) / (1.0 - pe);
-      kappa = Math.max(-1.0, Math.min(1.0, kappa));
-      const label = kCount === 2 ? "Cohen's" : "Fleiss'";
-      return `${kappa.toFixed(2)} (${label}, k=${kCount})`;
+      if (expected <= 1e-12) return "N/A (no rating variation; kappa undefined)";
+      let kappa = 1 - observed / expected;
+      if (Math.abs(kappa) < 5e-5) kappa = 0;
+      return `${kappa.toFixed(2)} (${label}, k=${kCount}, n=${n})`;
     };
 
     const tripleItems = [];
@@ -1694,7 +1694,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         setTimeout(() => setSaveMsg(""), 3000);
         hasUnsavedChangesRef.current = false;
       } catch (e) {
-        setSaveError("Auto-save failed. Connection issues?");
+        if (e?.response?.status === 409) {
+          hasUnsavedChangesRef.current = false;
+          setSaveError(e?.response?.data?.detail || "This session changed. Reload it before making changes.");
+        } else {
+          setSaveError("Auto-save failed. Connection issues?");
+        }
       } finally {
         savingRef.current = false;
         setSaving(false);
@@ -1777,7 +1782,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     // WebSocket real-time connection
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/api/ws/${initialSessionId}`;
+    const wsToken = getAuthToken();
+    const wsUrl = `${protocol}//${host}/api/ws/${initialSessionId}?token=${encodeURIComponent(wsToken || "")}`;
     let socket;
     let reconnectTimeout;
 
@@ -1813,7 +1819,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           console.error("[GradingForm] WS parsing error:", e);
         }
       };
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        if (event?.code === 1008) return;
         reconnectTimeout = setTimeout(connectWS, 3000);
       };
       socket.onerror = () => {
@@ -1853,6 +1860,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       setTimeout(() => setSaveMsg(""), 3500);
       hasUnsavedChangesRef.current = false;
     } catch (e) {
+      if (e?.response?.status === 409) {
+        hasUnsavedChangesRef.current = false;
+      }
       setSaveError(
         e?.response?.data?.detail || "Save failed. Is the backend running?"
       );
@@ -2266,6 +2276,9 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       setTimeout(() => setSaveMsg(""), 3000);
       hasUnsavedChangesRef.current = false;
     } catch (e) {
+      if (e?.response?.status === 409) {
+        hasUnsavedChangesRef.current = false;
+      }
       setSaveError(
         e?.response?.data?.detail || "Save failed. Is the backend running?"
       );
@@ -4454,7 +4467,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
                 <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex items-start gap-2.5 text-left">
                   <AlertCircle size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-400">
-                    <strong>Quadratic Weighting Note:</strong> Uses <em>Cohen's Kappa</em> for 2 raters (k=2) and <em>Fleiss' Kappa</em> for 3+ raters (k &gt; 2). Quadratic distance weighting (w = 1 - (i - j)² / 100) penalizes large rating gaps proportionately while allowing minor 1-point score variations.
+                    <strong>Quadratic Weighting Note:</strong> Uses <em>Cohen's Kappa</em> for 2 raters (k=2) and <em>Fleiss' Kappa</em> for 3+ raters (k &gt; 2). Quadratic distance weighting (w = 1 - (i - j)² / 100) penalizes large rating gaps proportionately while allowing minor 1-point score variations.{!isOwner && " Peer scores are visible only for items you have rated, so these values cover those items."}
                   </p>
                 </div>
 

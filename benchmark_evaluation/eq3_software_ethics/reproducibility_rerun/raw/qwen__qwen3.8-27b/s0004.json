@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:24:57.942841+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "51ea30f8f9de98b969307b851d2e08d6cd56535a22ef6e4bd52c95e9226133dd",
+  "target": {
+    "sentence_id": "s0004",
+    "sentence": "The Code is not a simple ethical algorithm that generates ethical decisions."
+  },
+  "response": {
+    "id": "chatcmpl-87968abb-0fc1-4a5c-91fb-6d2ebf85a718",
+    "object": "chat.completion",
+    "created": 1791984297,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"Code_001\",\n    \"predicate\": \"is_not\",\n    \"object\": \"simple_ethical_algorithm\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"simple_ethical_algorithm\",\n    \"predicate\": \"generates\",\n    \"object\": \"ethical_decisions\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.114766776,
+      "prompt_tokens": 5623,
+      "prompt_time": 0.403120063,
+      "completion_tokens": 98,
+      "completion_time": 0.190111666,
+      "total_tokens": 5721,
+      "total_time": 0.593231729
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9crsferfs4t4bmrfbqwgt",
+      "seed": 1475076947
+    },
+    "service_tier": "on_demand"
+  }
+}

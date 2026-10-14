@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T00:26:35.465796+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "1fdeb574fe4afc5f1d7f740efb3f5fbb9e9cbaa0960435eca9360dc9befea414",
+  "target": {
+    "sentence_id": "s0011",
+    "sentence": "Software engineers shall maintain integrity and independence in their professional judgment."
+  },
+  "response": {
+    "id": "chatcmpl-236f330f-0011-4c37-80d4-071f0eb33170",
+    "object": "chat.completion",
+    "created": 1791937595,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"integrity\"\n  },\n  {\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"independence\"\n  },\n  {\n    \"subject\": \"integrity\",\n    \"predicate\": \"is_in\",\n    \"object\": \"professional_judgment\"\n  },\n  {\n    \"subject\": \"independence\",\n    \"predicate\": \"is_in\",\n    \"object\": \"professional_judgment\"\n  }\n]",
+          "reasoning": "We need to produce triples similar to examples. Input: \"Software engineers shall maintain integrity and independence in their professional judgment.\"\n\nWe need to extract subject: software_engineers. Predicate(s): \"shall_maintain\" maybe? In examples, they use \"shall_maintain\" or \"shall_maintain_integrity_and_independence\"? Let's see pattern: For multiple objects, they split into separate triples. Example 2: \"shall be fair to\" and \"shall be supportive of\". They used separate predicates for each phrase.\n\nHere phrase: \"shall maintain integrity and independence in their professional judgment.\"\n\nInterpretation: Two objects: integrity and independence, both in professional judgment. Could produce two triples:\n\n1) subject: software_engineers, predicate: shall_maintain, object: integrity\n\n2) subject: software_engineers, predicate: shall_maintain, object: independence\n\nBut also maybe include relation to professional judgment: \"integrity\" is in professional judgment. Could add triple: integrity predicate: is_in object: professional_judgment. Or independence is in professional judgment.\n\nLook at example 6: they split \"objective, candid, and properly-documented way\" into separate triples with predicate \"shall_be\". They also have separate triple for each attribute.\n\nExample 8: \"Assist colleagues in being fully aware of current standard work practices including policies and procedures for protecting passwords, files and other confidential information, and security measures in general.\" They have triple for \"colleagues be_fully_aware_of current_standard_work_practices\". Then separate includes.\n\nThus for our sentence, we could produce:\n\n- software_engineers shall_maintain integrity\n- software_engineers shall_maintain independence\n- integrity is_in professional_judgment\n- independence is_in professional_judgment\n\nBut need to follow naming conventions: Use underscores, lower case. Use \"professional_judgment_001\"? In examples they sometimes add suffix _001 for objects like \"colleagues_001\". For \"professional judgment\", maybe \"professional_judgment\". Use \"professional_judgment\". Use predicate \"is_in\". Example 9: \"shall_not_unfairly_intervene_in\" object \"career_of_any_colleague\". So they embed \"in\" in predicate. Here phrase \"maintain integrity and independence in their professional judgment.\" Could embed \"in\" in predicate: \"shall_maintain_integrity_and_independence_in\". But they usually separate.\n\nBetter to follow pattern: separate triples for each object, and then separate triple linking object to professional judgment with predicate \"is_in\". Let's produce 4 triples.\n\nAssign triple_id sequentially starting at 1.\n\nJSON array of objects with keys subject, predicate, object. No triple_id required? The examples include triple_id but instruction says \"Output ONLY a valid JSON array of objects with keys 'subject', 'predicate', and 'object'.\" So omit triple_id.\n\nThus output:\n\n[\n  {\"subject\":\"software_engineers\",\"predicate\":\"shall_maintain\",\"object\":\"integrity\"},\n  {\"subject\":\"software_engineers\",\"predicate\":\"shall_maintain\",\"object\":\"independence\"},\n  {\"subject\":\"integrity\",\"predicate\":\"is_in\",\"object\":\"professional_judgment\"},\n  {\"subject\":\"independence\",\"predicate\":\"is_in\",\"object\":\"professional_judgment\"}\n]\n\nCheck naming: \"professional_judgment\". Good.\n\nReturn only JSON array."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.243848828,
+      "prompt_tokens": 4909,
+      "prompt_time": 0.242548153,
+      "completion_tokens": 832,
+      "completion_time": 1.7805548230000001,
+      "total_tokens": 5741,
+      "total_time": 2.023102976,
+      "completion_tokens_details": {
+        "reasoning_tokens": 697
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c3da0d4bb9",
+    "x_groq": {
+      "id": "req_01m4vwvftwe7fs62fn8ahbs0te",
+      "seed": 839371749
+    },
+    "service_tier": "on_demand"
+  }
+}

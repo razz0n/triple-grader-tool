@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:38:47.294375+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "5638c3cd0d55f6b79133b99cbbccc7f2510fcc3bb0d3d96d1342aca92f3b8cc4",
+  "target": {
+    "sentence_id": "SEN:10006606",
+    "sentence": "Beta2m directly increases the expression of VCAM-1 by synovial fibroblasts, indicating that synovial fibroblasts may play a key role in the pathogenesis of beta(2)m amyloidosis."
+  },
+  "response": {
+    "id": "chatcmpl-6fc40faf-71b1-4c8b-a56e-3eb6d5ca5285",
+    "object": "chat.completion",
+    "created": 1791938327,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:VCAM1) increases path(MESHD:\\\"Amyloidosis\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.065903883,
+      "prompt_tokens": 4629,
+      "prompt_time": 0.382177075,
+      "completion_tokens": 27,
+      "completion_time": 0.055374669,
+      "total_tokens": 4656,
+      "total_time": 0.437551744
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_57c7e760a9",
+    "x_groq": {
+      "id": "req_01m4vxhw7be4qb5gz42sekwc96",
+      "seed": 704181353
+    },
+    "service_tier": "on_demand"
+  }
+}

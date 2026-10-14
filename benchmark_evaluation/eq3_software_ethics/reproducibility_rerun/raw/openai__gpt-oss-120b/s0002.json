@@ -1,0 +1,50 @@
+{
+  "requested_at": "2026-10-14T00:22:35.507529+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "d39c897e34b3df7c31d4a6c6e003d456a17871d4a2b5938334882c8db3826f4c",
+  "target": {
+    "sentence_id": "s0002",
+    "sentence": "The list of Principles and Clauses is not exhaustive."
+  },
+  "response": {
+    "id": "chatcmpl-bf88ab77-4494-4b02-91af-a38dde6d9b6b",
+    "object": "chat.completion",
+    "created": 1791937355,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"subject\": \"list_of_principles_and_clauses\",\n    \"predicate\": \"is_not_exhaustive\",\n    \"object\": \"true\"\n  }\n]",
+          "reasoning": "We need to produce SPO triples for the sentence: \"The list of Principles and Clauses is not exhaustive.\"\n\nWe need to follow style: subject, predicate, object. Use snake_case. Use appropriate identifiers. In examples, they often create subject like \"list_of_principles_and_clauses\" maybe. Predicate could be \"is_not_exhaustive\" or \"shall_not_be_exhaustive\"? In examples, they use \"is_not_exhaustive\"? Not seen. They use \"is\" for simple statements, \"shall_be\" for obligations. Here it's a statement about the list being not exhaustive. So triple: subject \"list_of_principles_and_clauses\", predicate \"is_not_exhaustive\", object maybe \"true\" or something. Could also have object \"exhaustive\" with negation. But pattern: Example 1: predicate \"is\". Example 6: predicate \"shall_be\". For negative, they use \"shall_not_unfairly_intervene_in\". So they embed \"not\" in predicate. So we can use predicate \"is_not_exhaustive\". Object maybe \"true\" or \"exhaustive\"? Could be \"exhaustive\" but predicate already includes not. In examples, they sometimes have object \"colleagues_001\". For negative they embed not in predicate and object is target. Eg Example 7: predicate \"shall_not_unfairly_intervene_in\", object \"career_of_any_colleague\". So here predicate \"is_not_exhaustive\", object maybe \"list\". But subject is list. So maybe object \"exhaustive\". But that seems redundant. Better: predicate \"is_not_exhaustive\", object \"list_of_principles_and_clauses\"? No.\n\nMaybe we treat as: subject \"list_of_principles_and_clauses\", predicate \"is_not_exhaustive\", object \"true\". That seems okay.\n\nWe need triple_id? The instruction says output only JSON array of objects with keys 'subject', 'predicate', and 'object'. No triple_id. So just one object.\n\nThus output:\n\n[\n  {\n    \"subject\": \"list_of_principles_and_clauses\",\n    \"predicate\": \"is_not_exhaustive\",\n    \"object\": \"true\"\n  }\n]\n\nCheck formatting: JSON array.\n\nReturn only that."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.142001371,
+      "prompt_tokens": 4908,
+      "prompt_time": 0.00660875,
+      "completion_tokens": 524,
+      "completion_time": 1.077251957,
+      "total_tokens": 5432,
+      "total_time": 1.083860707,
+      "prompt_tokens_details": {
+        "cached_tokens": 4864
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 476
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fe269835c7",
+    "x_groq": {
+      "id": "req_01m4vwm6eeeb7864d5j292q1nq",
+      "seed": 1867176737
+    },
+    "service_tier": "on_demand"
+  }
+}

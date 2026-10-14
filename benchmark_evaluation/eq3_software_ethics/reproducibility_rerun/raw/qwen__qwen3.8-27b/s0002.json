@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:23:02.454146+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "d39c897e34b3df7c31d4a6c6e003d456a17871d4a2b5938334882c8db3826f4c",
+  "target": {
+    "sentence_id": "s0002",
+    "sentence": "The list of Principles and Clauses is not exhaustive."
+  },
+  "response": {
+    "id": "chatcmpl-36d36480-6b50-4ed8-8c01-8845e2297370",
+    "object": "chat.completion",
+    "created": 1791984181,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"list_of_principles_and_clauses\",\n    \"predicate\": \"is_not\",\n    \"object\": \"exhaustive\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.11445734,
+      "prompt_tokens": 5621,
+      "prompt_time": 0.429560232,
+      "completion_tokens": 54,
+      "completion_time": 0.102843463,
+      "total_tokens": 5675,
+      "total_time": 0.532403695
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9982de47skkty0b16hfah",
+      "seed": 565718147
+    },
+    "service_tier": "on_demand"
+  }
+}

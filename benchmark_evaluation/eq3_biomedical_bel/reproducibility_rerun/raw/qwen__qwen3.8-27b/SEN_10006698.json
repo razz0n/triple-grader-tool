@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:40:39.876646+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "38a0ac708f784060d9274b356c869967c0392e4c44156b384caf68ac2d1d48dd",
+  "target": {
+    "sentence_id": "SEN:10006698",
+    "sentence": "After confirming that human CD40L can up-regulate expression of Fas, B7-1, and B7-2 molecules on murine BCL cells in vitro, we transfected the human CD40L gene into S typhimurium mutant (ST40L), which was administrated orally to determine whether it was able to prevent the growth of BCL in mice."
+  },
+  "response": {
+    "id": "chatcmpl-35ea3469-c020-4cd1-81ce-4ad5257a3274",
+    "object": "chat.completion",
+    "created": 1791938439,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:CD40LG) increases r(HGNC:CD80)\",\n  \"p(HGNC:CD40LG) increases r(HGNC:CD86)\",\n  \"p(HGNC:CD40LG) increases r(HGNC:FAS)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.097204865,
+      "prompt_tokens": 4662,
+      "prompt_time": 0.320529686,
+      "completion_tokens": 71,
+      "completion_time": 0.137592573,
+      "total_tokens": 4733,
+      "total_time": 0.458122259
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vxna40eyntjebcxd5jfky0",
+      "seed": 765511327
+    },
+    "service_tier": "on_demand"
+  }
+}

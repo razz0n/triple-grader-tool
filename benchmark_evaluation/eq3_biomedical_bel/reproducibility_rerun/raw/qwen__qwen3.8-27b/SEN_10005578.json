@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:35:43.454628+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "587eccadf00b9142de87676b218141f6d46b1f8c0b03e6c45dc0b1e5d022119a",
+  "target": {
+    "sentence_id": "SEN:10005578",
+    "sentence": "This Rantes production was dependent on the binding of a p65/Stat3 complex to NF-kappaB-binding sites within the Rantes promoter, with shRNA knockdown of either Stat3 or p65 markedly attenuating Rantes production"
+  },
+  "response": {
+    "id": "chatcmpl-ebfa4d54-c75a-4ecc-9755-8d7d2cad4f89",
+    "object": "chat.completion",
+    "created": 1791938143,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"complex(p(HGNC:RELA),p(HGNC:STAT3)) increases r(HGNC:CCL5)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.066144104,
+      "prompt_tokens": 4632,
+      "prompt_time": 0.318670695,
+      "completion_tokens": 33,
+      "completion_time": 0.062914579,
+      "total_tokens": 4665,
+      "total_time": 0.381585274
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vxc8qke6va8ngxk62cvzbf",
+      "seed": 604506212
+    },
+    "service_tier": "on_demand"
+  }
+}

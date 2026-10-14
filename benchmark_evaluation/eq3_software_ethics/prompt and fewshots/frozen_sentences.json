@@ -1,0 +1,552 @@
+{
+  "description": "Experiment 3 Frozen Sentences (Sentence-Level): 15 target sentences from Paragraph 1, Paragraph 2, and Judgment (Principle 4)",
+  "total_sentences": 15,
+  "sentences": [
+    {
+      "sentence_id": "s0001",
+      "id": 1,
+      "section": "Paragraph 1",
+      "sentence": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.",
+      "word_count": 22,
+      "gold_triple_count": 6,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "individual_parts",
+          "predicate": "is_of",
+          "object": "Code_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "individual_parts",
+          "predicate": "used_in",
+          "object": "isolation_001"
+        },
+        {
+          "triple_id": 3,
+          "subject": "isolation_001",
+          "predicate": "used_to",
+          "object": "justify_errors"
+        },
+        {
+          "triple_id": 4,
+          "subject": "errors",
+          "predicate": "is_of",
+          "object": "omission"
+        },
+        {
+          "triple_id": 5,
+          "subject": "errors",
+          "predicate": "is_of",
+          "object": "commission"
+        },
+        {
+          "triple_id": 6,
+          "subject": "individual_parts",
+          "predicate": "not_intended_for",
+          "object": "isolation_001"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0002",
+      "id": 2,
+      "section": "Paragraph 1",
+      "sentence": "The list of Principles and Clauses is not exhaustive.",
+      "word_count": 9,
+      "gold_triple_count": 3,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "list_001",
+          "predicate": "is_of",
+          "object": "principles"
+        },
+        {
+          "triple_id": 2,
+          "subject": "list_001",
+          "predicate": "is_of",
+          "object": "clauses"
+        },
+        {
+          "triple_id": 3,
+          "subject": "list_001",
+          "predicate": "is_not",
+          "object": "exhaustive"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0003",
+      "id": 3,
+      "section": "Paragraph 1",
+      "sentence": "The Clauses should not be read as separating the acceptable from the unacceptable in professional conduct in all practical situations.",
+      "word_count": 20,
+      "gold_triple_count": 1,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "clauses",
+          "predicate": "should_not_be_read_as",
+          "object": "separating_acceptable_from_unacceptable_in_professional_conduct_in_all_practical_situations"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0004",
+      "id": 4,
+      "section": "Paragraph 1",
+      "sentence": "The Code is not a simple ethical algorithm that generates ethical decisions.",
+      "word_count": 12,
+      "gold_triple_count": 3,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "Code_001",
+          "predicate": "is_not",
+          "object": "ethical_algorithm_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "ethical_algorithm_001",
+          "predicate": "is",
+          "object": "simple"
+        },
+        {
+          "triple_id": 3,
+          "subject": "ethical_algorithm_001",
+          "predicate": "generates",
+          "object": "ethical_decisions"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0005",
+      "id": 5,
+      "section": "Paragraph 2",
+      "sentence": "In some situations standards may be in tension with each other or with standards from other sources.",
+      "word_count": 17,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "standards_001",
+          "predicate": "may_be_in_tension_with",
+          "object": "each_other"
+        },
+        {
+          "triple_id": 2,
+          "subject": "standards_001",
+          "predicate": "is_in",
+          "object": "some_situations"
+        },
+        {
+          "triple_id": 3,
+          "subject": "standards_001",
+          "predicate": "may_be_in_tension_with",
+          "object": "standards_002"
+        },
+        {
+          "triple_id": 4,
+          "subject": "standards_002",
+          "predicate": "is_from",
+          "object": "other_sources"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0006",
+      "id": 6,
+      "section": "Paragraph 2",
+      "sentence": "These situations require the software engineer to use ethical judgment to act in a manner which is most consistent with the spirit of the Code of Ethics and Professional Practice, given the circumstances",
+      "word_count": 33,
+      "gold_triple_count": 6,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "situations_001",
+          "predicate": "require",
+          "object": "software_engineers"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_use",
+          "object": "ethical_judgment_001"
+        },
+        {
+          "triple_id": 3,
+          "subject": "ethical_judgment_001",
+          "predicate": "used_for",
+          "object": "act_001"
+        },
+        {
+          "triple_id": 4,
+          "subject": "act_001",
+          "predicate": "shall_be_most_consistent_with",
+          "object": "spirit"
+        },
+        {
+          "triple_id": 5,
+          "subject": "spirit",
+          "predicate": "is_of",
+          "object": "code_001"
+        },
+        {
+          "triple_id": 6,
+          "subject": "act_001",
+          "predicate": "is_given",
+          "object": "circumstances"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0007",
+      "id": 7,
+      "section": "Paragraph 2",
+      "sentence": "Ethical tensions can best be addressed by thoughtful consideration of fundamental principles, rather than blind reliance on detailed regulations.",
+      "word_count": 19,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "ethical_tensions",
+          "predicate": "can_best_be_addressed_by",
+          "object": "thoughtful_consideration_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "thoughtful_consideration_001",
+          "predicate": "is_of",
+          "object": "fundamental_principles"
+        },
+        {
+          "triple_id": 3,
+          "subject": "ethical_tensions",
+          "predicate": "not_addressed_by",
+          "object": "blind_reliance"
+        },
+        {
+          "triple_id": 4,
+          "subject": "blind_reliance",
+          "predicate": "is_on",
+          "object": "detailed_regulations"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0010",
+      "id": 10,
+      "section": "Judgment (Principle 4)",
+      "sentence": "Principle 4: JUDGMENT",
+      "word_count": 3,
+      "gold_triple_count": 2,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "principle_4",
+          "predicate": "is",
+          "object": "Judgment"
+        },
+        {
+          "triple_id": 2,
+          "subject": "principle_4",
+          "predicate": "is_in",
+          "object": "Code_001"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0011",
+      "id": 11,
+      "section": "Judgment (Principle 4)",
+      "sentence": "Software engineers shall maintain integrity and independence in their professional judgment.",
+      "word_count": 11,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "integrity"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "independence"
+        },
+        {
+          "triple_id": 3,
+          "subject": "integrity",
+          "predicate": "is_in",
+          "object": "professional_judgment"
+        },
+        {
+          "triple_id": 4,
+          "subject": "independence",
+          "predicate": "is_in",
+          "object": "professional_judgment"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0012",
+      "id": 12,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.01. Temper all technical judgments by the need to support and maintain human values.",
+      "word_count": 14,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_temper",
+          "object": "technical_judgments"
+        },
+        {
+          "triple_id": 2,
+          "subject": "technical_judgments",
+          "predicate": "tempered_by",
+          "object": "need_to_support_human_values"
+        },
+        {
+          "triple_id": 3,
+          "subject": "technical_judgements",
+          "predicate": "tempered_by",
+          "object": "need_to_maintain_human_values"
+        },
+        {
+          "triple_id": 4,
+          "subject": "technical_judgments",
+          "predicate": "are",
+          "object": "all"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0013",
+      "id": 13,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.02. Only endorse documents either prepared under their supervision or within their areas of competence and with which they are in agreement.",
+      "word_count": 22,
+      "gold_triple_count": 5,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_endorse",
+          "object": "documents_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "documents_001",
+          "predicate": "prepared_under",
+          "object": "supervision"
+        },
+        {
+          "triple_id": 3,
+          "subject": "documents_001",
+          "predicate": "within",
+          "object": "areas_of_competence"
+        },
+        {
+          "triple_id": 4,
+          "subject": "software_engineers",
+          "predicate": "are_in_agreement_with",
+          "object": "documents_001"
+        },
+        {
+          "triple_id": 5,
+          "subject": "documents_001",
+          "predicate": "are",
+          "object": "only"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0014",
+      "id": 14,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.",
+      "word_count": 17,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_maintain",
+          "object": "professional_objectivity"
+        },
+        {
+          "triple_id": 2,
+          "subject": "professional_objectivity",
+          "predicate": "is_for",
+          "object": "evaluation_001"
+        },
+        {
+          "triple_id": 3,
+          "subject": "evaluation_001",
+          "predicate": "is_of",
+          "object": "software"
+        },
+        {
+          "triple_id": 4,
+          "subject": "evaluation_001",
+          "predicate": "is_of",
+          "object": "related_documents"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0015",
+      "id": 15,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices.",
+      "word_count": 17,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_not_engage_in",
+          "object": "deceptive_financial_practices"
+        },
+        {
+          "triple_id": 2,
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "bribery"
+        },
+        {
+          "triple_id": 3,
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "double_billing"
+        },
+        {
+          "triple_id": 4,
+          "subject": "deceptive_financial_practices",
+          "predicate": "include",
+          "object": "other_improper_financial_practices"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0016",
+      "id": 16,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.05. Disclose to all concerned parties those conflicts of interest that cannot reasonably be avoided or escaped.",
+      "word_count": 17,
+      "gold_triple_count": 4,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_disclose_to",
+          "object": "conflicts_of_interest_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "conflicts_of_interest_001",
+          "predicate": "disclosed_to_all",
+          "object": "concerned_parties"
+        },
+        {
+          "triple_id": 3,
+          "subject": "conflicts_of_interest_001",
+          "predicate": "cannot_reasonably_be",
+          "object": "avoided"
+        },
+        {
+          "triple_id": 4,
+          "subject": "conflicts_of_interest_001",
+          "predicate": "cannot_reasonably_be",
+          "object": "escaped"
+        }
+      ]
+    },
+    {
+      "sentence_id": "s0017",
+      "id": 17,
+      "section": "Judgment (Principle 4)",
+      "sentence": "4.06. Refuse to participate, as members or advisors, in a private, governmental or professional body concerned with software related issues, in which they, their employers or their clients have undisclosed potential conflicts of interest.",
+      "word_count": 34,
+      "gold_triple_count": 12,
+      "gold_triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_refuse_to",
+          "object": "participation_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "participation_001",
+          "predicate": "is_as",
+          "object": "members"
+        },
+        {
+          "triple_id": 3,
+          "subject": "participation_001",
+          "predicate": "is_as",
+          "object": "advisors"
+        },
+        {
+          "triple_id": 4,
+          "subject": "participation_001",
+          "predicate": "is_in",
+          "object": "private_body"
+        },
+        {
+          "triple_id": 5,
+          "subject": "participation_001",
+          "predicate": "is_in",
+          "object": "governmental_body"
+        },
+        {
+          "triple_id": 6,
+          "subject": "participation_001",
+          "predicate": "concerned_with",
+          "object": "software_related_issues"
+        },
+        {
+          "triple_id": 7,
+          "subject": "participation_001",
+          "predicate": "has",
+          "object": "conflict_of_interest_002"
+        },
+        {
+          "triple_id": 8,
+          "subject": "conflict_of_interest_002",
+          "predicate": "is",
+          "object": "undisclosed"
+        },
+        {
+          "triple_id": 9,
+          "subject": "conflict_of_interest_002",
+          "predicate": "has",
+          "object": "potential"
+        },
+        {
+          "triple_id": 10,
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "software_engineers"
+        },
+        {
+          "triple_id": 11,
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "employers"
+        },
+        {
+          "triple_id": 12,
+          "subject": "conflict_of_interest_002",
+          "predicate": "is_of",
+          "object": "clients"
+        }
+      ]
+    }
+  ]
+}

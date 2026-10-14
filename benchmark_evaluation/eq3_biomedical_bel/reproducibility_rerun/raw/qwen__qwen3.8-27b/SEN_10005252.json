@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:34:28.318314+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "0f7ed198c765f965afcfe57d78c75898fbb842e33a1c0e3d34a631c96be96f24",
+  "target": {
+    "sentence_id": "SEN:10005252",
+    "sentence": "We now demonstrate that an AKAP220 fragment is a competitive inhibitor of PP1c activity (K(i) = 2.9 +/- 0.7 micrometer)."
+  },
+  "response": {
+    "id": "chatcmpl-c7f4402c-b37c-44b6-80c7-1f521cffece3",
+    "object": "chat.completion",
+    "created": 1791938068,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:AKAP12) decreases phos(p(HGNC:PPP1CC))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.271852587,
+      "prompt_tokens": 4618,
+      "prompt_time": 0.399980071,
+      "completion_tokens": 30,
+      "completion_time": 0.066968876,
+      "total_tokens": 4648,
+      "total_time": 0.466948947
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vx9z3aefxvqms8qm2t3492",
+      "seed": 1116696464
+    },
+    "service_tier": "on_demand"
+  }
+}

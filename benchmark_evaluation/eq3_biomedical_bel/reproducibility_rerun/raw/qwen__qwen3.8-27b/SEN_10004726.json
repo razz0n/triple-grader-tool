@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:30:02.640243+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "32ecfb7cf27a90df270e2fbb847389990890eb1178de5a27047d0e0e53480f02",
+  "target": {
+    "sentence_id": "SEN:10004726",
+    "sentence": "In addition, TKT mRNA levels were elevated fivefold in the corneas of 28-day-old mice raised in darkness and injected with EGF compared to uninjected mice also deprived of light"
+  },
+  "response": {
+    "id": "chatcmpl-76be80f4-c7f2-41b9-abd7-d3d23ac24980",
+    "object": "chat.completion",
+    "created": 1791937802,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:EGFR) increases r(HGNC:TKT)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.089527418,
+      "prompt_tokens": 4621,
+      "prompt_time": 0.330679483,
+      "completion_tokens": 24,
+      "completion_time": 0.052909302,
+      "total_tokens": 4645,
+      "total_time": 0.383588785
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4vx1vx4e3mvmhecc8mrvqka",
+      "seed": 449896390
+    },
+    "service_tier": "on_demand"
+  }
+}

@@ -1,32 +1,36 @@
 """
-run_all_evaluations.py — Master Benchmark Evaluation Execution Runner.
+run_all_evaluations.py — Regenerates every reported evaluation table with one command.
 
-Executes all empirical evaluation suites across EQ1, EQ2, and EQ3,
-generating standardized CSV result datasets in benchmark_evaluation/results/.
+    python benchmark_evaluation/run_all_evaluations.py            # EQ1, EQ2 analysis, EQ3
+    python benchmark_evaluation/run_all_evaluations.py --replay   # also re-run the EQ2 oracle replay
 
-Evaluation Suites:
-  1. EQ1: Lifecycle Workflow Correctness (State transitions T01–T18, VTA, IARR, Fidelity)
-  2. EQ2: Controlled Corruption Recovery (E1–E10 synthetic injection and oracle replay)
-  3. EQ3 Software Ethics: Transformation Dynamics & Downstream Evaluation (B0 vs B1, Delta F1, 95% CIs)
-  4. EQ3 Biomedical Native-BEL: Transformation Dynamics & Downstream Evaluation (B0 vs B1, Delta F1, 95% CIs)
+All suites run against an isolated local JSON/SQLite store (common/local_backend.py), never a
+hosted database.
+
+  1. EQ1: workflow matrix T01-T18 plus agreement-metric and security regression tests
+  2. EQ2: controlled corruption recovery (E1-E10); --replay re-issues the oracle actions
+  3. EQ3: frozen-input check, then candidate-to-reference alignment and downstream scores
 """
 
+import argparse
+import subprocess
 import sys
 import time
 from pathlib import Path
 
-# Add project root to sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
-from benchmark_evaluation.eq1_workflow_correctness.run_eq1_evaluation import run_evaluation as run_eq1
-from benchmark_evaluation.eq2_controlled_recovery.analyze_recovery import analyze_all_runs as run_eq2
-from benchmark_evaluation.eq3_software_ethics.analyze_transformation import analyze_transformations as run_eq3_ethics_trans
-from benchmark_evaluation.eq3_software_ethics.evaluate_downstream import run_downstream_evaluations as run_eq3_ethics_down
-from benchmark_evaluation.eq3_biomedical_bel.analyze_transformation import main as run_eq3_bio_trans
-from benchmark_evaluation.eq3_biomedical_bel.evaluate_downstream import main as run_eq3_bio_down
+from benchmark_evaluation.common.local_backend import use_isolated_local_storage  # noqa: E402
 
-RESULTS_DIR = Path(__file__).resolve().parent / "results"
+use_isolated_local_storage()
+
+from benchmark_evaluation.eq1_workflow_correctness.run_eq1_evaluation import run_evaluation as run_eq1  # noqa: E402
+from benchmark_evaluation.eq2_controlled_recovery.analyze_recovery import analyze_all_runs as run_eq2  # noqa: E402
+from benchmark_evaluation.run_eq3 import main as run_eq3  # noqa: E402
+
+BENCH_DIR = Path(__file__).resolve().parent
+RESULTS_DIR = BENCH_DIR / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 EXPECTED_OUTPUTS = [
@@ -38,62 +42,48 @@ EXPECTED_OUTPUTS = [
     "eq3_downstream.csv",
     "eq3_bio_transformation.csv",
     "eq3_bio_downstream.csv",
+    "eq3_summary.json",
+    "eq3_tables.tex",
 ]
 
 
-def main():
-    print("=" * 80)
-    print("STARTING BENCHMARK EMPIRICAL EVALUATION SUITE")
-    print("=" * 80)
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--replay", action="store_true", help="re-run the EQ2 oracle replay before analysis")
+    args = ap.parse_args()
+
     t_start = time.perf_counter()
 
-    # 1. EQ1: Lifecycle Workflow Correctness
-    print("\n[Phase 1/4] Executing EQ1 Lifecycle Workflow Verification...")
-    eq1_res = run_eq1()
-    print(f"  -> EQ1 Status: {eq1_res['passed']}/{eq1_res['total']} passed "
-          f"(VTA={eq1_res['vta']*100:.1f}%, IARR={eq1_res['iarr']*100:.1f}%, FF={eq1_res['fidelity']*100:.1f}%)")
+    print("\n[1/3] EQ1 workflow matrix")
+    eq1 = run_eq1()
+    print(f"  -> {eq1['passed']}/{eq1['total']} scenarios passed")
+    tests = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-W", "ignore",
+         str(BENCH_DIR / "eq1_workflow_correctness")],
+        cwd=ROOT_DIR,
+    )
+    if tests.returncode != 0:
+        sys.exit("EQ1 regression tests failed")
 
-    # 2. EQ2: Controlled Corruption Recovery
-    print("\n[Phase 2/4] Executing EQ2 Controlled Corruption Recovery Analysis...")
-    eq2_base = Path(__file__).resolve().parent / "eq2_controlled_recovery"
-    eq2_res = run_eq2(eq2_base)
-    print(f"  -> EQ2 Status: {len(eq2_res)} conditions analyzed. 100% exact restoration confirmed.")
+    print("\n[2/3] EQ2 controlled recovery")
+    eq2_dir = BENCH_DIR / "eq2_controlled_recovery"
+    if args.replay:
+        from benchmark_evaluation.eq2_controlled_recovery.replay_oracle_actions import replay_all_conditions
+        replay_all_conditions(eq2_dir)
+    eq2 = run_eq2(eq2_dir)
+    restored = sum(1 for r in eq2 if r["exact_match"] and r["row_level_match"])
+    print(f"  -> {restored}/{len(eq2)} conditions restored at SPO-set and row level")
 
-    # 3. EQ3: Software Ethics Domain Evaluation
-    print("\n[Phase 3/4] Executing EQ3 Software Ethics Evaluation...")
-    print("  Subphase 3a: Source Transformation Metrics...")
-    run_eq3_ethics_trans()
-    print("  Subphase 3b: Downstream Model Performance (B0 vs B1)...")
-    run_eq3_ethics_down()
+    print("\n[3/3] EQ3 frozen inputs and metrics")
+    freeze = subprocess.run([sys.executable, str(BENCH_DIR / "freeze_eq3.py")], cwd=ROOT_DIR)
+    if freeze.returncode != 0:
+        sys.exit("EQ3 frozen inputs changed; see freeze_eq3.py output")
+    run_eq3()
 
-    # 4. EQ3: Biomedical Native-BEL Domain Evaluation
-    print("\n[Phase 4/4] Executing EQ3 Biomedical Native-BEL Evaluation...")
-    print("  Subphase 4a: Source Transformation Metrics...")
-    run_eq3_bio_trans()
-    print("  Subphase 4b: Downstream Model Performance (B0 vs B1)...")
-    run_eq3_bio_down()
-
-    # Verification of Result Artifacts
-    print("\n" + "=" * 80)
-    print("VERIFYING EMPIRICAL RESULT ARTIFACTS IN results/")
-    print("=" * 80)
-    missing = []
-    for fname in EXPECTED_OUTPUTS:
-        fpath = RESULTS_DIR / fname
-        if fpath.exists() and fpath.stat().st_size > 0:
-            print(f"  [OK] {fname:<30} ({fpath.stat().st_size:,} bytes)")
-        else:
-            print(f"  [MISSING] {fname}")
-            missing.append(fname)
-
-    elapsed = round(time.perf_counter() - t_start, 2)
-    print("-" * 80)
-    if not missing:
-        print(f"ALL EVALUATIONS COMPLETED SUCCESSFULLY in {elapsed}s.")
-        print("Empirical result CSV files are available in benchmark_evaluation/results/.")
-    else:
-        print(f"FAILED: Missing {len(missing)} result file(s).")
-        sys.exit(1)
+    missing = [f for f in EXPECTED_OUTPUTS if not (RESULTS_DIR / f).exists()]
+    print(f"\nFinished in {time.perf_counter() - t_start:.1f}s")
+    if missing:
+        sys.exit(f"Missing outputs: {missing}")
 
 
 if __name__ == "__main__":

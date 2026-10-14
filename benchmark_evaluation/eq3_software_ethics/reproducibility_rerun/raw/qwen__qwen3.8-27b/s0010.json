@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:28:49.746340+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "cbaa84db02906ed69e9e4d83bf3c2844db3829c20b12db1b6a5709032060776f",
+  "target": {
+    "sentence_id": "s0010",
+    "sentence": "Principle 4: JUDGMENT"
+  },
+  "response": {
+    "id": "chatcmpl-9a0a8cd5-323a-422d-919e-c690f6a90c7b",
+    "object": "chat.completion",
+    "created": 1791984529,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is\",\n    \"object\": \"Judgment\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is_in\",\n    \"object\": \"Code_001\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.29281241,
+      "prompt_tokens": 5620,
+      "prompt_time": 0.400444688,
+      "completion_tokens": 96,
+      "completion_time": 0.188905527,
+      "total_tokens": 5716,
+      "total_time": 0.589350215
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9kv0aed7ts6t0wbyxf4zp",
+      "seed": 1115094794
+    },
+    "service_tier": "on_demand"
+  }
+}

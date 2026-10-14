@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:45:03.477736+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "b08137792b13ace143455a7f19bdcf1935e3cb9bf03470a3a5ff461f5bf04667",
+  "target": {
+    "sentence_id": "SEN:10008158",
+    "sentence": "Acylation-stimulating protein (ASP) is a potent lipogenic protein produced by adipocytes. In vitro studies have shown that ASP increases triglyceride synthesis and glucose transport in both murine and human adipocytes."
+  },
+  "response": {
+    "id": "chatcmpl-cec94647-88bf-4414-8f46-d02337d9f907",
+    "object": "chat.completion",
+    "created": 1791938703,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:ASIP3) increases bp(GOBP:\\\"triglyceride biosynthetic process\\\")\",\n  \"p(HGNC:ASIP3) increases bp(GOBP:\\\"glucose transport\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.13982238,
+      "prompt_tokens": 4626,
+      "prompt_time": 0.412928087,
+      "completion_tokens": 55,
+      "completion_time": 0.118624671,
+      "total_tokens": 4681,
+      "total_time": 0.531552758
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vxxbarer088ac51br54bsv",
+      "seed": 258155652
+    },
+    "service_tier": "on_demand"
+  }
+}

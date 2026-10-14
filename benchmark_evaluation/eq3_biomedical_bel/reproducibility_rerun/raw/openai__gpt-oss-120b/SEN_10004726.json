@@ -1,0 +1,50 @@
+{
+  "requested_at": "2026-10-14T00:07:16.620389+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "32ecfb7cf27a90df270e2fbb847389990890eb1178de5a27047d0e0e53480f02",
+  "target": {
+    "sentence_id": "SEN:10004726",
+    "sentence": "In addition, TKT mRNA levels were elevated fivefold in the corneas of 28-day-old mice raised in darkness and injected with EGF compared to uninjected mice also deprived of light"
+  },
+  "response": {
+    "id": "chatcmpl-2d9296a9-18fc-4eb4-8c32-fe3582152595",
+    "object": "chat.completion",
+    "created": 1791936436,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\"p(MGI:Egf) increases r(MGI:Tkt)\"]",
+          "reasoning": "We need to extract BEL statements from the target sentence.\n\nSentence: \"In addition, TKT mRNA levels were elevated fivefold in the corneas of 28-day-old mice raised in darkness and injected with EGF compared to uninjected mice also deprived of light\"\n\nWe need to identify entities: TKT mRNA, EGF, mice (maybe gene/protein). TKT is transketolase, gene symbol TKT. In mouse, gene is Tkt (MGI). So we have mRNA levels elevated => expression increase. So \"p(MGI:Tkt) increases r(...)\"? Actually mRNA is a transcript, so they use r() for RNA abundance? In examples, they used r(HGNC:CISH) for mRNA expression. So for mouse, use r(MGI:Tkt) maybe. But they also sometimes use p() for protein. For mRNA expression they used r(). So we can produce: \"p(MGI:Egf) increases r(MGI:Tkt)\"? Wait EGF injection leads to increased TKT mRNA. So relationship: EGF (protein) increases TKT transcription. In BEL, they used \"p(HGNC:IFNA1) increases r(HGNC:CISH)\" for cytokine protein increasing mRNA. So we can do \"p(MGI:Egf) increases r(MGI:Tkt)\". Need to confirm namespace: For mouse gene, they used MGI:Ins2 for insulin. For EGF, mouse gene is Egf. So p(MGI:Egf). Good.\n\nAlso condition: mice raised in darkness (light deprivation). Could be a condition affecting expression, but not a direct entity. Might be \"a(CHEBI:light)\"? Not needed.\n\nThus one BEL statement.\n\nCheck if any other relationships: \"TKT mRNA levels were elevated fivefold ... compared to uninjected mice also deprived of light\". So injection of EGF increased TKT mRNA. So statement as above.\n\nAny other entity: \"corneas\" tissue. Could be location but not needed.\n\nThus output array with one string.\n\nMake sure correct BEL syntax: \"p(MGI:Egf) increases r(MGI:Tkt)\". Use proper case: gene symbol Tkt maybe uppercase? In MGI, gene symbols are capitalized first letter? Egf is Egf. In examples, they used MGI:Ins2, MGI:Pnpla2. So use MGI:Tkt? Actually mouse gene symbol for transketolase is Tkt. So MGI:Tkt.\n\nThus final JSON array.\n\n"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.110043297,
+      "prompt_tokens": 4188,
+      "prompt_time": 0.017434096,
+      "completion_tokens": 559,
+      "completion_time": 1.3146084390000001,
+      "total_tokens": 4747,
+      "total_time": 1.332042535,
+      "prompt_tokens_details": {
+        "cached_tokens": 4096
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 534
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_e5b4e54fbb",
+    "x_groq": {
+      "id": "req_01m4vvr4xze2bvjvmhc4nfnctq",
+      "seed": 1984723883
+    },
+    "service_tier": "on_demand"
+  }
+}

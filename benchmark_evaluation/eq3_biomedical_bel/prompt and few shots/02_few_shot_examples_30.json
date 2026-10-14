@@ -1,0 +1,305 @@
+[
+  {
+    "input": {
+      "sentence_id": "SEN:10003462",
+      "sentence": "Following i.v. infusion of LPS into mice, up-regulation of C5aR occurred in the capillary endothelium of mouse lung"
+    },
+    "output": [
+      "a(CHEBI:lipopolysaccharide) increases p(MGI:C5ar1)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10007030",
+      "sentence": "Here we show that interferon-alpha (IFNalpha) is a potent inducer of SOCS expression in human T cells, as high expression of CIS, SOCS-1, SOCS-2, and SOCS-3 was detectable after IFNalpha stimulation"
+    },
+    "output": [
+      "p(HGNC:IFNA1) increases r(HGNC:CISH)",
+      "p(HGNC:IFNA1) increases r(HGNC:SOCS1)",
+      "p(HGNC:IFNA1) increases r(HGNC:SOCS2)",
+      "p(HGNC:IFNA1) increases r(HGNC:SOCS3)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006774",
+      "sentence": "IL-5 or GM-CSF downregulated CD62L and upregulated CD11b expression on eosinophils after 30 min stimulation."
+    },
+    "output": [
+      "p(HGNC:CSF2) increases r(HGNC:ITGAM)",
+      "p(HGNC:CSF2) decreases r(HGNC:SELL)",
+      "p(HGNC:IL5) increases r(HGNC:ITGAM)",
+      "p(HGNC:IL5) decreases r(HGNC:SELL)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006196",
+      "sentence": "In 3T3-L1 adipocytes, insulin decreased ATGL and increased adiponutrin expression in a dose- and time-dependent manner, suggesting that insulin directly mediates this nutritional regulation."
+    },
+    "output": [
+      "p(MGI:Ins2) decreases r(MGI:Pnpla2)",
+      "p(MGI:Ins2) increases r(MGI:Pnpla3)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10007054",
+      "sentence": "IFN-gamma significantly reduced B7-1 expression in some lines and significantly increased B7-2 expression in others."
+    },
+    "output": [
+      "p(HGNC:IFNG) decreases r(HGNC:CD80)",
+      "p(HGNC:IFNG) increases r(HGNC:CD86)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006788",
+      "sentence": "We found that cardiotrophin-1 increased angiotensinogen mRNA expression in cardiac myocytes via STAT3 activation."
+    },
+    "output": [
+      "p(HGNC:CTF1) increases r(HGNC:AGT)",
+      "p(HGNC:CTF1) increases act(p(HGNC:STAT3))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10004394",
+      "sentence": "Glyceraldehyde-3-phosphate dehydrogenase (GAPDH) and triosephosphate isomerase (TPI) are essential to glycolysis"
+    },
+    "output": [
+      "act(p(HGNC:GAPDH)) increases bp(GOBP:glycolysis)",
+      "act(p(HGNC:TPI1)) increases bp(GOBP:glycolysis)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10004988",
+      "sentence": "In chow-fed Pctp-/- mice, acyl CoA:cholesterol acyltransferase (Acat) activity was markedly increased, 3-hydroxy-3-methylglutaryl-CoA reductase activity was unchanged, and cholesterol 7alpha-hydroxylase activity was reduced"
+    },
+    "output": [
+      "p(MGI:Pctp) decreases act(p(MGI:Soat1))",
+      "p(MGI:Pctp) increases act(p(MGI:Cyp7a1))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10004588",
+      "sentence": "We demonstrated the enhanced glycerol kinase enzymatic activity in Aqp7-KO and -knockdown adipocytes."
+    },
+    "output": [
+      "p(MGI:Aqp7) decreases kin(p(MGI:Gyk))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006816",
+      "sentence": "We have shown that inhibition of the DLX-7 homeobox gene by an antisense oligonucleotide decreased the expression of c-myc and GATA-1 genes."
+    },
+    "output": [
+      "p(HGNC:DLX4) increases r(HGNC:GATA1)",
+      "p(HGNC:DLX4) increases r(HGNC:MYC)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10008008",
+      "sentence": "Ceramide levels in the plasma and the liver of apoE-/- mice were intrinsically higher than those of the wild type"
+    },
+    "output": [
+      "p(MGI:Apoe) decreases a(CHEBI:ceramide)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10008290",
+      "sentence": "In the CFTR-KO mice, the ELF concentration of GSH was decreased (51%) compared with that in WT mice"
+    },
+    "output": [
+      "p(MGI:Cftr) increases a(CHEBI:glutathione)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10003574",
+      "sentence": "Rolipram increased phosphorylation of cAMP-response-element-binding protein (CREB) in U937 cells in a dose-dependent fashion"
+    },
+    "output": [
+      "a(CHEBI:rolipram) increases p(HGNC:CREB1,pmod(P))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10005974",
+      "sentence": "PP1 is a substrate for Nek2 and phosphorylation of PP1gamma(1) on two C-terminal sites reduces its phosphatase activity."
+    },
+    "output": [
+      "act(p(HGNC:NEK2)) increases p(HGNC:PPP1CC,pmod(P))",
+      "p(HGNC:PPP1CC,pmod(P)) decreases phos(p(HGNC:PPP1CC))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10021232",
+      "sentence": "Phosphorylation of Tyr(416) is required for Hck activation"
+    },
+    "output": [
+      "p(HGNC:HCK,pmod(P)) directlyIncreases kin(p(HGNC:HCK))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006590",
+      "sentence": "However, upon coexpression of arrestin-2 (beta-arrestin-1) or arrestin-3 (beta-arrestin-2), internalization of the alpha2b AR was dramatically enhanced and redistribution of receptors to clathrin coated vesicles and endosomes was observed."
+    },
+    "output": [
+      "p(HGNC:ARRB1) increases tloc(p(HGNC:ADRA2B))",
+      "p(HGNC:ARRB2) increases tloc(p(HGNC:ADRA2B))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10007952",
+      "sentence": "Conversely, in vitro, AIF has been demonstrated to have a proapoptotic role when, on induction of the mitochondrial death pathway, AIF translocates to the nucleus where it facilitates chromatin condensation and large scale DNA fragmentation."
+    },
+    "output": [
+      "p(MGI:Aifm1) increases bp(GOBP:\"cell death\")",
+      "tloc(p(MGI:Aifm1)) increases bp(GOBP:\"cell death\")"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10010042",
+      "sentence": "We show that secretory carrier membrane protein, SCAMP3, localizes in part to early endosomes and negatively regulates EGFR degradation through processes that involve its ubiquitylation and interactions with ESCRTs."
+    },
+    "output": [
+      "p(MGI:Scamp3) decreases deg(p(MGI:Egfr))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10015738",
+      "sentence": "Both unfractionated heparin (UFH) and low-molecular-weight heparin (LMWH; Fragmin) time-dependently induced a significant enhanced secretion of TFPI, paralleled by a redistribution and increase of TFPI on the cell surface and a decrease of intracellular TFPI."
+    },
+    "output": [
+      "a(CHEBI:heparin) increases sec(p(HGNC:TFPI))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10005276",
+      "sentence": "The in vitro interaction of cyclin A1 with E2F-1 was greatly enhanced when cyclin A1 was complexed with CDK2"
+    },
+    "output": [
+      "complex(p(HGNC:CCNA1),p(HGNC:CDK2)) increases complex(p(HGNC:CCNA1),p(HGNC:E2F1))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10005616",
+      "sentence": "Versican interacts with hyaluronan, a long chain glycosaminoglycan, to create expanded viscoelastic pericellular matrices that are required for arterial smooth muscle cell (ASMC) proliferation and migration."
+    },
+    "output": [
+      "complex(p(MGI:Vcan),a(CHEBI:\"hyaluronic acid\")) increases bp(GOBP:\"cell proliferation\")",
+      "complex(p(MGI:Vcan),a(CHEBI:\"hyaluronic acid\")) increases bp(GOBP:\"cell migration\")"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10004778",
+      "sentence": "A unique inhibitory FcgammaR, FcgammaRIIB, inhibits intracellular signaling upon ligation of IgG-immune complexes, and can suppress inflammation and autoimmunity."
+    },
+    "output": [
+      "p(MGI:Fcgr2b) decreases path(MESHD:Inflammation)",
+      "p(MGI:Fcgr2b) decreases path(MESHD:\"Autoimmune Diseases\")"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10007904",
+      "sentence": "Evidence suggests that ACAT2 is a proatherogenic enzyme that contributes cholesteryl esters (CEs) to apoB-containing lipoproteins, whereas LCAT is an antiatherogenic enzyme that facilitates reverse cholesterol transport by esterifying free cholesterol on HDL particles."
+    },
+    "output": [
+      "p(MGI:Acat2) increases path(MESHD:Atherosclerosis)",
+      "p(MGI:Lcat) decreases path(MESHD:Atherosclerosis)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10003358",
+      "sentence": "Dexamethasone decreased ICAM-3 and increased L-selectin basal expression, and it caused a dose-related inhibition of calcium ionophore-induced ICAM-1 expression."
+    },
+    "output": [
+      "a(CHEBI:dexamethasone) decreases p(HGNC:ICAM3)",
+      "a(CHEBI:dexamethasone) increases p(HGNC:SELL)",
+      "a(CHEBI:dexamethasone) decreases (a(CHEBI:\"calcium ionophore\") increases p(HGNC:ICAM1))",
+      "a(CHEBI:\"calcium ionophore\") increases p(HGNC:ICAM1)",
+      "a(CHEBI:dexamethasone) decreases p(HGNC:ICAM1)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10029842",
+      "sentence": "These results suggest that PDE3B is a physiological substrate of Akt and that Akt-mediated phosphorylation of PDE3B on serine-273 is important for insulin-induced activation of PDE3B."
+    },
+    "output": [
+      "p(MGI:Pde3b,pmod(P)) increases act(p(MGI:Pde3b))",
+      "p(MGI:Akt1) increases p(MGI:Pde3b,pmod(P))",
+      "p(MGI:Ins2) increases act(p(MGI:Pde3b))",
+      "p(MGI:Ins2) increases (act(p(MGI:Akt1)) increases p(MGI:Pde3b,pmod(P)))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10003538",
+      "sentence": "In addition, PFDA increased mRNA expression and nuclear translocation of the transcription factor CAR."
+    },
+    "output": [
+      "a(CHEBI:\"perfluorodecanoic acid\") increases tloc(p(MGI:Nr1i3))",
+      "a(CHEBI:\"perfluorodecanoic acid\") increases r(MGI:Nr1i3)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10004870",
+      "sentence": "Autocrine production of cortisol by adipocytes of mice overexpressing 11beta-hydroxysteroid dehydrogenase type 1 (11beta-HSD 1) in adipose tissue increases visceral adiposity, whereas knockout of 11beta-HSD 1 appears to attenuate truncal obesity."
+    },
+    "output": [
+      "p(MGI:Hsd11b1) increases path(MESHD:Obesity)",
+      "a(CHEBI:cortisol) increases path(MESHD:Obesity)",
+      "p(MGI:Hsd11b1) increases a(CHEBI:cortisol)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10005264",
+      "sentence": "Here we create liposomes that carry the mitochondrial porin channel (also called the voltage-dependent anion channel, or VDAC) to show that the recombinant pro-apoptotic proteins Bax and Bak accelerate the opening of VDAC, whereas the anti-apoptotic protein Bcl-x(L) closes VDAC by binding to it directly. Bax and Bak allow cytochrome c to pass through VDAC out of liposomes, but passage is prevented by Bcl-x(L)."
+    },
+    "output": [
+      "p(HGNC:BAK1) increases act(p(HGNC:VDAC1))",
+      "p(HGNC:BAX) increases act(p(HGNC:VDAC1))",
+      "p(HGNC:BCL2L1) decreases act(p(HGNC:VDAC1))"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10006552",
+      "sentence": "The vasoactive intestinal peptide (VIP) and the pituitary adenylate cyclase-activating polypeptide (PACAP), two immunomodulatory neuropeptides that affect both innate and acquired immunity, down-regulate IL-12 p40 and inducible NO synthase expression in LPS/IFN-gamma-stimulated macrophages."
+    },
+    "output": [
+      "p(HGNC:ADCYAP1) decreases r(HGNC:IL12B)",
+      "p(HGNC:VIP) decreases r(HGNC:IL12B)",
+      "p(HGNC:ADCYAP1) decreases r(HGNC:NOS2)",
+      "p(HGNC:VIP) decreases r(HGNC:NOS2)"
+    ]
+  },
+  {
+    "input": {
+      "sentence_id": "SEN:10010730",
+      "sentence": "Tip60 and the transcriptional repressor ZEB (zinc finger E box binding protein) interact specifically in the yeast two-hybrid system and additively inhibit the CD4 enhancer/promoter activity in Jurkat cells."
+    },
+    "output": [
+      "complex(p(HGNC:KAT5),p(HGNC:ZEB1)) decreases r(HGNC:CD4)"
+    ]
+  }
+]

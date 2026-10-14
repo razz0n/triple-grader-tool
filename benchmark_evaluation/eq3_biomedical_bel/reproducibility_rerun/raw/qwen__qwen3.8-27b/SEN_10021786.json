@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:48:14.095295+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "268bd2fcf86727ff5b6155a9708b4729206474bba5c0098b504df4895f442f13",
+  "target": {
+    "sentence_id": "SEN:10021786",
+    "sentence": "Our results suggest that the tyrosine kinase ITK preferentially regulates the secretion of the T(H)2 cytokines IL-5 and IL-13 and may be an attractive target for antiasthmatic drugs."
+  },
+  "response": {
+    "id": "chatcmpl-f2204f8a-96b1-4a5c-8dcb-50bac37cadfe",
+    "object": "chat.completion",
+    "created": 1791938894,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:ITK) increases sec(p(HGNC:IL5))\",\n  \"p(HGNC:ITK) increases sec(p(HGNC:IL13))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.08329837,
+      "prompt_tokens": 4626,
+      "prompt_time": 0.330495721,
+      "completion_tokens": 49,
+      "completion_time": 0.093489576,
+      "total_tokens": 4675,
+      "total_time": 0.423985297
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vy35qsengsr8tmmbh5gmz4",
+      "seed": 461156166
+    },
+    "service_tier": "on_demand"
+  }
+}

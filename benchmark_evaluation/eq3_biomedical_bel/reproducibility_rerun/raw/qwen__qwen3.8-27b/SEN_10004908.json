@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:31:55.375475+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "637baa5a565f2bdb7c6c9fa02eda42b3ae7064bcbb033723d74a6806a586ddd9",
+  "target": {
+    "sentence_id": "SEN:10004908",
+    "sentence": "We also show that MBT-1 appears to influence myelopoiesis by transiently enhancing p57(KIP2) expression levels."
+  },
+  "response": {
+    "id": "chatcmpl-a3c08198-b867-48c0-9f52-c9789ebc1073",
+    "object": "chat.completion",
+    "created": 1791937915,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:MBTD1) increases r(HGNC:CDKN1C)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083825774,
+      "prompt_tokens": 4611,
+      "prompt_time": 0.384602185,
+      "completion_tokens": 27,
+      "completion_time": 0.069631835,
+      "total_tokens": 4638,
+      "total_time": 0.45423402
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_5e14805ce3",
+    "x_groq": {
+      "id": "req_01m4vx59y0e8jvd3a9603cpvvt",
+      "seed": 1865719484
+    },
+    "service_tier": "on_demand"
+  }
+}

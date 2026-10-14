@@ -153,6 +153,7 @@ class UpdateProfileRequest(BaseModel):
     password: Optional[str] = None
     security_question: Optional[str] = None
     security_answer: Optional[str] = None
+    current_password: Optional[str] = None
 
 
 class GetSecurityQuestionRequest(BaseModel):
@@ -187,7 +188,7 @@ class CreateSessionRequest(BaseModel):
 class WorkflowSuggestionRequest(BaseModel):
     """Request model for RESTful suggestion creation."""
     triple_id: str
-    user: str
+    user: Optional[str] = None  # ignored: the author is taken from the bearer token
     subject: str
     predicate: str
     object: str
@@ -200,7 +201,7 @@ class WorkflowSuggestionRequest(BaseModel):
 class WorkflowVoteRequest(BaseModel):
     """Request model for RESTful suggestion voting."""
     suggestion_id: str
-    user: str
+    user: Optional[str] = None  # ignored: the voter is taken from the bearer token
     vote: str = "approve"
     triple_id: Optional[str] = None
     sentence_id: Optional[str] = None
@@ -209,7 +210,7 @@ class WorkflowVoteRequest(BaseModel):
 class WorkflowApproveRequest(BaseModel):
     """Request model for RESTful suggestion approval."""
     suggestion_id: str
-    user: str = "owner"
+    user: Optional[str] = None  # ignored: the approver is taken from the bearer token
     triple_id: Optional[str] = None
     sentence_id: Optional[str] = None
 

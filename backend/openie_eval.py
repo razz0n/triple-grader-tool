@@ -592,6 +592,8 @@ def evaluate_session(
       per_sentence, macro, micro  (primary OpenIE results),
       openie_evaluation, standard_evaluation  (structured dual results)
     """
+    from evaluate_openie_new_set import Triple, evaluate, run_stanza_dependency_baseline
+
     if match_mode not in ("exact", "soft"):
         raise ValueError(f"match_mode must be 'exact' or 'soft', got '{match_mode}'")
     if gold_source not in ("graded_only", "all"):

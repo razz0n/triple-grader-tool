@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:31:17.651390+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "fadd54e5018c06c5ad13ad1db899cd6115e7a8cefd762a815a72869d7b63cfac",
+  "target": {
+    "sentence_id": "SEN:10004900",
+    "sentence": "Overexpression of constitutively active TC10 brings CIP4/2 to the plasma membrane, whereas overexpression of an inhibitory form of TC10 blocks the translocation of CIP4/2 produced by insulin."
+  },
+  "response": {
+    "id": "chatcmpl-3c4bfbf1-a857-49db-b371-2d0834e4a7ac",
+    "object": "chat.completion",
+    "created": 1791937877,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:RHOQ) increases tloc(p(HGNC:CYFIP1))\",\n  \"p(HGNC:RHOQ) decreases (p(HGNC:INSR) increases tloc(p(HGNC:CYFIP1)))\",\n  \"p(HGNC:INSR) increases tloc(p(HGNC:CYFIP1))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.096320101,
+      "prompt_tokens": 4628,
+      "prompt_time": 0.328441244,
+      "completion_tokens": 91,
+      "completion_time": 0.17278357,
+      "total_tokens": 4719,
+      "total_time": 0.501224814
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fea14bdc83",
+    "x_groq": {
+      "id": "req_01m4vx4515ehbsre10exhp4mx5",
+      "seed": 1935880500
+    },
+    "service_tier": "on_demand"
+  }
+}

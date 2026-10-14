@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:23:06.946519+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "39dc64a540bb38593b53f8b37b44945e5efb48a19b3c17495f53034d2927d879",
+  "target": {
+    "sentence_id": "SEN:10003622",
+    "sentence": "L-plastin gene expression was positively regulated by testosterone in androgen receptor (AR)-positive prostate and breast cancer cells."
+  },
+  "response": {
+    "id": "chatcmpl-80c8d65e-fa27-497c-9c78-f11821264e95",
+    "object": "chat.completion",
+    "created": 1791937386,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:testosterone) increases r(HGNC:PLST)\",\n  \"a(CHEBI:testosterone) increases (p(HGNC:AR) increases r(HGNC:PLST))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.090041702,
+      "prompt_tokens": 4606,
+      "prompt_time": 0.327199097,
+      "completion_tokens": 52,
+      "completion_time": 0.099096533,
+      "total_tokens": 4658,
+      "total_time": 0.42629563
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4vwn5xcebxt9a145tp9vxw7",
+      "seed": 946757822
+    },
+    "service_tier": "on_demand"
+  }
+}

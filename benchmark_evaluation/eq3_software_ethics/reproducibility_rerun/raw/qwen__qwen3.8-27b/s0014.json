@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:32:41.797184+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "b69ea517d79d74f36525e1a387ef30a03095624c642230913d52162813e6cac8",
+  "target": {
+    "sentence_id": "s0014",
+    "sentence": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate."
+  },
+  "response": {
+    "id": "chatcmpl-8d502214-90a8-4ace-8e07-15707a09f141",
+    "object": "chat.completion",
+    "created": 1791984761,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"professional_objectivity\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"professional_objectivity\",\n    \"predicate\": \"is_with_respect_to\",\n    \"object\": \"software\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"professional_objectivity\",\n    \"predicate\": \"is_with_respect_to\",\n    \"object\": \"related_documents\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"are_asked_to_evaluate\",\n    \"object\": \"software\"\n  },\n  {\n    \"triple_id\": 5,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"are_asked_to_evaluate\",\n    \"object\": \"related_documents\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083719636,
+      "prompt_tokens": 5633,
+      "prompt_time": 0.414023579,
+      "completion_tokens": 239,
+      "completion_time": 0.504060072,
+      "total_tokens": 5872,
+      "total_time": 0.918083651
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9txgbe9x8mrqtz7519ct8",
+      "seed": 672758990
+    },
+    "service_tier": "on_demand"
+  }
+}

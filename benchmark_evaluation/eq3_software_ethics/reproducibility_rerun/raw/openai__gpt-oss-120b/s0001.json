@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T00:21:57.267367+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "3ebb69950ad3bfe2da025bcd2a300ec95986d8f9bc4189e9def0b9919463bec2",
+  "target": {
+    "sentence_id": "s0001",
+    "sentence": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission."
+  },
+  "response": {
+    "id": "chatcmpl-b4a11532-a0da-493a-a612-657ee439ae41",
+    "object": "chat.completion",
+    "created": 1791937317,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"subject\": \"individual_parts_of_the_Code\",\n    \"predicate\": \"shall_not_be_used_in_isolation_to_justify\",\n    \"object\": \"errors_of_omission_or_commission\"\n  }\n]",
+          "reasoning": "We need to extract SPO triples from the given sentence, following style of examples. The sentence: \"It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.\"\n\nWe need to produce JSON array of objects with keys subject, predicate, object (no triple_id). The examples include triple_id but the instruction says output ONLY a valid JSON array of objects with keys 'subject', 'predicate', and 'object'. So we omit triple_id.\n\nWe need to parse meaning: \"It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.\"\n\nInterpretation: The Code's individual parts are not intended to be used in isolation to justify errors (of omission or commission). So we can produce triples like:\n\nsubject: \"individual_parts_of_the_Code\"\npredicate: \"are_not_intended_to_be_used_in_isolation_to_justify\"\nobject: \"errors_of_omission_or_commission\"\n\nBut we need to follow style: they often use \"shall_not\" etc. For negative intention, they use \"shall_not\". Example 7.07: \"shall_not_unfairly_intervene_in\". For \"not intended\", maybe predicate \"is_not_intended\". Let's see similar patterns: Not many examples of \"not intended\". But we can create:\n\nsubject: \"individual_parts_of_the_Code\"\npredicate: \"are_not_intended_to_be_used_in_isolation_to_justify\"\nobject: \"errors_of_omission_or_commission\"\n\nAlternatively break into two triples: one about intention, one about usage.\n\nMaybe:\n\n1) subject: \"individual_parts_of_the_Code\"\n   predicate: \"are_not_intended\"\n   object: \"be_used_in_isolation_to_justify_errors_of_omission_or_commission\"\n\nBut they often separate \"be used in isolation\" as predicate \"be_used_in_isolation_to_justify\". Let's produce two triples:\n\n- subject: \"individual_parts_of_the_Code\"\n  predicate: \"shall_not_be_used_in_isolation_to_justify\"\n  object: \"errors_of_omission_or_commission\"\n\nBut \"shall_not\" is normative, not just intention. However the sentence says \"It is not intended that ... be used ...\". So normative: not intended => should not be used. So \"shall_not_be_used_in_isolation_to_justify\" fits.\n\nThus produce one triple.\n\nAlso maybe include triple about \"errors_of_omission_or_commission\" being \"errors\". But not needed.\n\nThus output JSON array with one object.\n\nMake sure keys are exactly 'subject', 'predicate', 'object'.\n\nLet's craft:\n\n{\n  \"subject\": \"individual_parts_of_the_Code\",\n  \"predicate\": \"shall_not_be_used_in_isolation_to_justify\",\n  \"object\": \"errors_of_omission_or_commission\"\n}\n\nReturn as array.\n\n"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.31037276,
+      "prompt_tokens": 4920,
+      "prompt_time": 0.24576788,
+      "completion_tokens": 641,
+      "completion_time": 1.512865055,
+      "total_tokens": 5561,
+      "total_time": 1.758632935,
+      "completion_tokens_details": {
+        "reasoning_tokens": 585
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fe269835c7",
+    "x_groq": {
+      "id": "req_01m4vwk0beear81vp42nv4gn8s",
+      "seed": 832292312
+    },
+    "service_tier": "on_demand"
+  }
+}

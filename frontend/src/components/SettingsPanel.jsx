@@ -23,6 +23,7 @@ export default function SettingsPanel({ currentUser, onProfileUpdated, onLogout,
   const [confirmPassword, setConfirmPassword] = useState("");
   const [securityQuestion, setSecurityQuestion] = useState(currentUser?.security_question || SECURITY_QUESTIONS[0]);
   const [securityAnswer, setSecurityAnswer] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
 
   // Account deletion states
   const [showDeleteForm, setShowDeleteForm] = useState(false);
@@ -55,6 +56,7 @@ export default function SettingsPanel({ currentUser, onProfileUpdated, onLogout,
     if (field === "security") {
       setSecurityQuestion(currentUser?.security_question || SECURITY_QUESTIONS[0]);
       setSecurityAnswer("");
+      setCurrentPassword("");
     }
   };
 
@@ -110,8 +112,13 @@ export default function SettingsPanel({ currentUser, onProfileUpdated, onLogout,
         setError("Please enter an answer for the security question.");
         return;
       }
+      if (!currentPassword) {
+        setError("Please enter your current password to change the security question.");
+        return;
+      }
       payload.security_question = securityQuestion;
       payload.security_answer = securityAnswer.trim();
+      payload.current_password = currentPassword;
     }
 
     setLoading(true);
@@ -124,6 +131,7 @@ export default function SettingsPanel({ currentUser, onProfileUpdated, onLogout,
         setPassword("");
         setConfirmPassword("");
         setSecurityAnswer("");
+        setCurrentPassword("");
         if (onProfileUpdated) {
           onProfileUpdated(res.user);
         }
@@ -406,6 +414,20 @@ export default function SettingsPanel({ currentUser, onProfileUpdated, onLogout,
                       value={securityAnswer}
                       onChange={(e) => setSecurityAnswer(e.target.value)}
                       placeholder="Type security answer here"
+                      required
+                      className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Current Password</label>
+                  <div className="relative flex items-center">
+                    <Lock size={14} className="absolute left-3 text-slate-400" />
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Confirm with your current password"
                       required
                       className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all"
                     />

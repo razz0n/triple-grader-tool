@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:33:19.590497+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "180aabde5147c6afc7539f58f9a953dd794d8ec4df0cb479498759488b39ee49",
+  "target": {
+    "sentence_id": "s0015",
+    "sentence": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices."
+  },
+  "response": {
+    "id": "chatcmpl-93b84619-8162-4540-8333-47e8f47e336c",
+    "object": "chat.completion",
+    "created": 1791984799,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_not_engage_in\",\n    \"object\": \"deceptive_financial_practices\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"deceptive_financial_practices\",\n    \"predicate\": \"include\",\n    \"object\": \"bribery\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"deceptive_financial_practices\",\n    \"predicate\": \"include\",\n    \"object\": \"double_billing\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"deceptive_financial_practices\",\n    \"predicate\": \"include\",\n    \"object\": \"other_improper_financial_practices\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.114662342,
+      "prompt_tokens": 5634,
+      "prompt_time": 0.460457172,
+      "completion_tokens": 199,
+      "completion_time": 0.389402107,
+      "total_tokens": 5833,
+      "total_time": 0.849859279
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_57c7e760a9",
+    "x_groq": {
+      "id": "req_01m4x9w2ekerxb367ckrcb2tay",
+      "seed": 1035465848
+    },
+    "service_tier": "on_demand"
+  }
+}

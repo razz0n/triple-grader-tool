@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:41:17.544550+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "b04e0bf165271d1e8a1dde21e86480cc64c711affe0d15f60f44932ac3050214",
+  "target": {
+    "sentence_id": "SEN:10006848",
+    "sentence": "hPRP4 is activated by epidermal growth factor (EGF) or forskolin treatment, but not tetradecanoyl phorbol acetate (TPA) nor ultraviolet (UV) irradiation."
+  },
+  "response": {
+    "id": "chatcmpl-6cca8a46-71ee-4d93-b022-16e4f50effc2",
+    "object": "chat.completion",
+    "created": 1791938477,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:epidermal growth factor) increases act(p(HGNC:PRKCD))\",\n  \"a(CHEBI:forskolin) increases act(p(HGNC:PRKCD))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.097370789,
+      "prompt_tokens": 4628,
+      "prompt_time": 0.318643332,
+      "completion_tokens": 53,
+      "completion_time": 0.10097096,
+      "total_tokens": 4681,
+      "total_time": 0.419614292
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vxpexkeaprhnn2b7hm40ha",
+      "seed": 791114913
+    },
+    "service_tier": "on_demand"
+  }
+}

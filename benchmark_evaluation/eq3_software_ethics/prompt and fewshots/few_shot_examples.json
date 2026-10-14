@@ -1,0 +1,963 @@
+{
+  "description": "Experiment 3 Few-Shot Exemplars (Sentence-Level): Clauses from Principle 7 (Colleagues) and Principle 8 (Self) with gold triples from final benchmark new.json (Supabase)",
+  "recommended_3shot_exemplars": [
+    {
+      "shot_id": "shot_s0025",
+      "sentence_id": "s0025",
+      "sentence": "7.06. Assist colleagues in being fully aware of current standard work practices including policies and procedures for protecting passwords, files and other confidential information, and security measures in general.",
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_assist",
+          "object": "colleagues"
+        },
+        {
+          "triple_id": 2,
+          "subject": "colleagues",
+          "predicate": "be_fully_aware_of",
+          "object": "current_standard_work_practices"
+        },
+        {
+          "triple_id": 3,
+          "subject": "current_standard_work_practices",
+          "predicate": "include",
+          "object": "policies"
+        },
+        {
+          "triple_id": 4,
+          "subject": "current_standard_work_practices",
+          "predicate": "include",
+          "object": "procedures"
+        },
+        {
+          "triple_id": 5,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "protecting_passwords"
+        },
+        {
+          "triple_id": 6,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "protecting_files"
+        },
+        {
+          "triple_id": 7,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "other_confidential_information"
+        },
+        {
+          "triple_id": 8,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "protecting_passwords"
+        },
+        {
+          "triple_id": 9,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "protecting_files"
+        },
+        {
+          "triple_id": 10,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "other_confedential_information"
+        },
+        {
+          "triple_id": 11,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "security_measures"
+        },
+        {
+          "triple_id": 12,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "security_measures"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0026",
+      "sentence_id": "s0026",
+      "sentence": "7.07. Not unfairly intervene in the career of any colleague; however, concern for the employer, the client or public interest may compel software engineers, in good faith, to question the competence of a colleague.",
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_not_unfairly_intervene_in",
+          "object": "career_of_any_colleague"
+        },
+        {
+          "triple_id": 2,
+          "subject": "concern",
+          "predicate": "may_compel",
+          "object": "software_engineers"
+        },
+        {
+          "triple_id": 3,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "employer"
+        },
+        {
+          "triple_id": 4,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "client"
+        },
+        {
+          "triple_id": 5,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "public_interest"
+        },
+        {
+          "triple_id": 6,
+          "subject": "concern",
+          "predicate": "is_in",
+          "object": "good_faith"
+        },
+        {
+          "triple_id": 7,
+          "subject": "concern",
+          "predicate": "is_to_question",
+          "object": "competence_of_a_colleague"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0030",
+      "sentence_id": "s0030",
+      "sentence": "8.01. Further their knowledge of developments in the analysis, specification, design, development, maintenance and testing of software and related documents, together with the management of the development process.",
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_further",
+          "object": "knowledge_of_developments"
+        },
+        {
+          "triple_id": 2,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "analysis_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 3,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "specification_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 4,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "design_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 5,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "development_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 6,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "maintenance_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 7,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "testing_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 8,
+          "subject": "testing_001",
+          "predicate": "is_of",
+          "object": "software"
+        },
+        {
+          "triple_id": 9,
+          "subject": "knowledge_of_developments",
+          "predicate": "is_together_with",
+          "object": "management_of_development_process"
+        }
+      ]
+    }
+  ],
+  "all_principle_7_sentences": [
+    {
+      "shot_id": "shot_s0018",
+      "sentence_id": "s0018",
+      "clause": "Preamble",
+      "sentence": "Principle 7: COLLEAGUES",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "principle_7",
+          "predicate": "is",
+          "object": "Colleagues"
+        },
+        {
+          "triple_id": 2,
+          "subject": "principle_7",
+          "predicate": "is_in",
+          "object": "Code_001"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0019",
+      "sentence_id": "s0019",
+      "clause": "Preamble",
+      "sentence": "Software engineers shall be fair to and supportive of their colleagues.",
+      "total_triples": 3,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_be_fair_to",
+          "object": "colleagues_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_be_supportive_of",
+          "object": "colleagues_001"
+        },
+        {
+          "triple_id": 3,
+          "subject": "colleagues_001",
+          "predicate": "is_of",
+          "object": "software_engineers"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0020",
+      "sentence_id": "s0020",
+      "clause": "Preamble",
+      "sentence": "7.01. Encourage colleagues to adhere to this Code.",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_encourage",
+          "object": "colleagues"
+        },
+        {
+          "triple_id": 2,
+          "subject": "colleagues",
+          "predicate": "adhere_to",
+          "object": "Code_001"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0021",
+      "sentence_id": "s0021",
+      "clause": "Preamble",
+      "sentence": "7.02. Assist colleagues in professional development.",
+      "total_triples": 1,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_assist",
+          "object": "colleagues_in_professional_development."
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0022",
+      "sentence_id": "s0022",
+      "clause": "Preamble",
+      "sentence": "7.03. Credit fully the work of others and refrain from taking undue credit.",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_fully_credit",
+          "object": "work_of_others"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_refrain_from_taking",
+          "object": "undue_credit"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0023",
+      "sentence_id": "s0023",
+      "clause": "Preamble",
+      "sentence": "7.04. Review the work of others in an objective, candid, and properly-documented way.",
+      "total_triples": 4,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_review",
+          "object": "work_of_others"
+        },
+        {
+          "triple_id": 2,
+          "subject": "work_of_others",
+          "predicate": "shall_be",
+          "object": "objective"
+        },
+        {
+          "triple_id": 3,
+          "subject": "work_of_others",
+          "predicate": "shall_be",
+          "object": "candid"
+        },
+        {
+          "triple_id": 4,
+          "subject": "work_of_others",
+          "predicate": "shall_be",
+          "object": "properly_documented"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0024",
+      "sentence_id": "s0024",
+      "clause": "Preamble",
+      "sentence": "7.05. Give a fair hearing to the opinions, concerns, or complaints of a colleague.",
+      "total_triples": 8,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_give",
+          "object": "hearing_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "hearing_001",
+          "predicate": "is",
+          "object": "fair"
+        },
+        {
+          "triple_id": 3,
+          "subject": "hearing_001",
+          "predicate": "is_for",
+          "object": "opinions"
+        },
+        {
+          "triple_id": 4,
+          "subject": "hearing_001",
+          "predicate": "is_for",
+          "object": "concerns"
+        },
+        {
+          "triple_id": 5,
+          "subject": "hearing_001",
+          "predicate": "is_for",
+          "object": "complaints"
+        },
+        {
+          "triple_id": 6,
+          "subject": "opinions",
+          "predicate": "are_of",
+          "object": "colleague"
+        },
+        {
+          "triple_id": 7,
+          "subject": "concerns",
+          "predicate": "are_of",
+          "object": "colleague"
+        },
+        {
+          "triple_id": 8,
+          "subject": "complaints",
+          "predicate": "are_of",
+          "object": "colleague"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0025",
+      "sentence_id": "s0025",
+      "clause": "Preamble",
+      "sentence": "7.06. Assist colleagues in being fully aware of current standard work practices including policies and procedures for protecting passwords, files and other confidential information, and security measures in general.",
+      "total_triples": 12,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_assist",
+          "object": "colleagues"
+        },
+        {
+          "triple_id": 2,
+          "subject": "colleagues",
+          "predicate": "be_fully_aware_of",
+          "object": "current_standard_work_practices"
+        },
+        {
+          "triple_id": 3,
+          "subject": "current_standard_work_practices",
+          "predicate": "include",
+          "object": "policies"
+        },
+        {
+          "triple_id": 4,
+          "subject": "current_standard_work_practices",
+          "predicate": "include",
+          "object": "procedures"
+        },
+        {
+          "triple_id": 5,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "protecting_passwords"
+        },
+        {
+          "triple_id": 6,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "protecting_files"
+        },
+        {
+          "triple_id": 7,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "other_confidential_information"
+        },
+        {
+          "triple_id": 8,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "protecting_passwords"
+        },
+        {
+          "triple_id": 9,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "protecting_files"
+        },
+        {
+          "triple_id": 10,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "other_confedential_information"
+        },
+        {
+          "triple_id": 11,
+          "subject": "policies",
+          "predicate": "are_for",
+          "object": "security_measures"
+        },
+        {
+          "triple_id": 12,
+          "subject": "procedures",
+          "predicate": "are_for",
+          "object": "security_measures"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0026",
+      "sentence_id": "s0026",
+      "clause": "Preamble",
+      "sentence": "7.07. Not unfairly intervene in the career of any colleague; however, concern for the employer, the client or public interest may compel software engineers, in good faith, to question the competence of a colleague.",
+      "total_triples": 7,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_not_unfairly_intervene_in",
+          "object": "career_of_any_colleague"
+        },
+        {
+          "triple_id": 2,
+          "subject": "concern",
+          "predicate": "may_compel",
+          "object": "software_engineers"
+        },
+        {
+          "triple_id": 3,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "employer"
+        },
+        {
+          "triple_id": 4,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "client"
+        },
+        {
+          "triple_id": 5,
+          "subject": "concern",
+          "predicate": "is_for",
+          "object": "public_interest"
+        },
+        {
+          "triple_id": 6,
+          "subject": "concern",
+          "predicate": "is_in",
+          "object": "good_faith"
+        },
+        {
+          "triple_id": 7,
+          "subject": "concern",
+          "predicate": "is_to_question",
+          "object": "competence_of_a_colleague"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0027",
+      "sentence_id": "s0027",
+      "clause": "Preamble",
+      "sentence": "7.08. In situations outside of their own areas of competence, call upon the opinions of other professionals who have competence in that area.",
+      "total_triples": 5,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "is_in",
+          "object": "situations"
+        },
+        {
+          "triple_id": 2,
+          "subject": "situations",
+          "predicate": "are_outside_of",
+          "object": "own_areas_of_competence"
+        },
+        {
+          "triple_id": 3,
+          "subject": "own_areas_of_competence",
+          "predicate": "is_of",
+          "object": "software_engineers"
+        },
+        {
+          "triple_id": 4,
+          "subject": "software_engineers",
+          "predicate": "shall_call_upon",
+          "object": "opinions_of_other_professionals"
+        },
+        {
+          "triple_id": 5,
+          "subject": "other_professionals",
+          "predicate": "have",
+          "object": "competence_001"
+        }
+      ]
+    }
+  ],
+  "all_principle_8_sentences": [
+    {
+      "shot_id": "shot_s0028",
+      "sentence_id": "s0028",
+      "clause": "Preamble",
+      "sentence": "Principle 8: SELF",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "principle_8",
+          "predicate": "is",
+          "object": "Self"
+        },
+        {
+          "triple_id": 2,
+          "subject": "principle_8",
+          "predicate": "is_in",
+          "object": "Code_001"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0029",
+      "sentence_id": "s0029",
+      "clause": "Preamble",
+      "sentence": "Software engineers shall participate in lifelong learning regarding the practice of their profession and shall promote an ethical approach to the practice of the profession.",
+      "total_triples": 4,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_participate_in",
+          "object": "lifelong_learning_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "lifelong_learning_001",
+          "predicate": "is_regarding",
+          "object": "practice_of_their_profession"
+        },
+        {
+          "triple_id": 3,
+          "subject": "software_engineers",
+          "predicate": "shall_promote",
+          "object": "ethical_approach_001"
+        },
+        {
+          "triple_id": 4,
+          "subject": "ethical_approach_001",
+          "predicate": "is_to",
+          "object": "practice_of_the_profession"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0030",
+      "sentence_id": "s0030",
+      "clause": "Preamble",
+      "sentence": "8.01. Further their knowledge of developments in the analysis, specification, design, development, maintenance and testing of software and related documents, together with the management of the development process.",
+      "total_triples": 9,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_further",
+          "object": "knowledge_of_developments"
+        },
+        {
+          "triple_id": 2,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "analysis_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 3,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "specification_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 4,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "design_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 5,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "development_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 6,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "maintenance_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 7,
+          "subject": "knowledge_of_developments",
+          "predicate": "are_in",
+          "object": "testing_of_software_and_related_documents"
+        },
+        {
+          "triple_id": 8,
+          "subject": "testing_001",
+          "predicate": "is_of",
+          "object": "software"
+        },
+        {
+          "triple_id": 9,
+          "subject": "knowledge_of_developments",
+          "predicate": "is_together_with",
+          "object": "management_of_development_process"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0031",
+      "sentence_id": "s0031",
+      "clause": "Preamble",
+      "sentence": "8.02. Improve their ability to create safe, reliable, and useful quality software at reasonable cost and within a reasonable time.",
+      "total_triples": 6,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_improve_ability_to_create",
+          "object": "software"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software",
+          "predicate": "shall_be",
+          "object": "safe"
+        },
+        {
+          "triple_id": 3,
+          "subject": "software",
+          "predicate": "shall_be",
+          "object": "reliable"
+        },
+        {
+          "triple_id": 4,
+          "subject": "software",
+          "predicate": "shall_be",
+          "object": "useful_quality"
+        },
+        {
+          "triple_id": 5,
+          "subject": "software",
+          "predicate": "shall_be_at",
+          "object": "reasonable_cost"
+        },
+        {
+          "triple_id": 6,
+          "subject": "software",
+          "predicate": "is_within",
+          "object": "reasonable_time"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0032",
+      "sentence_id": "s0032",
+      "clause": "Preamble",
+      "sentence": "8.03. Improve their ability to produce accurate, informative, and well-written documentation.",
+      "total_triples": 4,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_improve_ability_to_produce",
+          "object": "documentation"
+        },
+        {
+          "triple_id": 2,
+          "subject": "documentation",
+          "predicate": "shall_be",
+          "object": "accurate"
+        },
+        {
+          "triple_id": 3,
+          "subject": "documentation",
+          "predicate": "shall_be",
+          "object": "informative"
+        },
+        {
+          "triple_id": 4,
+          "subject": "documentation",
+          "predicate": "shall_be",
+          "object": "well_written"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0033",
+      "sentence_id": "s0033",
+      "clause": "Preamble",
+      "sentence": "8.04. Improve their understanding of the software and related documents on which they work and of the environment in which they will be used.",
+      "total_triples": 8,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_improve_understanding_of",
+          "object": "software"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_improve_understanding_of",
+          "object": "related_documents"
+        },
+        {
+          "triple_id": 3,
+          "subject": "software_engineers",
+          "predicate": "shall_improve_understanding_of",
+          "object": "environment"
+        },
+        {
+          "triple_id": 4,
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "software"
+        },
+        {
+          "triple_id": 5,
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "related_documents"
+        },
+        {
+          "triple_id": 6,
+          "subject": "software",
+          "predicate": "used_in",
+          "object": "environment_001"
+        },
+        {
+          "triple_id": 7,
+          "subject": "related_documents",
+          "predicate": "used_in",
+          "object": "environment"
+        },
+        {
+          "triple_id": 8,
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "environment"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0034",
+      "sentence_id": "s0034",
+      "clause": "Preamble",
+      "sentence": "8.05. Improve their knowledge of relevant standards and the law governing the software and related documents on which they work.",
+      "total_triples": 6,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_improve",
+          "object": "knowledge_of_relevant_standards"
+        },
+        {
+          "triple_id": 2,
+          "subject": "software_engineers",
+          "predicate": "shall_improve",
+          "object": "knowledge_of_law"
+        },
+        {
+          "triple_id": 3,
+          "subject": "law",
+          "predicate": "governs",
+          "object": "software"
+        },
+        {
+          "triple_id": 4,
+          "subject": "law",
+          "predicate": "governs",
+          "object": "related_documents"
+        },
+        {
+          "triple_id": 5,
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "software"
+        },
+        {
+          "triple_id": 6,
+          "subject": "software_engineers",
+          "predicate": "work_on",
+          "object": "related_documents"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0035",
+      "sentence_id": "s0035",
+      "clause": "Preamble",
+      "sentence": "8.06. Improve their knowledge of this Code, its interpretation, and its application to their work.",
+      "total_triples": 5,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_improve",
+          "object": "knowledge_001"
+        },
+        {
+          "triple_id": 2,
+          "subject": "knowledge_001",
+          "predicate": "is_of",
+          "object": "Code_001"
+        },
+        {
+          "triple_id": 3,
+          "subject": "Code_001",
+          "predicate": "has",
+          "object": "interpretation"
+        },
+        {
+          "triple_id": 4,
+          "subject": "Code_001",
+          "predicate": "has",
+          "object": "application_001"
+        },
+        {
+          "triple_id": 5,
+          "subject": "application_001",
+          "predicate": "is_to",
+          "object": "work_of_software_engineers"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0036",
+      "sentence_id": "s0036",
+      "clause": "Preamble",
+      "sentence": "8.07. Not give unfair treatment to anyone because of any irrelevant prejudices.",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_not_give",
+          "object": "unfair_treatment_to_anyone"
+        },
+        {
+          "triple_id": 2,
+          "subject": "unfair_treatment",
+          "predicate": "is_because_of_any",
+          "object": "irrelevant_prejudices"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0037",
+      "sentence_id": "s0037",
+      "clause": "Preamble",
+      "sentence": "8.08. Not influence others to undertake any action that involves a breach of this Code.",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_not_influence",
+          "object": "others_to_undetake_any_action"
+        },
+        {
+          "triple_id": 2,
+          "subject": "action",
+          "predicate": "involves",
+          "object": "breach_of_code"
+        }
+      ]
+    },
+    {
+      "shot_id": "shot_s0038",
+      "sentence_id": "s0038",
+      "clause": "Preamble",
+      "sentence": "8.09. Recognize that personal violations of this Code are inconsistent with being a professional software engineer.",
+      "total_triples": 2,
+      "triples": [
+        {
+          "triple_id": 1,
+          "subject": "software_engineers",
+          "predicate": "shall_recognize",
+          "object": "personal_violations_of_code"
+        },
+        {
+          "triple_id": 2,
+          "subject": "personal_violations_of_code",
+          "predicate": "are_inconsistent_with",
+          "object": "being _professional_software_engineer"
+        }
+      ]
+    }
+  ]
+}

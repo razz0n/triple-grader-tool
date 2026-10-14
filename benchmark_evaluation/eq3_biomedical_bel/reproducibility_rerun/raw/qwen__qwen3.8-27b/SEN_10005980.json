@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:36:52.018045+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "309184b3be35dfdffec0420018777367cfb39d1a571f76d42972046348f8549f",
+  "target": {
+    "sentence_id": "SEN:10005980",
+    "sentence": "TrkA stimulation up-regulates the expression of the anti-apoptotic Bcl-2 family members, Bcl-2, Bcl-XL, and Bfl-1"
+  },
+  "response": {
+    "id": "chatcmpl-43f914c9-0f85-4c4d-ba23-2092a4c98d9e",
+    "object": "chat.completion",
+    "created": 1791938211,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:TRKA) increases r(HGNC:BCL2)\",\n  \"p(HGNC:TRKA) increases r(HGNC:BCL2L1)\",\n  \"p(HGNC:TRKA) increases r(HGNC:BCL2L11)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.064431578,
+      "prompt_tokens": 4619,
+      "prompt_time": 0.329475154,
+      "completion_tokens": 69,
+      "completion_time": 0.139767238,
+      "total_tokens": 4688,
+      "total_time": 0.469242392
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4vxebm3et2vkxh173jpq93e",
+      "seed": 219721022
+    },
+    "service_tier": "on_demand"
+  }
+}
