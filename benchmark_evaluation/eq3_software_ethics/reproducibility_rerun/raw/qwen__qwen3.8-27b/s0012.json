@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:30:45.814693+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "c8e288acd8d4e0ebf2f2fc19455642dff76f10ab472246adae5850e4bcbb8a52",
+  "target": {
+    "sentence_id": "s0012",
+    "sentence": "4.01. Temper all technical judgments by the need to support and maintain human values."
+  },
+  "response": {
+    "id": "chatcmpl-2a30907a-1638-4706-a806-e36d1e1b5060",
+    "object": "chat.completion",
+    "created": 1791984645,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_temper\",\n    \"object\": \"technical_judgments\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"technical_judgments\",\n    \"predicate\": \"shall_be_tempered_by\",\n    \"object\": \"need_001\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"need_001\",\n    \"predicate\": \"is_to\",\n    \"object\": \"support_human_values\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"need_001\",\n    \"predicate\": \"is_to\",\n    \"object\": \"maintain_human_values\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.114628102,
+      "prompt_tokens": 5629,
+      "prompt_time": 0.400336408,
+      "completion_tokens": 197,
+      "completion_time": 0.395328814,
+      "total_tokens": 5826,
+      "total_time": 0.795665222
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9qca4ezhrkdta1drkqz88",
+      "seed": 1056653011
+    },
+    "service_tier": "on_demand"
+  }
+}

@@ -26,9 +26,18 @@ BACKEND_DIR = ROOT_DIR / "backend"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(BACKEND_DIR))
 
+from benchmark_evaluation.common.local_backend import assert_local_storage, use_isolated_local_storage
+
+use_isolated_local_storage()
+
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.auth import ensure_default_users, issue_token, load_users
+
+assert_local_storage()
+
+# Every HTTP request issued by the replay is counted, including ingest, reads, export and cleanup.
+HTTP_REQUEST_LOG: List[Tuple[str, str, int]] = []
 
 
 def build_auth_context() -> Dict[str, Any]:
@@ -63,6 +72,7 @@ def api_request_with_retry(client: TestClient, method: str, url: str, max_retrie
         try:
             func = getattr(client, method.lower())
             resp = func(url, **kwargs)
+            HTTP_REQUEST_LOG.append((method.upper(), url, resp.status_code))
             if resp.status_code < 500:
                 return resp
             time.sleep(1.0)
@@ -83,10 +93,11 @@ def replay_single_condition(
     """
     Executes oracle action replay for a single corrupted condition (Ce,d,r).
     """
-    if client is None:
-        client = TestClient(app)
     if auth is None:
         auth = build_auth_context()
+    if client is None:
+        client = TestClient(app, headers=auth["owner"]["header"])
+    http_log_start = len(HTTP_REQUEST_LOG)
 
     with open(corrupted_path, "r", encoding="utf-8") as fh:
         corr_data = json.load(fh)
@@ -263,7 +274,7 @@ def replay_single_condition(
             # Action 1: Reviewer A creates erroneous candidate
             sug_err_id = f"sug_err_{t_id}_{change_idx}"
             sug_a = inv_actions[0]
-            api_request_with_retry(
+            r_err = api_request_with_retry(
                 client, "post",
                 f"/api/sessions/{session_id}/suggestions",
                 json={
@@ -279,6 +290,8 @@ def replay_single_condition(
                 headers=auth["reviewer1"]["header"]
             )
             actions_count += 1
+            if r_err.status_code == 200:
+                correct_actions_count += 1
 
             # Action 2: Reviewer B creates valid consensus candidate
             sug_val_id = f"sug_val_{t_id}_{change_idx}"
@@ -337,14 +350,19 @@ def replay_single_condition(
         "latency_ms": export_ms
     })
 
-    # Step 4: Clean up test session via DELETE /api/sessions/{id}
-    api_request_with_retry(client, "delete", f"/api/sessions/{session_id}", headers=auth["owner"]["header"])
+    # Step 4: Clean up test session via DELETE /api/session/{id} (owner only)
+    r_del = api_request_with_retry(client, "delete", f"/api/session/{session_id}", headers=auth["owner"]["header"])
+    if r_del.status_code != 200:
+        action_log["errors"].append(f"Cleanup failed: HTTP {r_del.status_code}")
 
     total_duration_ms = round((time.perf_counter() - t0_total) * 1000, 2)
     action_log["total_duration_ms"] = total_duration_ms
     action_log["timestamp_end"] = time.time()
     action_log["total_actions"] = actions_count
     action_log["correct_actions"] = correct_actions_count
+    condition_requests = HTTP_REQUEST_LOG[http_log_start:]
+    action_log["http_requests"] = len(condition_requests)
+    action_log["failed_http_requests"] = [r for r in condition_requests if r[2] >= 400]
     action_log["exported_triple_count"] = exported_gold.get("count", len(exported_gold.get("triples", [])))
 
     # Save recovered dataset
@@ -369,6 +387,8 @@ def replay_single_condition(
         "seed": manifest["seed"],
         "actions_executed": actions_count,
         "actions_correct": correct_actions_count,
+        "http_requests": action_log["http_requests"],
+        "failed_http_requests": len(action_log["failed_http_requests"]),
         "recovered_triples": action_log["exported_triple_count"],
         "duration_ms": total_duration_ms,
         "recovered_file": rec_file,
@@ -387,8 +407,8 @@ def replay_all_conditions(base_dir: Path) -> List[Dict[str, Any]]:
         return []
 
     print(f"Starting oracle action replay for {len(manifest_files)} experimental conditions via public HTTP API...")
-    client = TestClient(app)
     auth = build_auth_context()
+    client = TestClient(app, headers=auth["owner"]["header"])
 
     summary_records = []
     for mf in manifest_files:
@@ -401,7 +421,15 @@ def replay_all_conditions(base_dir: Path) -> List[Dict[str, Any]]:
         rec = replay_single_condition(corr_file, mf, base_dir, client=client, auth=auth)
         rec["wall_time_s"] = round(time.perf_counter() - t_start, 2)
         summary_records.append(rec)
-        print(f"  [RECOVERED] {rec['experiment_id']}: {rec['actions_executed']} API actions executed in {rec['wall_time_s']}s -> {rec['recovered_triples']} gold triples exported.")
+        print(f"  [RECOVERED] {rec['experiment_id']}: {rec['actions_correct']}/{rec['actions_executed']} curation actions succeeded, "
+              f"{rec['http_requests']} HTTP requests ({rec['failed_http_requests']} failed) in {rec['wall_time_s']}s "
+              f"-> {rec['recovered_triples']} gold triples exported.")
+
+    total_actions = sum(r["actions_executed"] for r in summary_records)
+    total_ok = sum(r["actions_correct"] for r in summary_records)
+    total_http = sum(r["http_requests"] for r in summary_records)
+    total_failed = sum(r["failed_http_requests"] for r in summary_records)
+    print(f"TOTAL: {total_ok}/{total_actions} curation actions succeeded; {total_http} HTTP requests, {total_failed} failed.")
 
     return summary_records
 

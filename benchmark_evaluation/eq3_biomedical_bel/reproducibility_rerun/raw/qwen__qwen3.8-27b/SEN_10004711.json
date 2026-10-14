@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:28:47.703047+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "9753a94930b2a4bf205fcd2df652baf88b89a3ba98fd3df7c6eb73658eff36f1",
+  "target": {
+    "sentence_id": "SEN:10004711",
+    "sentence": "The reduced Dnmt1 mRNA and protein were accompanied by increased reelin mRNA expression."
+  },
+  "response": {
+    "id": "chatcmpl-fd08f280-dcda-40bf-a3ea-f07b0da10e23",
+    "object": "chat.completion",
+    "created": 1791937727,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:Dnmt1) decreases r(HGNC:RELN)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.060206663,
+      "prompt_tokens": 4599,
+      "prompt_time": 0.39953198,
+      "completion_tokens": 25,
+      "completion_time": 0.057731295,
+      "total_tokens": 4624,
+      "total_time": 0.457263275
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwzjp3ewz9eb8cg9t47w2j",
+      "seed": 34316066
+    },
+    "service_tier": "on_demand"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:46:21.864006+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "d5c44663d2a86783f354d4990d5df8993a06e5b27a453de16213cab7435e636a",
+  "target": {
+    "sentence_id": "SEN:10010034",
+    "sentence": "In addition, the expression of a S100A13 mutant lacking a sequence novel to this gene product functions as a dominant-negative repressor of IL-1alpha release"
+  },
+  "response": {
+    "id": "chatcmpl-054dd3d0-17c2-4326-925e-0999f8ab1f6f",
+    "object": "chat.completion",
+    "created": 1791938781,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:S100A13) increases sec(p(HGNC:IL1A))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.745701164,
+      "prompt_tokens": 4618,
+      "prompt_time": 0.396904135,
+      "completion_tokens": 31,
+      "completion_time": 0.072521356,
+      "total_tokens": 4649,
+      "total_time": 0.469425491
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vxzqd3eaxrm3sk9dt4bjeb",
+      "seed": 1959889564
+    },
+    "service_tier": "on_demand"
+  }
+}

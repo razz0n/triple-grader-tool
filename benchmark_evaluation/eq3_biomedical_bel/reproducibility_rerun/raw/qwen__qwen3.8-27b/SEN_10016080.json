@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:46:59.322375+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "3a31a9454fb15c108778c6c369ec1a3a194e89cfd894db5db20eebb96b85fa2c",
+  "target": {
+    "sentence_id": "SEN:10016080",
+    "sentence": "Indeed, SIRT5 KO mice fail to upregulate CPS1 activity and show elevated blood ammonia during fasting."
+  },
+  "response": {
+    "id": "chatcmpl-52f88f94-9935-4722-8ce7-a646d6658e13",
+    "object": "chat.completion",
+    "created": 1791938819,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Sirt5) increases act(p(MGI:Cps1))\",\n  \"p(MGI:Sirt5) decreases a(CHEBI:ammonia)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.077912488,
+      "prompt_tokens": 4604,
+      "prompt_time": 0.392635144,
+      "completion_tokens": 44,
+      "completion_time": 0.087183984,
+      "total_tokens": 4648,
+      "total_time": 0.479819128
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vy0wmeekwv93mhd30zsx7d",
+      "seed": 1740553021
+    },
+    "service_tier": "on_demand"
+  }
+}

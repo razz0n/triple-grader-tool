@@ -75,3 +75,15 @@ reports/
 temp/
 scratch/
 .agents/
+.pytest_cache/
+
+# Editor settings (personal, e.g. the local LaTeX Workshop build setup)
+.vscode/
+
+# LaTeX build files (the paper builds into temp/paper_build)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz

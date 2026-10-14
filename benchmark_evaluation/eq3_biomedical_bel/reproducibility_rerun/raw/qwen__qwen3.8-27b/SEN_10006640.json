@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:39:24.754942+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "55da9b9705d0bd51457f1e35663d815ac474d2928aa5216508d4afed00a6841b",
+  "target": {
+    "sentence_id": "SEN:10006640",
+    "sentence": "Additionally, BMP-7 exhibited anti-inflammatory activity by downregulating intercellular adhesion molecule-1 (ICAM-1) expression."
+  },
+  "response": {
+    "id": "chatcmpl-f11cd55c-ce92-48e4-845e-9f06a77861af",
+    "object": "chat.completion",
+    "created": 1791938364,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:BMP7) decreases p(HGNC:ICAM1)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.065877005,
+      "prompt_tokens": 4610,
+      "prompt_time": 0.385083927,
+      "completion_tokens": 25,
+      "completion_time": 0.049201329,
+      "total_tokens": 4635,
+      "total_time": 0.434285256
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_57c7e760a9",
+    "x_groq": {
+      "id": "req_01m4vxk0t5evm9011754her87j",
+      "seed": 1817061704
+    },
+    "service_tier": "on_demand"
+  }
+}

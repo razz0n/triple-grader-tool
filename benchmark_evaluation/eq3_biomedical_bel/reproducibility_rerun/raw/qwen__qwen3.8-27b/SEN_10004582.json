@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:27:32.621169+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "9d1ab7f7c86e79193fcd6f196e6414c2e7a143a5a26f44ec740edb01444c421e",
+  "target": {
+    "sentence_id": "SEN:10004582",
+    "sentence": "In the present study, we found that transgenic mice overexpressing wild-type human APP gene (hAPP/+) displayed a much higher expression of FAS, one of the death receptor subfamily"
+  },
+  "response": {
+    "id": "chatcmpl-a4daae46-aca6-46e6-a362-0a5ad06b1662",
+    "object": "chat.completion",
+    "created": 1791937652,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:APP) increases r(HGNC:FAS)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.023236577,
+      "prompt_tokens": 4622,
+      "prompt_time": 0.328869782,
+      "completion_tokens": 22,
+      "completion_time": 0.04825773,
+      "total_tokens": 4644,
+      "total_time": 0.377127512
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vwx9evewk8p7y66783063j",
+      "seed": 678912371
+    },
+    "service_tier": "on_demand"
+  }
+}

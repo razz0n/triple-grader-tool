@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:25:35.831939+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "af3bd6729b49cc3afbc7642c2283a9ea79b2565f443a4ed1e529ae29ae4aa2b5",
+  "target": {
+    "sentence_id": "s0005",
+    "sentence": "In some situations standards may be in tension with each other or with standards from other sources."
+  },
+  "response": {
+    "id": "chatcmpl-8fed9948-02a1-4859-a1ce-4b24d1a5aaff",
+    "object": "chat.completion",
+    "created": 1791984335,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"standards\",\n    \"predicate\": \"may_be_in_tension_with\",\n    \"object\": \"each_other\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"standards\",\n    \"predicate\": \"may_be_in_tension_with\",\n    \"object\": \"standards_from_other_sources\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"standards_from_other_sources\",\n    \"predicate\": \"are_from\",\n    \"object\": \"other_sources\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.254997639,
+      "prompt_tokens": 5628,
+      "prompt_time": 0.500728683,
+      "completion_tokens": 147,
+      "completion_time": 0.327385267,
+      "total_tokens": 5775,
+      "total_time": 0.82811395
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4x9dxeeeawt0fbydegsxgf7",
+      "seed": 489222172
+    },
+    "service_tier": "on_demand"
+  }
+}

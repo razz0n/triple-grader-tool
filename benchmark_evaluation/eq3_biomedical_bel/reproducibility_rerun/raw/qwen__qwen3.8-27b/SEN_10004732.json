@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:30:39.994100+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "45b0a093b857e4043a3761ca58776aa1bd73134967166ad654bb5faa71a5af86",
+  "target": {
+    "sentence_id": "SEN:10004732",
+    "sentence": "Therefore, endoG represents a caspase-independent apoptotic pathway initiated from the mitochondria."
+  },
+  "response": {
+    "id": "chatcmpl-3b95e4cb-1c8d-40e1-90f8-6e11a93dc2b7",
+    "object": "chat.completion",
+    "created": 1791937839,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:ENDOG) increases bp(GOBP:\\\"cell death\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083605732,
+      "prompt_tokens": 4601,
+      "prompt_time": 0.316304616,
+      "completion_tokens": 25,
+      "completion_time": 0.047800607,
+      "total_tokens": 4626,
+      "total_time": 0.364105223
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fea14bdc83",
+    "x_groq": {
+      "id": "req_01m4vx30d6eknttcvbqc7a70gn",
+      "seed": 1216045844
+    },
+    "service_tier": "on_demand"
+  }
+}

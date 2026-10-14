@@ -10,10 +10,14 @@ Endpoints:
 """
 
 import copy
+import functools
 import hashlib
 import html
 import json
+import math
+import os
 import re
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +31,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from auth import (
+    validate_and_update_token,
+    hash_security_answer,
+    is_hashed_security_answer,
+    revoke_user_tokens,
+    verify_security_answer,
     current_user,
     current_user_from_bearer_or_query,
     ensure_default_users,
@@ -116,16 +125,20 @@ from utils import display_name, is_valid_username, norm_email, norm_username
 
 app = FastAPI(title="Ontology Grading Tool", version="1.0.0")
 
+_LOCAL_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+]
+# Deployments list their frontend URLs in CORS_ORIGINS (comma-separated), as render.yaml describes.
+_CONFIGURED_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-    ],
+    allow_origins=_LOCAL_DEV_ORIGINS + [o for o in _CONFIGURED_ORIGINS if o not in _LOCAL_DEV_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -175,6 +188,16 @@ manager = ConnectionManager()
 
 @app.websocket("/api/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    # Same rule as the REST routes: a valid token is required and the session must exist.
+    token = str(websocket.query_params.get("token") or "").strip()
+    if not token or not validate_and_update_token(token):
+        await websocket.close(code=1008)
+        return
+    try:
+        _load_session_for_access(session_id)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
     await manager.connect(session_id, websocket)
     try:
         while True:
@@ -268,12 +291,28 @@ def _load_existing_session(session_id: str) -> tuple[Optional[Path], Optional[Di
         return existing_path, None
 
 
+@functools.lru_cache(maxsize=4096)
+def _registered_user_id_cached(user_id: str, time_bucket: int) -> bool:
+    return get_user_by_id(user_id) is not None
+
+
+def _is_registered_user_id(user_id: str) -> bool:
+    """Whether an id belongs to a registered account (cached for up to a minute per id)."""
+    return _registered_user_id_cached(user_id, int(time.time() // 60))
+
+
 def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], user: Dict[str, Any]) -> bool:
     user_id = user.get("id", "")
     user_username = norm_username(user.get("username", ""))
     user_email = norm_email(user.get("email", ""))
 
     owner_user_id = str(session.get("owner_user_id") or "").strip()
+    if owner_user_id and owner_user_id == str(user_id or "").strip():
+        return True
+    if owner_user_id and _is_registered_user_id(owner_user_id):
+        # The owner is a registered account: ownership follows the account id only, so a
+        # username, email or display name released by the owner can never confer ownership.
+        return owner_user_id == str(user_id or "").strip()
     if owner_user_id and (
         owner_user_id == user_id
         or norm_username(owner_user_id) == user_username
@@ -289,11 +328,10 @@ def _is_session_owner(session: Dict[str, Any], session_path: Optional[Path], use
     if owner_username and norm_username(owner_username) == user_username:
         return True
 
+    # owner_name stores the owner's display identity. Only the unique username is compared;
+    # the free-text profile name is not unique and must never confer ownership.
     owner_name = (session.get("owner_name") or "").strip()
-    if owner_name and owner_name in {
-        (user.get("name") or "").strip(),
-        user_username,
-    }:
+    if owner_name and user_username and norm_username(owner_name) == user_username:
         return True
 
     # Legacy fallback for sessions saved before owner metadata was persisted,
@@ -335,7 +373,7 @@ def _normalize_grade_value(value: Any) -> Optional[float]:
         numeric = float(value)
     except (TypeError, ValueError):
         return None
-    if numeric < 0 or numeric > 10:
+    if not math.isfinite(numeric) or numeric < 0 or numeric > 10:
         return None
     if numeric.is_integer():
         return float(int(numeric))
@@ -381,6 +419,8 @@ def _normalize_grades_by_user(
                 "grade": grade,
                 "graded_at": payload.get("graded_at"),
             }
+            if payload.get("triple_sig") is not None:
+                normalized[user_id]["triple_sig"] = payload.get("triple_sig")
 
     if normalized:
         return normalized
@@ -650,6 +690,7 @@ def _normalize_suggestions(raw_suggestions: Any) -> list[Dict[str, Any]]:
             "votes": payload.get("votes") or {},
             "status": payload.get("status") or "pending",
             "approved_by": payload.get("approved_by"),
+            **({"approved_from": payload["approved_from"]} if isinstance(payload.get("approved_from"), dict) else {}),
             "read_by": read_by,
             "replies": normalized_replies,
         })
@@ -742,17 +783,8 @@ def _apply_collaborative_grades(
             fallback_user_name=owner_fallback_user_name,
             fallback_updated_at=(existing_sentence or {}).get("completeness_updated_at"),
         )
-        incoming_completeness = _normalize_sentence_metric_by_user(
-            sentence.get("completeness_by_user"),
-            fallback_value=sentence.get("completeness"),
-            fallback_user_id=user_id,
-            fallback_user_name=user_name,
-            fallback_updated_at=sentence.get("completeness_updated_at"),
-        )
+        # Only the caller's own entry may change; other users' ratings always come from storage.
         merged_completeness = dict(existing_completeness)
-        for metric_user_id, payload in incoming_completeness.items():
-            if metric_user_id not in merged_completeness:
-                merged_completeness[metric_user_id] = payload
 
         my_completeness = _normalize_sentence_metric_value(sentence.get("completeness"))
         if not user_can_grade:
@@ -769,6 +801,7 @@ def _apply_collaborative_grades(
                 "user_name": user_name,
                 "value": my_completeness,
                 "updated_at": now_iso,
+                "triples_sig": _sentence_sig(sentence),
             }
             sentence["completeness"] = my_completeness
             sentence["completeness_updated_at"] = now_iso
@@ -781,17 +814,7 @@ def _apply_collaborative_grades(
             fallback_user_name=owner_fallback_user_name,
             fallback_updated_at=(existing_sentence or {}).get("external_relation_updated_at"),
         )
-        incoming_external = _normalize_sentence_metric_by_user(
-            sentence.get("external_relation_by_user"),
-            fallback_value=sentence.get("external_relation") if sentence.get("external_relation") is not None else sentence.get("relation"),
-            fallback_user_id=user_id,
-            fallback_user_name=user_name,
-            fallback_updated_at=sentence.get("external_relation_updated_at"),
-        )
         merged_external = dict(existing_external)
-        for metric_user_id, payload in incoming_external.items():
-            if metric_user_id not in merged_external:
-                merged_external[metric_user_id] = payload
 
         raw_ext = sentence.get("external_relation")
         raw_rel = sentence.get("relation")
@@ -816,6 +839,7 @@ def _apply_collaborative_grades(
                 "user_name": user_name,
                 "value": my_external,
                 "updated_at": now_iso,
+                "triples_sig": _sentence_sig(sentence),
             }
             sentence["external_relation"] = my_external
             sentence["relation"] = my_external
@@ -919,12 +943,8 @@ def _apply_collaborative_grades(
                 fallback_user_id=owner_fallback_user_id,
                 fallback_graded_at=existing_triple.get("graded_at"),
             )
-            incoming_grades = _normalize_grades_by_user(triple.get("grades_by_user"))
-
+            # Grades of other users are never taken from the client payload.
             merged_grades = dict(existing_grades)
-            for grader_id, grade_payload in incoming_grades.items():
-                if grader_id not in merged_grades:
-                    merged_grades[grader_id] = grade_payload
 
             my_grade = _normalize_grade_value(triple.get("grade"))
             if not user_can_grade:
@@ -938,15 +958,23 @@ def _apply_collaborative_grades(
                 triple["author"] = None
                 triple.pop("graded_at", None)
             else:
-                merged_grades[user_id] = {
-                    "user_id": user_id,
-                    "user_name": user_name,
-                    "grade": my_grade,
-                    "graded_at": now_iso,
-                }
-                triple["grade"] = my_grade
-                triple["author"] = user_name
-                triple["graded_at"] = now_iso
+                stored = existing_grades.get(user_id)
+                if stored and stored.get("grade") == my_grade:
+                    # An unchanged grade still refers to the wording it was given for.
+                    triple["grade"] = my_grade
+                    triple["author"] = stored.get("user_name") or user_name
+                    triple["graded_at"] = stored.get("graded_at")
+                else:
+                    merged_grades[user_id] = {
+                        "user_id": user_id,
+                        "user_name": user_name,
+                        "grade": my_grade,
+                        "graded_at": now_iso,
+                        "triple_sig": _triple_sig(triple),
+                    }
+                    triple["grade"] = my_grade
+                    triple["author"] = user_name
+                    triple["graded_at"] = now_iso
 
             triple["grades_by_user"] = merged_grades
 
@@ -1187,6 +1215,44 @@ def _session_activity_for_user(session_data: Dict[str, Any], user: Dict[str, Any
     }
 
 
+def _redact_peer_ratings_for_blind_review(data: Dict[str, Any], user_id: str) -> None:
+    """Withhold other raters' scores from a non-owner until that user has rated the same item.
+
+    Applies to triple grades and to the sentence-level completeness and external-relation
+    ratings. Aggregates (counts, averages) are withheld together with the individual scores.
+    Stored data is untouched; this only changes the projection returned to the requester.
+    """
+    def _redact_sentence_metric(sentence: Dict[str, Any], prefix: str) -> None:
+        by_user = sentence.get(f"{prefix}_by_user") or {}
+        if user_id in by_user:
+            return
+        sentence[f"{prefix}_by_user"] = {}
+        sentence[f"{prefix}_count"] = None
+        sentence[f"{prefix}_average"] = None
+
+    def _redact_sentences(sentences: Any) -> None:
+        for sentence in sentences or []:
+            _redact_sentence_metric(sentence, "completeness")
+            _redact_sentence_metric(sentence, "external_relation")
+            for triple in sentence.get("triples", []) or []:
+                by_user = triple.get("grades_by_user") or {}
+                if user_id in by_user:
+                    continue
+                triple["grades_by_user"] = {}
+                triple["grade_count"] = None
+                triple["grade_average"] = None
+
+    for version in data.get("versions", []) or []:
+        _redact_sentences(version.get("sentences"))
+        version["grader_summary"] = [
+            row for row in (version.get("grader_summary") or []) if row.get("user_id") == user_id
+        ]
+        version["session_average_grade"] = None
+    _redact_sentences(data.get("sentences"))
+    data["grader_summary"] = [row for row in (data.get("grader_summary") or []) if row.get("user_id") == user_id]
+    data["session_average_grade"] = None
+
+
 def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
     # Deep copy so caller gets a user-scoped projection without mutating storage payload.
     data = json.loads(json.dumps(session, ensure_ascii=False))
@@ -1344,6 +1410,11 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
                 _sync_collaborative_elements(owner_draft["sentences"], selected_version["sentences"])
             data["sentences"] = copy.deepcopy(owner_draft["sentences"])
 
+    if not is_owner:
+        # Blind review: the unpublished owner draft and peer ratings are never sent to graders.
+        data.pop("owner_draft", None)
+        _redact_peer_ratings_for_blind_review(data, user_id)
+
     return data
 
 
@@ -1493,7 +1564,12 @@ def _merge_suggestions_lists(
             
             incoming_replies = sug.get("replies") or []
             existing_replies = existing_sug.get("replies") or []
-            merged_replies = {str(r.get("id")): r for r in existing_replies if r.get("id")}
+            incoming_reply_ids = {str(r.get("id")) for r in incoming_replies if r.get("id")}
+            merged_replies = {
+                str(r.get("id")): r for r in existing_replies if r.get("id")
+                and (str(r.get("id")) in incoming_reply_ids
+                     or not (is_owner or (norm_user_id and str(r.get("user_id") or "").strip() == norm_user_id)))
+            }
             for r in incoming_replies:
                 rid = str(r.get("id") or "").strip()
                 if rid:
@@ -1684,7 +1760,12 @@ def _merge_existing_sentence_comments(
                 if comment_id in merged_by_id:
                     existing_r = merged_by_id[comment_id].get("replies") or []
                     incoming_r = comment.get("replies") or []
-                    merged_replies_dict = {str(r.get("id")): r for r in existing_r}
+                    incoming_r_ids = {str(r.get("id")) for r in incoming_r}
+                    merged_replies_dict = {
+                        str(r.get("id")): r for r in existing_r
+                        if str(r.get("id")) in incoming_r_ids
+                        or not (is_owner or (user_id and str(r.get("user_id") or "").strip() == user_id))
+                    }
                     for r in incoming_r:
                         merged_replies_dict[str(r.get("id"))] = r
                     comment["replies"] = sorted(merged_replies_dict.values(), key=lambda row: str(row.get("created_at") or ""))
@@ -1707,7 +1788,15 @@ def _merge_existing_sentence_comments(
 # ---------------------------------------------------------------------------
 
 init_database(users_json_path=USERS_FILE, tokens_json_path=TOKENS_FILE, sessions_root=SESSIONS_ROOT)
-ensure_default_users()
+# Demo accounts have published passwords, so they are created only when explicitly requested.
+if os.getenv("SEED_DEFAULT_USERS", "").strip() == "1":
+    ensure_default_users()
+
+# Failed security-answer attempts per login (process-local), used to slow down guessing.
+_RESET_FAILURES: Dict[str, list] = {}
+_RESET_MAX_FAILURES = 5
+_RESET_WINDOW_SECONDS = 15 * 60
+
 
 @app.post("/api/auth/register")
 async def register(body: RegisterRequest):
@@ -1737,7 +1826,7 @@ async def register(body: RegisterRequest):
         "password_hash": hashed["hash"],
         "created_at": datetime.utcnow().isoformat(),
         "security_question": body.security_question.strip(),
-        "security_answer": body.security_answer.strip().lower(),
+        "security_answer": hash_security_answer(body.security_answer),
     }
 
     users_data["users"].append(user)
@@ -1801,7 +1890,12 @@ async def logout(creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_S
 
 
 @app.put("/api/auth/profile")
-async def update_profile(body: UpdateProfileRequest, user: Dict[str, Any] = Depends(current_user)):
+async def update_profile(
+    body: UpdateProfileRequest,
+    user: Dict[str, Any] = Depends(current_user),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_AUTH_SCHEME),
+):
+    password_changed = False
     users_data = load_users()
     users = users_data.get("users", [])
     
@@ -1850,14 +1944,28 @@ async def update_profile(body: UpdateProfileRequest, user: Dict[str, Any] = Depe
         if not body.security_answer:
             raise HTTPException(status_code=400, detail="Security answer is required to change password.")
             
-        stored_answer = str(target.get("security_answer") or "").strip().lower()
-        if body.security_answer.strip().lower() != stored_answer:
+        if not verify_security_answer(body.security_answer, target.get("security_answer")):
             raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
-            
+
         hashed = hash_password(pass_val)
         target["password_salt"] = hashed["salt"]
         target["password_hash"] = hashed["hash"]
-        
+        password_changed = True
+
+    answer_changes = (
+        body.security_answer is not None and body.password is None
+        and bool(body.security_answer.strip())
+        and not verify_security_answer(body.security_answer, target.get("security_answer"))
+    )
+    question_changes = (
+        body.security_question is not None and body.security_question.strip()
+        and body.security_question.strip() != str(target.get("security_question") or "").strip()
+    )
+    if answer_changes or question_changes:
+        if not body.current_password or not verify_password(
+                body.current_password, target.get("password_salt", ""), target.get("password_hash", "")):
+            raise HTTPException(status_code=400, detail="Enter your current password to change the security question.")
+
     if body.security_question is not None:
         q_val = body.security_question.strip()
         if q_val:
@@ -1867,15 +1975,21 @@ async def update_profile(body: UpdateProfileRequest, user: Dict[str, Any] = Depe
             
     if body.security_answer is not None:
         a_val = body.security_answer.strip().lower()
-        if a_val:
-            target["security_answer"] = a_val
-            
+        if a_val and not verify_security_answer(a_val, target.get("security_answer")):
+            target["security_answer"] = hash_security_answer(a_val)
+        elif a_val and not is_hashed_security_answer(target.get("security_answer")):
+            target["security_answer"] = hash_security_answer(a_val)
+
     # Save updated user record
     if use_database_storage():
         upsert_user_db(target)
     else:
         save_users(users_data)
-        
+
+    if password_changed:
+        # Other sessions opened with the old password end; the current one stays signed in.
+        revoke_user_tokens(target["id"], keep_token=creds.credentials if creds else None)
+
     return {
         "ok": True,
         "message": "Profile updated successfully.",
@@ -1912,20 +2026,28 @@ async def forgot_password_question(body: GetSecurityQuestionRequest):
 @app.post("/api/auth/forgot-password/reset")
 async def forgot_password_reset(body: ResetPasswordWithQuestionRequest):
     user = find_user_for_login(body.login)
+    # Failures are counted per account, so a username and an email address share one limit.
+    attempt_key = f"user:{user['id']}" if user else "login:" + str(body.login or "").strip().lower()
+    now_ts = datetime.utcnow().timestamp()
+    recent = [t for t in _RESET_FAILURES.get(attempt_key, []) if now_ts - t < _RESET_WINDOW_SECONDS]
+    _RESET_FAILURES[attempt_key] = recent
+    if len(recent) >= _RESET_MAX_FAILURES:
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
+
     if not user:
         raise HTTPException(status_code=404, detail="User account not found.")
-        
-    stored_answer = str(user.get("security_answer") or "").strip().lower()
-    if not stored_answer:
+
+    if not str(user.get("security_answer") or "").strip():
         raise HTTPException(
             status_code=400,
             detail="This account does not have a security question set."
         )
-        
-    user_answer = body.answer.strip().lower()
-    if user_answer != stored_answer:
+
+    if not verify_security_answer(body.answer, user.get("security_answer")):
+        _RESET_FAILURES[attempt_key].append(now_ts)
         raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
-        
+    _RESET_FAILURES.pop(attempt_key, None)
+
     new_password = body.password
     if len(new_password) < 8 or len(new_password) > 128:
         raise HTTPException(status_code=422, detail="Password must be between 8 and 128 characters.")
@@ -1947,12 +2069,17 @@ async def forgot_password_reset(body: ResetPasswordWithQuestionRequest):
         
     target["password_salt"] = hashed["salt"]
     target["password_hash"] = hashed["hash"]
-    
+    if not is_hashed_security_answer(target.get("security_answer")):
+        target["security_answer"] = hash_security_answer(body.answer)
+
     if use_database_storage():
         upsert_user_db(target)
     else:
         save_users(users_data)
-        
+
+    # Sessions opened with the old password end with the reset.
+    revoke_user_tokens(user["id"])
+
     return {
         "ok": True,
         "message": "Password reset successfully. You can now log in."
@@ -1979,8 +2106,7 @@ async def delete_account(body: DeleteAccountRequest, user: Dict[str, Any] = Depe
         raise HTTPException(status_code=400, detail="Incorrect password.")
         
     # Verify security answer
-    stored_answer = str(target.get("security_answer") or "").strip().lower()
-    if body.security_answer.strip().lower() != stored_answer:
+    if not verify_security_answer(body.security_answer, target.get("security_answer")):
         raise HTTPException(status_code=400, detail="Incorrect answer to security question.")
         
     # Delete all user sessions, tokens, and records
@@ -2292,17 +2418,30 @@ def _publish_new_version(
     prev_sentences = prev_version.get("sentences", []) if prev_version else []
 
 
-    # Map previous triples by ID
-    prev_triple_map: Dict[str, Dict[str, Any]] = {}
+    # Map previous sentences by ID and triples by (sentence ID, triple ID); triple IDs need not be unique across sentences.
+    prev_sentence_map: Dict[str, Dict[str, Any]] = {
+        str(s.get("id")): s for s in prev_sentences if s.get("id") is not None
+    }
+    prev_triple_map: Dict[tuple, Dict[str, Any]] = {}
     for s in prev_sentences:
         for t in s.get("triples", []):
             tid = str(t.get("id") or "").strip()
             if tid:
-                prev_triple_map[tid] = t
+                prev_triple_map[(str(s.get("id")), tid)] = t
+
+    _restore_unsent_fields(incoming_sentences, prev_sentences)
 
     published_sentences = []
     for s in incoming_sentences:
         sentence_copy = dict(s)
+        prev_s = prev_sentence_map.get(str(s.get("id")))
+        # Sentence-level ratings come from the previous version, never from the request.
+        for key in _SENTENCE_RATING_KEYS:
+            if prev_s is not None and key in prev_s:
+                sentence_copy[key] = copy.deepcopy(prev_s[key])
+            else:
+                sentence_copy.pop(key, None)
+        sentence_changed = prev_s is None
         sentence_copy["sentence_comments"] = []
         sentence_copy["comment_count"] = 0
         sentence_copy["suggestion"] = ""
@@ -2318,9 +2457,28 @@ def _publish_new_version(
             t_copy["marked_for_removal_by_name"] = None
 
             tid = str(t.get("id") or "").strip()
-            prev_t = prev_triple_map.get(tid)
+            prev_t = prev_triple_map.get((str(s.get("id")), tid))
+            current_sig = _triple_sig(t)
+
+            def _grades_for_current_wording(wording_changed: bool) -> Dict[str, Any]:
+                """Grades from the stored working copy that were given for the triple's current wording."""
+                # A grade without a recorded wording predates wording signatures; it cannot refer to the
+                # current wording if an approved revision changed the triple in place this round.
+                revised_in_place = any(
+                    isinstance(sug, dict) and sug.get("status") == "approved"
+                    and isinstance(sug.get("approved_from"), dict)
+                    and _triple_sig(sug["approved_from"]) != current_sig
+                    for sug in ((prev_t or {}).get("suggestions") or [])
+                )
+                kept = {}
+                for uid, entry in ((prev_t or {}).get("grades_by_user") or {}).items():
+                    sig = entry.get("triple_sig") if isinstance(entry, dict) else None
+                    if sig == current_sig or (sig is None and not wording_changed and not revised_in_place):
+                        kept[uid] = entry
+                return kept
 
             if not prev_t:
+                sentence_changed = True
                 # NEW TRIPLE in this published version: reset grades & mark new
                 t_copy["is_new_in_version"] = True
                 t_copy["is_modified_in_version"] = False
@@ -2343,6 +2501,7 @@ def _publish_new_version(
                 obj_changed = (curr_obj != prev_obj)
 
                 if sub_changed or pred_changed or obj_changed:
+                    sentence_changed = True
                     hints = []
                     if sub_changed:
                         hints.append(f"Subject changed from '{prev_sub}' to '{curr_sub}'")
@@ -2354,23 +2513,53 @@ def _publish_new_version(
                     t_copy["is_modified_in_version"] = True
                     t_copy["is_new_in_version"] = False
                     t_copy["diff_hint"] = hints
-                    # MODIFIED TRIPLE: reset grades so graders can grade the modified triple
+                    # MODIFIED TRIPLE: only grades given for the new wording carry over
                     t_copy["grade"] = None
                     t_copy["author"] = None
-                    t_copy["grades_by_user"] = {}
+                    t_copy["grades_by_user"] = _grades_for_current_wording(True)
                     t_copy["graded_at"] = None
                 else:
-                    # UNMODIFIED TRIPLE: preserve previous grades intact
-                    t_copy["is_modified_in_version"] = False
-                    t_copy["is_new_in_version"] = False
-                    t_copy.pop("diff_hint", None)
-                    t_copy["grade"] = prev_t.get("grade")
-                    t_copy["author"] = prev_t.get("author")
-                    t_copy["grades_by_user"] = prev_t.get("grades_by_user") or {}
-                    t_copy["graded_at"] = prev_t.get("graded_at")
+                    # SAME WORDING AS THE STORED COPY: keep grades given for this wording; grades given
+                    # for an earlier wording (a revision applied before publication) are dropped.
+                    kept = _grades_for_current_wording(False)
+                    stale = len((prev_t.get("grades_by_user") or {})) - len(kept)
+                    t_copy["grades_by_user"] = kept
+                    if stale:
+                        sentence_changed = True
+                        t_copy["is_modified_in_version"] = True
+                        t_copy["is_new_in_version"] = False
+                        t_copy["diff_hint"] = ["Wording changed after it was graded"]
+                        t_copy["grade"] = None
+                        t_copy["author"] = None
+                        t_copy["graded_at"] = None
+                    else:
+                        t_copy["is_modified_in_version"] = False
+                        t_copy["is_new_in_version"] = False
+                        t_copy.pop("diff_hint", None)
+                        t_copy["grade"] = prev_t.get("grade")
+                        t_copy["author"] = prev_t.get("author")
+                        t_copy["graded_at"] = prev_t.get("graded_at")
 
             new_triples.append(t_copy)
         sentence_copy["triples"] = new_triples
+        if prev_s is not None:
+            kept_ids = {str(t.get("id") or "").strip() for t in new_triples}
+            if any(str(t.get("id") or "").strip() not in kept_ids for t in prev_s.get("triples", [])):
+                sentence_changed = True
+        # Sentence ratings carry over only if they were given for the sentence's current triple set
+        # (or, for older ratings without a record of that set, if the triples did not change).
+        current_sentence_sig = _sentence_sig(sentence_copy)
+        for key in ("completeness_by_user", "external_relation_by_user"):
+            kept = {}
+            for uid, entry in (sentence_copy.get(key) or {}).items():
+                sig = entry.get("triples_sig") if isinstance(entry, dict) else None
+                if sig == current_sentence_sig or (sig is None and not sentence_changed):
+                    kept[uid] = entry
+            sentence_copy[key] = kept
+        if sentence_changed:
+            sentence_copy["completeness"] = None
+            sentence_copy["external_relation"] = None
+            sentence_copy["relation"] = None
         published_sentences.append(sentence_copy)
 
     new_version_obj = {
@@ -2482,14 +2671,14 @@ def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences
         for t in s.get("triples", []):
             tid = str(t.get("id") or "").strip()
             if tid:
-                existing_triples[tid] = t
+                existing_triples[(str(s.get("id")), tid)] = t
 
     incoming_triples = {}
     for s in incoming_sentences:
         for t in s.get("triples", []):
             tid = str(t.get("id") or "").strip()
             if tid:
-                incoming_triples[tid] = t
+                incoming_triples[(str(s.get("id")), tid)] = t
 
     for tid, incoming_t in incoming_triples.items():
         existing_t = existing_triples.get(tid)
@@ -2526,6 +2715,284 @@ def _has_owner_manual_modifications(incoming_sentences: list, existing_sentences
     return False
 
 
+# ---------------------------------------------------------------------------
+# Save integrity: what each role may change through a full-session save
+# ---------------------------------------------------------------------------
+
+_SPO_KEYS = ("subject", "predicate", "object")
+_TRIPLE_RATING_KEYS = ("grades_by_user", "grade", "author", "graded_at")
+_SENTENCE_RATING_KEYS = (
+    "completeness_by_user", "external_relation_by_user", "completeness", "external_relation", "relation",
+    "completeness_updated_at", "external_relation_updated_at",
+)
+
+
+def _spo_tuple(triple: Dict[str, Any]) -> tuple:
+    return tuple(str(triple.get(k) or "").strip() for k in _SPO_KEYS)
+
+
+def _identity_keys(user: Dict[str, Any]) -> set:
+    """Names under which the frontend records this user's votes (the unique username / display name)."""
+    keys = {display_name(user), norm_username(user.get("username") or "")}
+    return {k for k in keys if k}
+
+
+def _triple_sig(triple: Dict[str, Any]) -> str:
+    """The wording a grade refers to."""
+    return "|".join(_spo_tuple(triple))
+
+
+def _counts_for_sentence_sig(triple: Dict[str, Any]) -> bool:
+    return not (triple.get("is_new_suggestion") and triple.get("status") != "approved")
+
+
+def _sentence_sig(sentence: Dict[str, Any]) -> str:
+    """The set of triples a completeness or external-relation rating refers to."""
+    return "\n".join(sorted(_triple_sig(t) for t in sentence.get("triples", []) or [] if _counts_for_sentence_sig(t)))
+
+
+def _resolve_current_version_name(session: Dict[str, Any]) -> str:
+    """The active version: the stored name if it still exists, otherwise the latest version."""
+    names = [v.get("name") for v in session.get("versions", []) or [] if v.get("name")]
+    stored = session.get("current_version_name") or "Initial"
+    if stored in names or not names:
+        return stored
+    return names[-1]
+
+
+def _by_id(items: Any) -> Dict[str, Dict[str, Any]]:
+    return {str(i.get("id")): i for i in (items or []) if isinstance(i, dict) and i.get("id") is not None}
+
+
+def _restore_unsent_fields(incoming_sentences: list, reference_sentences: list) -> None:
+    """Copies back fields that the client does not send (e.g. raw_bel, polarity, modality, sentence_id)."""
+    ref_sentences = _by_id(reference_sentences)
+    for sentence in incoming_sentences or []:
+        ref_s = ref_sentences.get(str(sentence.get("id")))
+        if not ref_s:
+            continue
+        for key, value in ref_s.items():
+            if key not in sentence and key != "triples":
+                sentence[key] = copy.deepcopy(value)
+        ref_triples = _by_id(ref_s.get("triples"))
+        for triple in sentence.get("triples", []) or []:
+            ref_t = ref_triples.get(str(triple.get("id")))
+            if not ref_t:
+                continue
+            for key, value in ref_t.items():
+                if key not in triple:
+                    triple[key] = copy.deepcopy(value)
+
+
+def _keep_server_ratings(incoming_sentences: list, reference_sentences: list) -> None:
+    """Owner saves never change ratings: graders' scores are copied from the stored session.
+
+    Each grade records the wording it was given for; when a version is published, grades whose
+    wording no longer matches the triple are dropped (see _publish_new_version).
+    """
+    ref_sentences = _by_id(reference_sentences)
+    for sentence in incoming_sentences or []:
+        ref_s = ref_sentences.get(str(sentence.get("id")))
+        if ref_s:
+            for key in _SENTENCE_RATING_KEYS:
+                if key in ref_s:
+                    sentence[key] = copy.deepcopy(ref_s[key])
+                else:
+                    sentence.pop(key, None)
+        ref_triples = _by_id((ref_s or {}).get("triples"))
+        for triple in sentence.get("triples", []) or []:
+            ref_t = ref_triples.get(str(triple.get("id")))
+            if not ref_t:
+                triple["grades_by_user"] = {}
+                triple["grade"] = None
+                continue
+            for key in _TRIPLE_RATING_KEYS:
+                triple[key] = copy.deepcopy(ref_t.get(key))
+
+
+def _sanitize_thread(incoming: Any, existing: Any, user_id: str, user_name: str) -> list:
+    """Comments or replies: a grader may add, edit or omit (delete) only their own items."""
+    existing_by_id = _by_id(existing)
+    result = []
+    for item in incoming or []:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id") or "").strip()
+        if not item_id:
+            continue
+        stored = existing_by_id.get(item_id)
+        if stored is not None:
+            own = str(stored.get("user_id") or "").strip() == user_id
+            clean = copy.deepcopy(item) if own else copy.deepcopy(stored)
+            clean["user_id"] = stored.get("user_id")
+            clean["author"] = stored.get("author")
+            read_by = list(stored.get("read_by") or [])
+            if user_id in (item.get("read_by") or []) and user_id not in read_by:
+                read_by.append(user_id)
+            if "read_by" in stored or read_by:
+                clean["read_by"] = read_by
+        else:
+            if str(item.get("user_id") or "").strip() != user_id:
+                continue
+            clean = copy.deepcopy(item)
+            clean["author"] = user_name
+        if "replies" in item or (stored and "replies" in stored):
+            clean["replies"] = _sanitize_thread(item.get("replies"), (stored or {}).get("replies"), user_id, user_name)
+        result.append(clean)
+    # Omitting another user's item never deletes it, at any nesting level; only the caller's own
+    # items can be removed by leaving them out.
+    returned_ids = {str(i.get("id") or "").strip() for i in result}
+    for item_id, stored in existing_by_id.items():
+        if item_id not in returned_ids and str(stored.get("user_id") or "").strip() != user_id:
+            result.append(copy.deepcopy(stored))
+    return result
+
+
+def _sanitize_suggestions(incoming: Any, existing: Any, user: Dict[str, Any]) -> list:
+    """Suggestions: a grader may add or edit their own pending ones and cast or change only their own vote."""
+    user_id = str(user.get("id") or "").strip()
+    user_name = display_name(user)
+    names = _identity_keys(user)
+    existing_by_id = _by_id(existing)
+    result = []
+    for sug in incoming or []:
+        if not isinstance(sug, dict):
+            continue
+        sug_id = str(sug.get("id") or "").strip()
+        if not sug_id:
+            continue
+        stored = existing_by_id.get(sug_id)
+        if stored is not None:
+            clean = copy.deepcopy(stored)
+            own = str(stored.get("user_id") or stored.get("suggested_by_id") or "").strip() == user_id
+            if own and stored.get("status") != "approved":
+                for key in _SPO_KEYS + ("reason",):
+                    if key in sug:
+                        clean[key] = sug[key]
+            votes = dict(stored.get("votes") or {})
+            if not own:
+                incoming_votes = sug.get("votes") or {}
+                for key in names:
+                    if key in incoming_votes:
+                        votes[key] = incoming_votes[key]
+                    else:
+                        votes.pop(key, None)
+            clean["votes"] = votes
+            read_by = list(stored.get("read_by") or [])
+            if user_id in (sug.get("read_by") or []) and user_id not in read_by:
+                read_by.append(user_id)
+            if "read_by" in stored or read_by:
+                clean["read_by"] = read_by
+        else:
+            if str(sug.get("user_id") or "").strip() != user_id:
+                continue
+            clean = copy.deepcopy(sug)
+            clean.update({"author": user_name, "user_id": user_id, "status": "pending", "votes": {}})
+            for key in ("approved_by", "approved_at", "approved_from"):
+                clean.pop(key, None)
+        clean["replies"] = _sanitize_thread(sug.get("replies"), (stored or {}).get("replies"), user_id, user_name)
+        result.append(clean)
+    return result
+
+
+def _is_own_pending_triple(triple: Dict[str, Any], user: Dict[str, Any]) -> bool:
+    if not triple.get("is_new_suggestion") or triple.get("status") == "approved":
+        return False
+    by_id = str(triple.get("suggested_by_id") or "").strip()
+    if by_id:
+        return by_id == str(user.get("id") or "").strip()
+    return str(triple.get("suggested_by") or "").strip() in _identity_keys(user)
+
+
+def _sanitize_grader_sentences(incoming_sentences: list, existing_sentences: list, user: Dict[str, Any]) -> list:
+    """Rebuilds a grader's save from the stored active version, keeping only changes the grader may make.
+
+    Allowed: own grades and sentence ratings, own comments/replies, own suggestions and vote, own
+    pending new triples, own removal requests. Sentence text, other users' items, triple wording,
+    statuses and the set of existing triples always come from storage.
+    """
+    user_id = str(user.get("id") or "").strip()
+    user_name = display_name(user)
+    incoming_by_id = _by_id(incoming_sentences)
+    result = []
+    for stored_s in existing_sentences or []:
+        sentence = copy.deepcopy(stored_s)
+        incoming_s = incoming_by_id.get(str(stored_s.get("id")))
+        if incoming_s is None:
+            result.append(sentence)
+            continue
+        for key in _SENTENCE_RATING_KEYS:
+            if key in incoming_s:
+                sentence[key] = incoming_s[key]
+        if "sentence_comments" in incoming_s:
+            sentence["sentence_comments"] = _sanitize_thread(
+                incoming_s.get("sentence_comments"), stored_s.get("sentence_comments"), user_id, user_name)
+
+        stored_triples = stored_s.get("triples", []) or []
+        stored_by_id = _by_id(stored_triples)
+        incoming_triples = [t for t in (incoming_s.get("triples") or []) if isinstance(t, dict)]
+        incoming_ids = {str(t.get("id")) for t in incoming_triples}
+        triples = []
+        emitted = set()
+        for incoming_t in incoming_triples:
+            triple_id = str(incoming_t.get("id"))
+            if triple_id in emitted:
+                continue
+            emitted.add(triple_id)
+            stored_t = stored_by_id.get(triple_id)
+            if stored_t is not None:
+                triple = copy.deepcopy(stored_t)
+                if _is_own_pending_triple(stored_t, user):
+                    for key in _SPO_KEYS:
+                        if key in incoming_t:
+                            triple[key] = incoming_t[key]
+                for key in ("grade", "grades_by_user"):
+                    if key in incoming_t:
+                        triple[key] = incoming_t[key]
+                if "marked_for_removal" in incoming_t:
+                    wants_removal = bool(incoming_t.get("marked_for_removal"))
+                    if wants_removal and not stored_t.get("marked_for_removal"):
+                        # A new removal request is always filed under the caller.
+                        triple["marked_for_removal"] = True
+                        triple["marked_for_removal_by"] = user_id
+                        triple["marked_for_removal_by_name"] = user_name
+                        triple["removal_reason"] = str(incoming_t.get("removal_reason") or "Requested removal")
+                    elif not wants_removal:
+                        triple["marked_for_removal"] = False
+                triple["triple_comments"] = _sanitize_thread(
+                    incoming_t.get("triple_comments"), stored_t.get("triple_comments"), user_id, user_name)
+                triple["suggestions"] = _sanitize_suggestions(incoming_t.get("suggestions"), stored_t.get("suggestions"), user)
+                triples.append(triple)
+            elif incoming_t.get("is_new_suggestion") and _is_own_pending_triple(
+                    {**incoming_t, "suggested_by_id": incoming_t.get("suggested_by_id") or user_id}, user):
+                triple = copy.deepcopy(incoming_t)
+                triple.update({
+                    "is_new_suggestion": True, "status": "pending",
+                    "suggested_by": user_name, "suggested_by_id": user_id,
+                })
+                triple.pop("approved_by", None)
+                triple.pop("approved_at", None)
+                triple["triple_comments"] = _sanitize_thread(incoming_t.get("triple_comments"), [], user_id, user_name)
+                triple["suggestions"] = []
+                triples.append(triple)
+        # Stored triples the grader omitted are kept, unless they are the grader's own pending additions.
+        for index, stored_t in enumerate(stored_triples):
+            triple_id = str(stored_t.get("id"))
+            if triple_id in incoming_ids or _is_own_pending_triple(stored_t, user):
+                continue
+            position = 0
+            for previous in reversed(stored_triples[:index]):
+                previous_id = str(previous.get("id"))
+                match = next((i for i, t in enumerate(triples) if str(t.get("id")) == previous_id), None)
+                if match is not None:
+                    position = match + 1
+                    break
+            triples.insert(position, copy.deepcopy(stored_t))
+        sentence["triples"] = triples
+        result.append(sentence)
+    return result
+
+
 @app.post("/api/save")
 async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current_user)):
     """Persist a graded session or publish a new version to storage."""
@@ -2555,8 +3022,23 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
     is_owner = _is_session_owner(target_session, existing_path, user)
     is_publish = bool(body.is_publish)
 
+    active_version_name = _resolve_current_version_name(target_session)
+    if existing_session and not is_publish and body.current_version_name and body.current_version_name != active_version_name:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This page shows an older version. The active version is '{active_version_name}'; reload it before making changes.",
+        )
+
     if is_publish and is_owner:
-        pub_version_name = getattr(body, "version_name", None) or getattr(body, "current_version_name", None) or f"Version {len(target_session.get('versions', [])) + 1}"
+        existing_names = {v.get("name") for v in target_session.get("versions", []) or []}
+        pub_version_name = getattr(body, "version_name", None)
+        if pub_version_name and pub_version_name in existing_names:
+            raise HTTPException(status_code=409, detail=f"A version named '{pub_version_name}' already exists.")
+        if not pub_version_name:
+            n = len(existing_names) + 1
+            while f"Version {n}" in existing_names:
+                n += 1
+            pub_version_name = f"Version {n}"
         target_session = _publish_new_version(
             session=target_session,
             new_version_name=pub_version_name,
@@ -2571,40 +3053,50 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
             if body.sentences:
                 # Sync latest collaborative elements from active version into the incoming draft
                 _sync_collaborative_elements(body.sentences, existing_sentences)
+                _keep_server_ratings(body.sentences, existing_sentences)
+                _restore_unsent_fields(body.sentences, existing_sentences)
                 target_session["owner_draft"] = {
                     "updated_at": datetime.utcnow().isoformat(),
                     "sentences": body.sentences,
                 }
                 target_session["sentences"] = body.sentences
-                curr_ver_name = target_session.get("current_version_name") or "Initial"
                 for v in target_session.get("versions") or []:
-                    if v.get("name") == curr_ver_name and not v.get("is_published"):
+                    if v.get("name") == active_version_name and not v.get("is_published"):
                         v["sentences"] = copy.deepcopy(body.sentences)
                         break
-            if body.current_version_name:
-                target_session["current_version_name"] = body.current_version_name
+            target_session["current_version_name"] = active_version_name
         else:
             # No manual modifications (only suggestion/deletion approvals, comments, or grades).
             # Save directly to the active version's sentences
             if body.sentences:
+                active_version = next(
+                    (v for v in target_session.get("versions") or [] if v.get("name") == active_version_name), None)
+                reference_sentences = (active_version or {}).get("sentences") or (
+                    existing_session.get("sentences", []) if existing_session else [])
+                _keep_server_ratings(body.sentences, reference_sentences)
+                _restore_unsent_fields(body.sentences, reference_sentences)
                 target_session["sentences"] = body.sentences
-                # Also update the active version inside versions list if it's not a published milestone
-                curr_ver_name = target_session.get("current_version_name") or "Initial"
-                for v in target_session.get("versions") or []:
-                    if v.get("name") == curr_ver_name and not v.get("is_published"):
-                        v["sentences"] = copy.deepcopy(body.sentences)
-                        break
-            
+                # The active version is the working copy graders save into, so the owner's decisions
+                # (approvals, replies, removal decisions) are written there as well.
+                if active_version is not None:
+                    active_version["sentences"] = copy.deepcopy(body.sentences)
+
             # Clear owner draft since the decisions are now direct changes on the active version
             target_session["owner_draft"] = None
-            if body.current_version_name:
-                target_session["current_version_name"] = body.current_version_name
+            target_session["current_version_name"] = active_version_name
     else:
         # Non-owner grader save: merge grades into active version
         if existing_session:
+            curr_ver_name = _resolve_current_version_name(existing_session)
+            active_sentences = existing_session.get("sentences") or []
+            for v in existing_session.get("versions") or []:
+                if v.get("name") == curr_ver_name:
+                    active_sentences = v.get("sentences") or active_sentences
+                    break
+            session_data["sentences"] = _sanitize_grader_sentences(session_data.get("sentences") or [], active_sentences, user)
+
             # Sync existing versions list to incoming session so they are preserved
             session_data["versions"] = json.loads(json.dumps(existing_session.get("versions") or []))
-            curr_ver_name = existing_session.get("current_version_name") or "Initial"
             session_data["current_version_name"] = curr_ver_name
 
             # Place incoming client sentences into the active version of the versions list
@@ -2651,14 +3143,17 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
         "type": "version_published" if is_publish else "session_updated",
         "version_name": target_session.get("current_version_name"),
         "updated_by": str(user.get("id") or "").strip(),
+        "published_by": display_name(user) if is_publish else None,
     })
 
     stats = _session_grading_stats(target_session)
+    caller_id = str(user.get("id") or "").strip()
     return {
         "session_id": body.session_id,
         "saved_at": datetime.utcnow().isoformat(),
         "total_unique_graders": stats["total_unique_graders"],
-        "grader_summary": stats["grader_summary"],
+        "grader_summary": stats["grader_summary"] if is_owner else [
+            row for row in stats["grader_summary"] if row.get("user_id") == caller_id],
         "is_publish": is_publish,
     }
 
@@ -2689,7 +3184,8 @@ def _resolve_preview_selection(
     grader_options: list[Dict[str, Any]],
 ) -> tuple[str, str, str]:
     mode = str(requested_mode or "combined").strip().lower()
-    if mode == "mine":
+    requested_mine = mode == "mine"
+    if requested_mine:
         mode = "user"
         requested_user_id = current_user_id
     if mode not in {"combined", "user"}:
@@ -2697,6 +3193,10 @@ def _resolve_preview_selection(
 
     valid_ids = [str(item.get("user_id") or "").strip() for item in grader_options if str(item.get("user_id") or "").strip()]
     selected_user_id = str(requested_user_id or "").strip()
+
+    if requested_mine and current_user_id not in valid_ids:
+        # A user without grades of their own gets the combined view, never another rater's scores.
+        mode = "combined"
 
     if mode == "user":
         if selected_user_id not in valid_ids:
@@ -3305,14 +3805,15 @@ async def list_sessions(user: Dict[str, Any] = Depends(current_user)):
                 "source_owner_user_id": owner_user_id,
                 "source_owner_name": owner_name,
                 "copied_from_session_id": None,
-                "session_average_grade": grading_stats["session_average_grade"],
+                "session_average_grade": grading_stats["session_average_grade"] if is_owner else None,
                 "is_completed_grading": grading_stats["is_completed_grading"],
                 "root_average_grade": None,
                 "completed_copy_count": 0,
                 "total_unique_graders": grading_stats["total_unique_graders"],
                 "completed_grader_count": grading_stats["completed_grader_count"],
                 "total_grade_entries": grading_stats["total_grade_entries"],
-                "grader_summary": grading_stats["grader_summary"],
+                "grader_summary": grading_stats["grader_summary"] if is_owner else [
+                    row for row in grading_stats["grader_summary"] if row.get("user_id") == str(user.get("id") or "")],
                 "my_has_activity": user_activity["my_has_activity"],
                 "my_graded_triples": user_activity["my_graded_triples"],
                 "my_sentence_metric_updates": user_activity["my_sentence_metric_updates"],
@@ -3359,14 +3860,15 @@ async def list_sessions(user: Dict[str, Any] = Depends(current_user)):
                 "source_owner_user_id": owner_user_id,
                 "source_owner_name": owner_name,
                 "copied_from_session_id": None,
-                "session_average_grade": grading_stats["session_average_grade"],
+                "session_average_grade": grading_stats["session_average_grade"] if is_owner else None,
                 "is_completed_grading": grading_stats["is_completed_grading"],
                 "root_average_grade": None,
                 "completed_copy_count": 0,
                 "total_unique_graders": grading_stats["total_unique_graders"],
                 "completed_grader_count": grading_stats["completed_grader_count"],
                 "total_grade_entries": grading_stats["total_grade_entries"],
-                "grader_summary": grading_stats["grader_summary"],
+                "grader_summary": grading_stats["grader_summary"] if is_owner else [
+                    row for row in grading_stats["grader_summary"] if row.get("user_id") == str(user.get("id") or "")],
                 "my_has_activity": user_activity["my_has_activity"],
                 "my_graded_triples": user_activity["my_graded_triples"],
                 "my_sentence_metric_updates": user_activity["my_sentence_metric_updates"],
@@ -3660,17 +4162,24 @@ async def unapprove_suggestion(body: ApproveSuggestionRequest, user: Dict[str, A
 # ---------------------------------------------------------------------------
 
 @app.post("/api/sessions")
-async def create_session_workflow(body: Optional[CreateSessionRequest] = None):
+async def create_session_workflow(
+    body: Optional[CreateSessionRequest] = None,
+    user: Dict[str, Any] = Depends(current_user),
+):
     """
     RESTful session creation endpoint.
-    Creates or registers a benchmark session.
+    Creates a benchmark session owned by the authenticated caller. Existing sessions are
+    never overwritten; owner identity is taken from the token, not from the request body.
     """
     session_id = (body.id or body.session_id) if body else None
     if not session_id:
         session_id = str(uuid.uuid4())
+    existing_path, existing_session = _load_existing_session(session_id)
+    if existing_path is not None or existing_session is not None:
+        raise HTTPException(status_code=409, detail="A session with this id already exists.")
 
-    owner_user = (body.user or body.owner_name or "owner") if body else "owner"
-    owner_user_id = (body.owner_user_id or "owner_001") if body else "owner_001"
+    owner_user = display_name(user)
+    owner_user_id = str(user.get("id") or "").strip()
     filename = (body.filename or "benchmark_session.json") if body else "benchmark_session.json"
     sentences = (body.sentences or []) if body else []
 
@@ -3682,6 +4191,8 @@ async def create_session_workflow(body: Optional[CreateSessionRequest] = None):
         "uploaded_at": datetime.utcnow().isoformat(),
         "owner_user_id": owner_user_id,
         "owner_name": owner_user,
+        "owner_username": user.get("username"),
+        "owner_email": user.get("email"),
         "sentences": sentences,
         "versions": [{
             "name": "Initial",
@@ -3703,22 +4214,31 @@ async def create_session_workflow(body: Optional[CreateSessionRequest] = None):
 
 
 @app.get("/api/sessions/{session_id}")
-async def get_session_workflow(session_id: str):
+async def get_session_workflow(session_id: str, user: Dict[str, Any] = Depends(current_user)):
     """
-    RESTful session retrieval endpoint.
+    RESTful session retrieval endpoint. The owner receives the stored session; other users
+    receive the same blind-review projection as the UI.
     """
     json_path, session = _load_session_for_access(session_id)
+    if not _is_session_owner(session, json_path, user):
+        session = _with_session_access_flags(session, json_path, user)
     if "id" not in session:
         session["id"] = session.get("session_id", session_id)
     return session
 
 
 @app.post("/api/sessions/{session_id}/suggestions")
-async def add_session_suggestion_workflow(session_id: str, body: WorkflowSuggestionRequest):
+async def add_session_suggestion_workflow(
+    session_id: str,
+    body: WorkflowSuggestionRequest,
+    user: Dict[str, Any] = Depends(current_user),
+):
     """
-    RESTful suggestion submission endpoint for a session.
+    RESTful suggestion submission endpoint for a session (collaborators only).
     """
     json_path, session = _load_session_for_access(session_id)
+    if not _can_suggest_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Session owners cannot submit suggestions.")
 
     target_triple = None
     target_sentence = None
@@ -3736,13 +4256,14 @@ async def add_session_suggestion_workflow(session_id: str, body: WorkflowSuggest
         raise HTTPException(status_code=404, detail=f"Triple {body.triple_id} not found in session.")
 
     suggestion_id = body.suggestion_id or f"s{uuid.uuid4().hex[:6]}"
-    user_name = body.user or "reviewer"
+    user_name = display_name(user)
 
     new_suggestion = {
         "id": suggestion_id,
         "suggestion_id": suggestion_id,
         "triple_id": body.triple_id,
         "author": user_name,
+        "author_id": str(user.get("id") or "").strip(),
         "user": user_name,
         "subject": body.subject,
         "predicate": body.predicate,
@@ -3769,10 +4290,14 @@ async def add_session_suggestion_workflow(session_id: str, body: WorkflowSuggest
 
 
 @app.post("/api/sessions/{session_id}/vote")
-async def vote_session_suggestion_workflow(session_id: str, body: WorkflowVoteRequest):
+async def vote_session_suggestion_workflow(
+    session_id: str,
+    body: WorkflowVoteRequest,
+    user: Dict[str, Any] = Depends(current_user),
+):
     """
     RESTful voting endpoint for a suggestion.
-    Enforces self-voting restriction.
+    Enforces self-voting restriction using the authenticated identity.
     """
     json_path, session = _load_session_for_access(session_id)
 
@@ -3792,10 +4317,12 @@ async def vote_session_suggestion_workflow(session_id: str, body: WorkflowVoteRe
     if not target_suggestion:
         raise HTTPException(status_code=404, detail=f"Suggestion {body.suggestion_id} not found.")
 
-    voter = body.user.strip()
+    voter = display_name(user)
+    voter_id = str(user.get("id") or "").strip()
     author = str(target_suggestion.get("author") or target_suggestion.get("user") or "").strip()
-    if voter and author and voter.lower() == author.lower():
-        raise HTTPException(status_code=400, detail="Reviewers cannot vote on their own suggestions.")
+    author_id = str(target_suggestion.get("author_id") or "").strip()
+    if (author_id and author_id == voter_id) or (author and voter.lower() == author.lower()):
+        raise HTTPException(status_code=403, detail="Reviewers cannot vote on their own suggestions.")
 
     if "votes" not in target_suggestion:
         target_suggestion["votes"] = {}
@@ -3813,13 +4340,19 @@ async def vote_session_suggestion_workflow(session_id: str, body: WorkflowVoteRe
 
 
 @app.post("/api/sessions/{session_id}/approve")
-async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApproveRequest):
+async def approve_session_suggestion_workflow(
+    session_id: str,
+    body: WorkflowApproveRequest,
+    user: Dict[str, Any] = Depends(current_user),
+):
     """
-    RESTful approval endpoint for suggestion.
+    RESTful approval endpoint for suggestion (session owner only).
     Updates suggestion.status = approved, approved_by = owner,
     original triple = superseded, corrected triple active.
     """
     json_path, session = _load_session_for_access(session_id)
+    if not _can_approve_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can approve suggestions.")
 
     target_suggestion = None
     target_triple = None
@@ -3842,7 +4375,7 @@ async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApp
     if not target_suggestion or not target_triple:
         raise HTTPException(status_code=404, detail=f"Suggestion {body.suggestion_id} not found.")
 
-    approver = body.user or "owner"
+    approver = display_name(user)
 
     target_suggestion["status"] = "approved"
     target_suggestion["approved_by"] = approver
@@ -3869,6 +4402,10 @@ async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApp
         "approved_by": approver,
         "suggestions": [],
     }
+    # Annotation attributes describe the statement, not its wording; keep them on the revision.
+    for attr in ("polarity", "modality", "scope", "note"):
+        if attr in target_triple and attr not in corrected_triple:
+            corrected_triple[attr] = target_triple[attr]
 
     if target_sentence is not None:
         target_sentence["triples"].append(corrected_triple)
@@ -3896,13 +4433,19 @@ async def approve_session_suggestion_workflow(session_id: str, body: WorkflowApp
 
 
 @app.post("/api/sessions/{session_id}/unapprove")
-async def unapprove_session_suggestion_workflow(session_id: str, body: WorkflowApproveRequest):
+async def unapprove_session_suggestion_workflow(
+    session_id: str,
+    body: WorkflowApproveRequest,
+    user: Dict[str, Any] = Depends(current_user),
+):
     """
-    RESTful unapproval endpoint for suggestion.
+    RESTful unapproval endpoint for suggestion (session owner only).
     Reverts suggestion.status = pending, original triple status = active,
     and removes the generated corrected triple.
     """
     json_path, session = _load_session_for_access(session_id)
+    if not _can_approve_session(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can unapprove suggestions.")
 
     target_suggestion = None
     target_triple = None
@@ -3959,9 +4502,11 @@ async def unapprove_session_suggestion_workflow(session_id: str, body: WorkflowA
 
 
 @app.get("/api/sessions/{session_id}/export/json")
-async def export_session_workflow_json(session_id: str):
-    """Export adjudicated gold set as JSON."""
+async def export_session_workflow_json(session_id: str, user: Dict[str, Any] = Depends(current_user)):
+    """Export adjudicated gold set as JSON (session owner only)."""
     json_path, session = _load_session_for_access(session_id)
+    if not _is_session_owner(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can export the gold set.")
     gold = build_adjudicated_gold_set(session)
     return {
         "session_id": session_id,
@@ -3971,13 +4516,15 @@ async def export_session_workflow_json(session_id: str):
 
 
 @app.get("/api/sessions/{session_id}/export/csv")
-async def export_session_workflow_csv(session_id: str):
-    """Export adjudicated gold set as CSV."""
+async def export_session_workflow_csv(session_id: str, user: Dict[str, Any] = Depends(current_user)):
+    """Export adjudicated gold set as CSV (session owner only)."""
     import csv
     import io
     from fastapi.responses import Response
 
     json_path, session = _load_session_for_access(session_id)
+    if not _is_session_owner(session, json_path, user):
+        raise HTTPException(status_code=403, detail="Only the session owner can export the gold set.")
     gold = build_adjudicated_gold_set(session)
 
     output = io.StringIO()
@@ -4499,11 +5046,13 @@ async def evaluate_session_endpoint(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exc)}")
 
-    # Store result on the session so it can be retrieved later
-    session["evaluation"] = result
-    session["evaluation"]["evaluated_at"] = datetime.utcnow().isoformat()
+    # Store the owner's result on the session so it can be retrieved later; other users'
+    # runs are returned but never replace the stored evaluation.
     session_path, _ = _load_session_for_access(session_id)
-    _save_loaded_session(session_path, session)
+    if _is_session_owner(session, session_path, user):
+        session["evaluation"] = result
+        session["evaluation"]["evaluated_at"] = datetime.utcnow().isoformat()
+        _save_loaded_session(session_path, session)
 
     return result
 

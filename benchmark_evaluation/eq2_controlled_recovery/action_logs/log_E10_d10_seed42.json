@@ -1,0 +1,28 @@
+{
+  "experiment_id": "EQ2_E10_d10_seed42",
+  "session_id": "eq2_e10_d10_seed42_91a8e3",
+  "error_type": "E10",
+  "density": 0.1,
+  "seed": 42,
+  "timestamp_start": 1791984795.4253554,
+  "actions_executed": [
+    {
+      "step": "POST /api/sessions",
+      "status_code": 200,
+      "latency_ms": 83.88
+    },
+    {
+      "step": "GET /export/json",
+      "status_code": 200,
+      "latency_ms": 75.09
+    }
+  ],
+  "errors": [],
+  "total_duration_ms": 11711.2,
+  "timestamp_end": 1791984807.1361837,
+  "total_actions": 128,
+  "correct_actions": 128,
+  "http_requests": 131,
+  "failed_http_requests": [],
+  "exported_triple_count": 316
+}

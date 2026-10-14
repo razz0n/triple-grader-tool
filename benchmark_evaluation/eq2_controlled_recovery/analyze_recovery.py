@@ -5,13 +5,19 @@ Evaluates recovered triple sets against reference ground truth by computing:
   - Set Precision, Recall, and F1 (P_set, R_set, F1_set)
   - Corruption Repair Recall (proportion of injected errors successfully restored)
   - Untouched Preservation Rate (proportion of uncorrupted triples left unaltered)
-  - Exact Restoration Match (R == G exact set equality)
+  - SPO-Set Restoration (R == G: equality of the sets of distinct (subject, predicate, object) tuples)
+  - Row-Level Restoration (equality of the multisets of (sentence, S, P, O, polarity, modality,
+    scope, note) rows; this also detects duplicate rows and lost annotation attributes)
+
+The reference and the recovered exports are different file formats, so no byte-level or hash
+comparison is made.
 
 Outputs run-level records to CSV and produces summary tables.
 """
 
 import csv
 import json
+from collections import Counter
 import math
 import os
 import sys
@@ -46,6 +52,30 @@ def extract_triple_set(dataset: Dict[str, Any], mode: str = "exact") -> Set[Tupl
             if tup != ("", "", ""):
                 tuples.add(tup)
     return tuples
+
+
+ROW_ATTRIBUTES = ("polarity", "modality", "scope", "note")
+
+
+def extract_row_multiset(dataset: Dict[str, Any]) -> Counter:
+    """Multiset of active/approved rows keyed by sentence, SPO and annotation attributes."""
+    rows: Counter = Counter()
+    if "triples" in dataset and isinstance(dataset["triples"], list):
+        pairs = [(str(t.get("sentence_id") or ""), t) for t in dataset["triples"]]
+    else:
+        pairs = [
+            (str(s.get("sentence_id") or s.get("id") or ""), t)
+            for s in dataset.get("sentences", [])
+            for t in s.get("triples", [])
+        ]
+    for sid, t in pairs:
+        if t.get("status", "active") not in ("active", "approved"):
+            continue
+        spo = exact_triple_tuple(t)
+        if spo == ("", "", ""):
+            continue
+        rows[(sid,) + spo + tuple(str(t.get(a) or "") for a in ROW_ATTRIBUTES)] += 1
+    return rows
 
 
 def analyze_single_run(
@@ -113,8 +143,13 @@ def analyze_single_run(
     untouched_preserved = len(untouched_G.intersection(R))
     preservation_rate = untouched_preserved / len(untouched_G) if len(untouched_G) > 0 else 1.0
 
-    # 4. Exact Restoration Match
+    # 4. SPO-set restoration and the stricter row-level restoration
     exact_match = (R == G)
+    ref_rows = extract_row_multiset(ref_data)
+    rec_rows = extract_row_multiset(rec_data)
+    row_match = (ref_rows == rec_rows)
+    rows_missing = sum((ref_rows - rec_rows).values())
+    rows_extra = sum((rec_rows - ref_rows).values())
 
     return {
         "experiment_id": manifest.get("experiment_id"),
@@ -130,8 +165,15 @@ def analyze_single_run(
         "set_recall": round(r_set, 4),
         "set_f1": round(f1_set, 4),
         "repair_recall": round(repair_recall, 4),
+        "untouched_spo_count": len(untouched_G),
+        "untouched_preserved": untouched_preserved,
         "preservation_rate": round(preservation_rate, 4),
         "exact_match": exact_match,
+        "reference_rows": sum(ref_rows.values()),
+        "recovered_rows": sum(rec_rows.values()),
+        "row_level_match": row_match,
+        "rows_missing": rows_missing,
+        "rows_extra": rows_extra,
     }
 
 
@@ -156,8 +198,11 @@ def analyze_all_runs(base_dir: Path) -> List[Dict[str, Any]]:
 
         res = analyze_single_run(rf, mf, ref_file)
         detailed_results.append(res)
-        status_str = "EXACT RESTORATION" if res["exact_match"] else "MISMATCH"
-        print(f"  [{res['error_type']}] d={int(res['density']*100)}% seed={res['seed']}: Repair Recall={res['repair_recall']*100:.1f}%, Preservation={res['preservation_rate']*100:.1f}%, Set F1={res['set_f1']*100:.1f}% -> {status_str}")
+        status_str = "SPO SET RESTORED" if res["exact_match"] else "SPO SET MISMATCH"
+        row_str = "rows restored" if res["row_level_match"] else f"rows differ (-{res['rows_missing']}/+{res['rows_extra']})"
+        print(f"  [{res['error_type']}] d={int(res['density']*100)}% seed={res['seed']}: Repair Recall={res['repair_recall']*100:.1f}% "
+              f"({res['repaired_count']}/{res['injected_count']}), Preservation={res['untouched_preserved']}/{res['untouched_spo_count']}, "
+              f"Set F1={res['set_f1']*100:.1f}% -> {status_str}; {row_str}")
 
     # 1. Write run-level CSV
     matrix_csv = RESULTS_DIR / "eq2_recovery_matrix.csv"
@@ -165,7 +210,9 @@ def analyze_all_runs(base_dir: Path) -> List[Dict[str, Any]]:
         writer = csv.DictWriter(fh, fieldnames=[
             "experiment_id", "error_type", "corruption_name", "density", "seed",
             "total_gold_triples", "total_recovered_triples", "injected_count", "repaired_count",
-            "set_precision", "set_recall", "set_f1", "repair_recall", "preservation_rate", "exact_match"
+            "set_precision", "set_recall", "set_f1", "repair_recall",
+            "untouched_spo_count", "untouched_preserved", "preservation_rate", "exact_match",
+            "reference_rows", "recovered_rows", "row_level_match", "rows_missing", "rows_extra",
         ])
         writer.writeheader()
         for r in detailed_results:

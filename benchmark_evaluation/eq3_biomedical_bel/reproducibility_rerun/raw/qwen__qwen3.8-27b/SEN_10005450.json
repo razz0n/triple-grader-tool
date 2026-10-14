@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:35:05.991045+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "ba4698bd3b6d1205e2c801934ee216240d89a438d9629009a0de5ed91fb41c85",
+  "target": {
+    "sentence_id": "SEN:10005450",
+    "sentence": "The inducible expression of ANG promoter appears to be mediated by physical association of p300 with STAT 5B in liver and STAT 3 and STAT 5A in heart."
+  },
+  "response": {
+    "id": "chatcmpl-73e11c13-1e0d-41b2-b2c6-11ef3d4445b4",
+    "object": "chat.completion",
+    "created": 1791938105,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"complex(p(HGNC:EP300),p(HGNC:STAT5B)) increases r(HGNC:ANG)\",\n  \"complex(p(HGNC:EP300),p(HGNC:STAT3)) increases r(HGNC:ANG)\",\n  \"complex(p(HGNC:EP300),p(HGNC:STAT5A)) increases r(HGNC:ANG)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083475943,
+      "prompt_tokens": 4620,
+      "prompt_time": 0.386242694,
+      "completion_tokens": 96,
+      "completion_time": 0.203298843,
+      "total_tokens": 4716,
+      "total_time": 0.589541537
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_5e14805ce3",
+    "x_groq": {
+      "id": "req_01m4vxb3yae0abd6gz3ntgkne0",
+      "seed": 245734494
+    },
+    "service_tier": "on_demand"
+  }
+}

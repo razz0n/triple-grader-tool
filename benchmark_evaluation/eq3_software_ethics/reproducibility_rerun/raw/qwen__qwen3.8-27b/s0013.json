@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:31:23.728084+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "cf3a35d9ba4c9cf16ef7480d5cac74953aa59cef2c6015e2fdb352ee37ecfb27",
+  "target": {
+    "sentence_id": "s0013",
+    "sentence": "4.02. Only endorse documents either prepared under their supervision or within their areas of competence and with which they are in agreement."
+  },
+  "response": {
+    "id": "chatcmpl-77646260-1942-4727-8769-d13bb96ffecf",
+    "object": "chat.completion",
+    "created": 1791984683,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_endorse\",\n    \"object\": \"documents\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"documents\",\n    \"predicate\": \"are_prepared_under\",\n    \"object\": \"supervision_of_software_engineers\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"documents\",\n    \"predicate\": \"are_within\",\n    \"object\": \"areas_of_competence\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"areas_of_competence\",\n    \"predicate\": \"are_of\",\n    \"object\": \"software_engineers\"\n  },\n  {\n    \"triple_id\": 5,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"are_in_agreement_with\",\n    \"object\": \"documents\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.140936927,
+      "prompt_tokens": 5637,
+      "prompt_time": 0.471234222,
+      "completion_tokens": 236,
+      "completion_time": 0.462079676,
+      "total_tokens": 5873,
+      "total_time": 0.933313898
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_57c7e760a9",
+    "x_groq": {
+      "id": "req_01m4x9rh5qea5bnn4b0q3rf26c",
+      "seed": 914413717
+    },
+    "service_tier": "on_demand"
+  }
+}

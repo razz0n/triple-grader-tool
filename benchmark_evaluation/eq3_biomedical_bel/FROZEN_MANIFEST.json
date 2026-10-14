@@ -1,0 +1,19 @@
+{
+  "domain": "Biomedical Native-BEL",
+  "b0_file": "frozen_b0/b0_raw_candidates.json",
+  "b1_file": "curated_b1/b1_curated_gold.json",
+  "b0_triples": 167,
+  "b1_triples": 69,
+  "sentences": 40,
+  "sha256": {
+    "candidates/candidates_chatgpt_5_6_high_sentences.json": "f81ef82d2300057bd2aeddd1c98cd2881bcaa95132f4f4c351cd8ef22e892f54",
+    "candidates/candidates_gemini_3_1_pro_sentences.json": "a602d514959ca7bb6a08cf944845407debd1f45fdb6805e61d16090f2a41d501",
+    "candidates/candidates_gpt_oss_120b_sentences.json": "bfe0b7ee0a6828bb77a5da2e483c5c80326189f3427ddff2256ac7f56e9cfc74",
+    "candidates/candidates_qwen_38b_sentences.json": "72802c3b23b58b2786b1124747035898e3cfc0afe5e0182ea3e3332afc315111",
+    "frozen_b0/b0_raw_candidates.json": "688db1c1d6e1cad60b0773ade82925b110a449cb4a9d6b22ea548f8cb7b7c36d",
+    "curated_b1/b1_curated_gold.json": "f8b459229da9d4c459d52bac6ee45a4f4226b0c2c35383fe9e2f3920eeb2afba",
+    "prompt and few shots/01_prompt_en.txt": "193d57624e35d59349ae236fe3081098d659782f0c00c41af58b0613f0e2a618",
+    "prompt and few shots/02_few_shot_examples_30.json": "7977ef7d4f06c50f20367761916c7a9e9a32fe3d34de0a597261fecc6b13e23f",
+    "prompt and few shots/09_prompt_with_shots_template_en.txt": "c781ad4133d98352d216d2295619faf4856f388bd1894ff420004bfb3dbd5c62"
+  }
+}

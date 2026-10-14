@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:44:25.840487+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "f5d71212c3021268d80cf52ccd2b274fb0b7da088c2ca90bb039067caef43943",
+  "target": {
+    "sentence_id": "SEN:10007908",
+    "sentence": "Following LPS inhalation, alveolar neutrophil levels and lung inflammation in ADAM17-null mice were overall reduced when compared to control mice"
+  },
+  "response": {
+    "id": "chatcmpl-934b6967-51e0-41a4-aa03-c6996ca228ba",
+    "object": "chat.completion",
+    "created": 1791938665,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Adam17) increases a(CHEBI:neutrophil)\",\n  \"p(MGI:Adam17) increases path(MESHD:Inflammation)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.00466607,
+      "prompt_tokens": 4613,
+      "prompt_time": 0.399593233,
+      "completion_tokens": 47,
+      "completion_time": 0.092389078,
+      "total_tokens": 4660,
+      "total_time": 0.491982311
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vxw6thedt9phyvmxg7enky",
+      "seed": 93076220
+    },
+    "service_tier": "on_demand"
+  }
+}

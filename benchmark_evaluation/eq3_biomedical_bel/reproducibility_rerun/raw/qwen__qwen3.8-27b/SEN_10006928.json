@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:41:55.059536+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "9a489c3f77c9a7364f2bbd6a4ef75471e44220bae394990c6bc4ba59db35f835",
+  "target": {
+    "sentence_id": "SEN:10006928",
+    "sentence": "BTEB2 mRNA expression is rapidly and persistently induced in SMCs by phorbol 12-myristate 13-acetate (PMA) and basic fibroblast growth factor."
+  },
+  "response": {
+    "id": "chatcmpl-cadb8a7d-525d-4792-b119-5436318662b3",
+    "object": "chat.completion",
+    "created": 1791938515,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:\\\"phorbol 12-myristate 13-acetate\\\") increases r(HGNC:TEAD2)\",\n  \"p(HGNC:FGF2) increases r(HGNC:TEAD2)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.065956875,
+      "prompt_tokens": 4625,
+      "prompt_time": 0.328202055,
+      "completion_tokens": 60,
+      "completion_time": 0.114100576,
+      "total_tokens": 4685,
+      "total_time": 0.442302631
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fea14bdc83",
+    "x_groq": {
+      "id": "req_01m4vxqkk6e0ta3hhmced5e4kx",
+      "seed": 1194894095
+    },
+    "service_tier": "on_demand"
+  }
+}

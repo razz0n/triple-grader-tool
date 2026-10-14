@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:26:17.700172+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "11bd4488711905a1de8a962ff3dd1be2209af802c580c204912aad0d21adef3d",
+  "target": {
+    "sentence_id": "SEN:10004256",
+    "sentence": "Furthermore, inhibition of the AR by tolrestat and sorbinil diminished DNA synthesis and cell proliferation"
+  },
+  "response": {
+    "id": "chatcmpl-2768f7c3-c2d6-4273-ba81-d8b65cf2b51f",
+    "object": "chat.completion",
+    "created": 1791937577,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:tolrestat) decreases bp(GOBP:\\\"DNA synthesis\\\")\",\n  \"a(CHEBI:tolrestat) decreases bp(GOBP:\\\"cell proliferation\\\")\",\n  \"a(CHEBI:sorbinil) decreases bp(GOBP:\\\"DNA synthesis\\\")\",\n  \"a(CHEBI:sorbinil) decreases bp(GOBP:\\\"cell proliferation\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.128400911,
+      "prompt_tokens": 4602,
+      "prompt_time": 0.325039645,
+      "completion_tokens": 92,
+      "completion_time": 0.178626042,
+      "total_tokens": 4694,
+      "total_time": 0.503665687
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fea14bdc83",
+    "x_groq": {
+      "id": "req_01m4vwv033e1ar70p6ssw9yhb9",
+      "seed": 1753060458
+    },
+    "service_tier": "on_demand"
+  }
+}

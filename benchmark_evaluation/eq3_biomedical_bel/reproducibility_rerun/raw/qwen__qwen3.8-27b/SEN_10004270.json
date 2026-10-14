@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:26:55.224547+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "45acedba240be5363b2dad4c15662e3095f949f0a8d139b8435a9fc1360aff42",
+  "target": {
+    "sentence_id": "SEN:10004270",
+    "sentence": "Nevertheless, the transfection of the GlcAT-I cDNA into COS-1 cells induced the significant expression of the HNK-1 epitope"
+  },
+  "response": {
+    "id": "chatcmpl-d80dbdbc-2eea-442a-b250-4d8f8a80e689",
+    "object": "chat.completion",
+    "created": 1791937615,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "```json\n[\n  \"p(HGNC:GALT) increases r(HGNC:GALT)\"\n]\n```"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.067056262,
+      "prompt_tokens": 4612,
+      "prompt_time": 0.338734873,
+      "completion_tokens": 29,
+      "completion_time": 0.063951331,
+      "total_tokens": 4641,
+      "total_time": 0.402686204
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4vww4wke4rrq4fg43g1gedq",
+      "seed": 2049060504
+    },
+    "service_tier": "on_demand"
+  }
+}

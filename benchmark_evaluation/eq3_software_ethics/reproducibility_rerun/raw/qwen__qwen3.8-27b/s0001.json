@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:21:44.460262+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "3ebb69950ad3bfe2da025bcd2a300ec95986d8f9bc4189e9def0b9919463bec2",
+  "target": {
+    "sentence_id": "s0001",
+    "sentence": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission."
+  },
+  "response": {
+    "id": "chatcmpl-78e3479b-df05-4069-885a-e5c462dfd96a",
+    "object": "chat.completion",
+    "created": 1791984104,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"individual_parts_of_code\",\n    \"predicate\": \"shall_not_be_used_in_isolation\",\n    \"object\": \"to_justify_errors_of_omission_or_commission\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"individual_parts_of_code\",\n    \"predicate\": \"are_part_of\",\n    \"object\": \"Code_001\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.08338026,
+      "prompt_tokens": 5633,
+      "prompt_time": 0.416798102,
+      "completion_tokens": 112,
+      "completion_time": 0.213534229,
+      "total_tokens": 5745,
+      "total_time": 0.630332331
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_fea14bdc83",
+    "x_groq": {
+      "id": "req_01m4x96vvqehtv56kehzachv3d",
+      "seed": 1048012821
+    },
+    "service_tier": "on_demand"
+  }
+}

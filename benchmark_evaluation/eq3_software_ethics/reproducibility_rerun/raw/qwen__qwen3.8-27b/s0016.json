@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:34:37.752446+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "fdffc66a9b4bbaa19b652d77c9cb725e068eed75fdbbcb68fae69a5253c714e4",
+  "target": {
+    "sentence_id": "s0016",
+    "sentence": "4.05. Disclose to all concerned parties those conflicts of interest that cannot reasonably be avoided or escaped."
+  },
+  "response": {
+    "id": "chatcmpl-f1e3c3c7-471f-4bb9-87c7-379c8c223ca7",
+    "object": "chat.completion",
+    "created": 1791984877,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_disclose\",\n    \"object\": \"conflicts_of_interest\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"conflicts_of_interest\",\n    \"predicate\": \"are_to\",\n    \"object\": \"all_concerned_parties\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"conflicts_of_interest\",\n    \"predicate\": \"cannot_reasonably_be\",\n    \"object\": \"avoided\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"conflicts_of_interest\",\n    \"predicate\": \"cannot_reasonably_be\",\n    \"object\": \"escaped\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.079371723,
+      "prompt_tokens": 5633,
+      "prompt_time": 0.500588984,
+      "completion_tokens": 193,
+      "completion_time": 0.425859737,
+      "total_tokens": 5826,
+      "total_time": 0.926448721
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4x9yeqtemf8ya2vtvjpfadb",
+      "seed": 10789217
+    },
+    "service_tier": "on_demand"
+  }
+}

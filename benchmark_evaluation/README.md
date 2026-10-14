@@ -1,132 +1,53 @@
-# Empirical Benchmark Evaluation Suite
+# Evaluation Suite
 
-This directory contains the self-contained empirical evaluation suite, evaluation datasets, and execution scripts for verifying the collaborative ontology curation platform and assessing downstream extraction quality across two domains: Software Engineering Ethics and Biomedical Native-BEL relations.
+Scripts, frozen inputs, and results for the three evaluations reported in the paper. Every reported table can be regenerated with one command:
 
-All scripts in this directory focus strictly on running evaluation experiments and generating raw empirical metrics. Report, figure, and paper compilation scripts are maintained separately outside this evaluation directory.
+```bash
+pip install -r benchmark_evaluation/requirements.txt
+python benchmark_evaluation/run_all_evaluations.py            # EQ1, EQ2 analysis, EQ3
+python benchmark_evaluation/run_all_evaluations.py --replay   # also re-run the EQ2 oracle replay
+```
 
----
+The suites drive the FastAPI backend in-process. `common/local_backend.py` forces a local JSON/SQLite store before the backend is imported and stops the run if a hosted database is configured, so the evaluation never touches a production database.
 
-## Directory Structure
+## Layout
 
 ```
 benchmark_evaluation/
-├── common/                     # Shared canonicalization, matching, and bootstrap resampling routines
-├── eq1_workflow_correctness/   # EQ1: Lifecycle state transitions, role invariants, schema fidelity
-│   ├── fixtures/               # Input session payloads used for transition verification
-│   ├── run_eq1_evaluation.py   # EQ1 test runner generating workflow metrics
-│   └── test_*.py               # Component and matrix transition test suites
-├── eq2_controlled_recovery/    # EQ2: Controlled corruption injection and oracle action replay
-│   ├── corrupted/              # Injected synthetic corruption datasets (E1–E10)
-│   ├── manifests/              # Formal audit manifests specifying error injections and inverse actions
-│   ├── recovered/              # Restored dataset snapshots exported via HTTP REST endpoints
-│   ├── reference/              # Reference ground-truth benchmark
-│   ├── analyze_recovery.py     # EQ2 metric evaluation runner
-│   ├── build_corruptions.py    # Deterministic corruption injector
-│   └── replay_oracle_actions.py# HTTP action replay engine executing inverse curation sequences
-├── eq3_software_ethics/        # EQ3: Software Engineering Ethics normative relations
-│   ├── candidates/             # Uncurated candidate extractions from 4 foundation models
-│   ├── curated_b1/             # Human-adjudicated gold standard (B1, 66 relations)
-│   ├── frozen_b0/              # Raw pre-curation candidate union (B0, 79 relations)
-│   ├── provenance_ledger/      # Transaction ledger tracking triple-level curation edits
-│   ├── analyze_transformation.py # Source transformation metrics runner (Eqs. 10–15)
-│   └── evaluate_downstream.py  # Downstream performance evaluator and bootstrap CI runner (Eq. 16)
-├── eq3_biomedical_bel/         # EQ3: Biomedical Native-BEL biological relations
-│   ├── candidates/             # Candidate extractions from 4 foundation models (40 sentences)
-│   ├── curated_b1/             # Human-adjudicated gold standard (B1, 69 relations)
-│   ├── frozen_b0/              # Raw pre-curation candidate union (B0, 167 relations)
-│   ├── analyze_transformation.py # Source transformation metrics runner (Eqs. 10–15)
-│   └── evaluate_downstream.py  # Downstream performance evaluator and bootstrap CI runner (Eq. 16)
-├── results/                    # Standardized empirical CSV result files
-├── requirements.txt            # Minimal Python dependencies for executing the benchmark
-├── run_all_evaluations.py      # Master runner executing all evaluation suites
-└── README.md                   # This specification and execution guide
+├── common/                       shared code
+│   ├── local_backend.py          isolation of the backend store
+│   ├── eq3_metrics.py            EQ3 definitions (both corpora use the same code)
+│   └── canonicalize.py, matching.py, bootstrap.py
+├── eq1_workflow_correctness/     T01-T18 workflow matrix, agreement-metric tests, security regression tests
+├── eq2_controlled_recovery/      reference, corruption manifests, corrupted/recovered files, replay and analysis
+├── eq3_software_ethics/          15 sentences, 4 candidate sessions, B0, B1, prompt and 21 demonstrations
+├── eq3_biomedical_bel/           40 source-text units, 4 candidate sessions, B0, B1, prompt and 30 demonstrations
+├── freeze_eq3.py                 verifies (or once creates) the EQ3 frozen-input manifests
+├── run_eq3.py                    regenerates all EQ3 tables
+├── run_all_evaluations.py        runs everything
+└── results/                      CSV/JSON/LaTeX outputs
 ```
 
----
+## EQ1: workflow correctness
+`run_eq1_evaluation.py` runs the eighteen scenarios T01-T18 (14 valid transitions, 4 rejection scenarios) and writes `results/eq1_workflow_matrix.csv` and `results/eq1_summary.csv`. `pytest benchmark_evaluation/eq1_workflow_correctness` also runs `test_kappa_metrics.py` (two-rater values equal scikit-learn's quadratic-weighted Cohen's kappa; browser and server implementations agree) and `test_security_regressions.py` (token-derived identity, owner-only approval and export, no session overwrite, no grades written for other users, blind first round).
 
-## Evaluation Scenarios
+## EQ2: controlled recovery
+The reference has 316 triple rows over 38 sentences (309 distinct SPO tuples). `build_corruptions.py` injects ten error types at 10% density with seed 42 (32 rows per condition). `replay_oracle_actions.py` issues the manifest-derived inverse actions through the REST API with the reviewers' and owner's tokens. `analyze_recovery.py` reports repair recall, untouched SPO preservation (denominator 277 for E1-E5 and E8-E10, 309 for E6-E7), SPO-set restoration, and row-level restoration (multiset of sentence, S, P, O, polarity, modality, scope, note).
 
-### EQ1: Lifecycle Workflow Correctness
-- **Objective:** Verify collaborative state transitions, role-based permissions, and data fidelity across 18 lifecycle transitions (T01–T18) executed against HTTP REST endpoints.
-- **Key Metrics:** Valid Transition Accuracy (VTA), Invalid-Action Rejection Rate (IARR), and Deep Field Fidelity (FF).
+## EQ3: candidates versus human-curated references
+- **Frozen inputs.** `FROZEN_MANIFEST.json` in each corpus folder records the SHA-256 of the four candidate files, B0, B1, the prompt, and the demonstrations. `freeze_eq3.py` refuses to continue if any of them changed.
+- **B0** is the union of the four models' initial candidates after normalized de-duplication: 128 triples for software ethics and 167 for biomedical, stored in `frozen_b0/b0_raw_candidates.json` in each corpus folder.
+- **B1** is the final version shared by all four candidate sessions and equals `curated_b1/b1_curated_gold.json` (66 and 69 triples).
+- **Matching.** Within a sentence, each slot is trimmed and lower-cased, and underscores, hyphens, and double quotes are removed. Exact = all three slots equal; near miss = two of three equal; unaligned otherwise. No reference triple is consumed, so the results do not depend on order.
+- **Scores.** Micro precision, recall, and F1 against B0, against the union of the other three models (leave-one-out pool), and against B1, with a paired sentence-level bootstrap (2,000 resamples, seed 42) for F1(B1) - F1(B0). Precision against B0 is 100% by construction.
 
-### EQ2: Controlled Corruption Recovery
-- **Objective:** Evaluate the system's ability to systematically reverse controlled structural and semantic faults (E1–E10) across varying densities via public HTTP curation actions.
-- **Key Metrics:** Corruption Repair Recall, Untouched Preservation Rate, Set Precision/Recall/F1, and Exact Restoration Rate.
+The `analyze_transformation.py` and `evaluate_downstream.py` files in each corpus folder now call `run_eq3.py`. The earlier greedy, order-dependent matcher was removed.
 
-### EQ3: Source Transformation and Downstream Impact
-Evaluated across two distinct corpora:
-1. **Software Engineering Ethics:** 15 normative ethics sentences evaluated across 4 large language models (ChatGPT-5.6-High, Gemini-3.1-Pro, GPT-OSS 120B, and Qwen 3.8 27B).
-2. **Biomedical Native-BEL:** 40 biomedical causal sentences from biological statement corpora evaluated across the same 4 models.
-- **Key Metrics:**
-  - *Transformation Dynamics:* Retention rate, modification rate, removal rate, exact/normalized precision and recall against $B_1$, curation intensity.
-  - *Downstream Impact:* Micro Precision, Recall, and F1 evaluated against raw uncurated union ($B_0$) versus curated gold ($B_1$), score shift ($\Delta F_1$), 2,000-sample bootstrap 95% confidence intervals, and rank correlation (Kendall's $\tau$, Spearman's $\rho$).
-
----
-
-## Installation & Setup
-
-Ensure Python 3.10 or higher is installed with active database services configured in `backend/config.py`.
-
-```bash
-# Install required dependencies
-pip install -r benchmark_evaluation/requirements.txt
-```
-
----
-
-## Running the Benchmark
-
-### 1. Run Complete Benchmark Suite
-To execute all evaluation suites sequentially and produce all CSV outputs:
-
-```bash
-python benchmark_evaluation/run_all_evaluations.py
-```
-
-### 2. Run Individual Evaluation Suites
-
-#### EQ1 Lifecycle Workflow Verification:
-```bash
-python benchmark_evaluation/eq1_workflow_correctness/run_eq1_evaluation.py
-```
-
-#### EQ2 Controlled Recovery Analysis:
-```bash
-python benchmark_evaluation/eq2_controlled_recovery/analyze_recovery.py
-```
-
-#### EQ3 Software Ethics Evaluation:
-```bash
-# Transformation dynamics
-python benchmark_evaluation/eq3_software_ethics/analyze_transformation.py
-
-# Downstream model evaluation and bootstrap CIs
-python benchmark_evaluation/eq3_software_ethics/evaluate_downstream.py
-```
-
-#### EQ3 Biomedical Native-BEL Evaluation:
-```bash
-# Transformation dynamics
-python benchmark_evaluation/eq3_biomedical_bel/analyze_transformation.py
-
-# Downstream model evaluation and bootstrap CIs
-python benchmark_evaluation/eq3_biomedical_bel/evaluate_downstream.py
-```
-
----
-
-## Output Metrics & Artifacts
-
-All evaluation scripts record results directly into `benchmark_evaluation/results/`:
-
-| Output File | Evaluation Scope | Key Columns |
-|---|---|---|
-| `eq1_workflow_matrix.csv` | EQ1 Lifecycle | `test_id`, `category`, `expected_outcome`, `actual_outcome`, `field_fidelity`, `latency_ms`, `passed` |
-| `eq1_summary.csv` | EQ1 Lifecycle | `Metric`, `Observed_Value`, `Benchmark_Target`, `Status` |
-| `eq2_recovery_matrix.csv` | EQ2 Recovery | `error_type`, `corruption_name`, `density`, `seed`, `repair_recall`, `preservation_rate`, `set_f1`, `exact_match` |
-| `eq2_summary.csv` | EQ2 Recovery | `error_type`, `mean_precision`, `mean_recall`, `mean_f1`, `mean_repair_recall`, `mean_preservation`, `exact_restoration_rate` |
-| `eq3_transformation.csv` | EQ3 Software Ethics | `source_system`, `retention_rate`, `modification_rate`, `removal_rate`, `precision_exact`, `recall_exact`, `f1_exact`, `curation_intensity` |
-| `eq3_downstream.csv` | EQ3 Software Ethics | `system_name`, `b0_micro_f1`, `b1_micro_f1`, `delta_f1`, `ci_lower`, `ci_upper`, `rank_b0`, `rank_b1` |
-| `eq3_bio_transformation.csv` | EQ3 Biomedical BEL | `source_system`, `retention_rate`, `modification_rate`, `removal_rate`, `precision_exact`, `recall_exact`, `curation_intensity` |
-| `eq3_bio_downstream.csv` | EQ3 Biomedical BEL | `system_name`, `b0_micro_f1`, `b1_micro_f1`, `delta_f1`, `ci_lower`, `ci_upper`, `rank_b0`, `rank_b1` |
+## Outputs (`results/`)
+| File | Content |
+|---|---|
+| `eq1_workflow_matrix.csv`, `eq1_summary.csv` | EQ1 scenario results, VTA and IARR |
+| `eq2_recovery_matrix.csv`, `eq2_summary.csv` | EQ2 per-condition recovery metrics |
+| `eq3_transformation.csv`, `eq3_bio_transformation.csv` | EQ3 exact / near-miss / unaligned counts per source |
+| `eq3_downstream.csv`, `eq3_bio_downstream.csv` | EQ3 scores against B0, the leave-one-out pool, and B1 |
+| `eq3_summary.json`, `eq3_tables.tex` | all EQ3 numbers with the frozen manifests, and LaTeX table rows |

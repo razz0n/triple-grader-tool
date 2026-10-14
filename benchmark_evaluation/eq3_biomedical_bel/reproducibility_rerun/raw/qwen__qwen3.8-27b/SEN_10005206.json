@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:33:50.571111+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "57cbc3ce151ff2aa4766b0d36f88bd2e076b74896a6a1ba74dfacce9fbd1983c",
+  "target": {
+    "sentence_id": "SEN:10005206",
+    "sentence": "Thus, this study is the first demonstration of a chemotactic effect of Lptn on neutrophils and confirms the association of this effect with expression of the XCR1 receptor on these cells"
+  },
+  "response": {
+    "id": "chatcmpl-dd3b1cec-cb12-4b6c-aebb-c235320b3e82",
+    "object": "chat.completion",
+    "created": 1791938030,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:Lptn) increases bp(GOBP:\\\"cell migration\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.049929875,
+      "prompt_tokens": 4622,
+      "prompt_time": 0.386884142,
+      "completion_tokens": 25,
+      "completion_time": 0.058467085,
+      "total_tokens": 4647,
+      "total_time": 0.445351227
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vx8tf6exgaekb70gqdzxh8",
+      "seed": 1604775766
+    },
+    "service_tier": "on_demand"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:24:59.795020+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "f2ab5b6a837e8a9f0180a2281f1809524753db008bf5f1168642309f0fb2800f",
+  "target": {
+    "sentence_id": "SEN:10004206",
+    "sentence": "ADAM 23/MDC3, a human disintegrin that promotes cell adhesion via interaction with the alphavbeta3 integrin through an RGD-independent mechanism."
+  },
+  "response": {
+    "id": "chatcmpl-71f9210d-7151-46ab-a6a4-d27d26eeb2bf",
+    "object": "chat.completion",
+    "created": 1791937499,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"complex(p(HGNC:ADAM23),p(HGNC:ITGAV),p(HGNC:ITGB3)) increases bp(GOBP:\\\"cell adhesion\\\")\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.060888912,
+      "prompt_tokens": 4617,
+      "prompt_time": 0.388170719,
+      "completion_tokens": 47,
+      "completion_time": 0.101430456,
+      "total_tokens": 4664,
+      "total_time": 0.489601175
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwrm2yej1bw8n5v7wfh1b3",
+      "seed": 1277710116
+    },
+    "service_tier": "on_demand"
+  }
+}

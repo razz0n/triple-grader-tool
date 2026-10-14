@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:23:44.671073+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "88cee47a731f9d21e711a4e3f55e1c697321e322e4f5c098503d6e59583cb99c",
+  "target": {
+    "sentence_id": "SEN:10003704",
+    "sentence": "ClC-3 is activated by Ca(2+)-calmodulin-dependent protein kinase II; however, the magnitude of the Ca(2+)-dependent Cl(-) current was unchanged in the Clcn3(-/-) animals."
+  },
+  "response": {
+    "id": "chatcmpl-8396622f-b9d1-450d-ac4b-2c24f68256b7",
+    "object": "chat.completion",
+    "created": 1791937424,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"complex(a(CHEBI:calcium ion),p(HGNC:CALM1)) increases act(p(HGNC:CAMK2A))\",\n  \"act(p(HGNC:CAMK2A)) increases act(p(HGNC:CLCN3))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.236421548,
+      "prompt_tokens": 4629,
+      "prompt_time": 0.387274195,
+      "completion_tokens": 65,
+      "completion_time": 0.132494262,
+      "total_tokens": 4694,
+      "total_time": 0.519768457
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwpagveyn93vkfjbff1rdj",
+      "seed": 1585264815
+    },
+    "service_tier": "on_demand"
+  }
+}

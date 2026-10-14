@@ -1,839 +1,1207 @@
 {
-  "benchmark_name": "B0_Raw_PreCuration_Union",
+  "dataset_name": "Software Ethics Pre-Curation Candidate Union (B0)",
+  "description": "Normalized union of the initial candidate triples of ChatGPT-5.6-High, Gemini-3.1-Pro, GPT-OSS 120B and Qwen 3.8 27B. Built by freeze_eq3.py; do not edit.",
+  "normalization": "per sentence; slots trimmed, lower-cased, underscores/hyphens/double quotes removed",
   "total_sentences": 15,
-  "total_triples": 79,
+  "total_triples": 128,
   "sentences": [
     {
       "sentence_id": "s0001",
-      "sentence": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.",
-      "section": "Paragraph 1",
+      "sentence_text": "It is not intended that the individual parts of the Code be used in isolation to justify errors of omission or commission.",
       "triples": [
         {
-          "id": "s0001_b0_1",
-          "subject": "individual_parts_of_the_Code",
-          "predicate": "shall_not_be_used_in_isolation_to_justify",
-          "object": "errors_of_omission_or_commission",
+          "subject": "individual_parts",
+          "predicate": "are_of",
+          "object": "Code_001",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0001_b0_2",
-          "subject": "individual_parts_of_the_Code",
+          "subject": "individual_parts",
           "predicate": "are_not_intended_to_be_used_in",
           "object": "isolation",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0001_b0_3",
-          "subject": "individual_parts_of_the_Code",
-          "predicate": "are_not_intended_to_justify",
+          "subject": "individual_parts",
+          "predicate": "are_not_intended_to_be_used_to_justify",
           "object": "errors_of_omission",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0001_b0_4",
-          "subject": "individual_parts_of_the_Code",
-          "predicate": "are_not_intended_to_justify",
+          "subject": "individual_parts",
+          "predicate": "are_not_intended_to_be_used_to_justify",
           "object": "errors_of_commission",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_the_code",
+          "predicate": "should_not_be_used_in",
+          "object": "isolation",
+          "source_candidates": [
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_the_code",
+          "predicate": "should_not_be_used_to_justify",
+          "object": "errors_of_omission",
+          "source_candidates": [
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_the_code",
+          "predicate": "should_not_be_used_to_justify",
+          "object": "errors_of_commission",
+          "source_candidates": [
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_the_code",
+          "predicate": "shall_not_be_used_in_isolation_to_justify",
+          "object": "errors_of_omission_or_commission",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_code",
+          "predicate": "is_not_intended_to_be_used_in",
+          "object": "isolation",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_code",
+          "predicate": "is_not_intended_to_justify",
+          "object": "errors_of_omission",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "individual_parts_of_code",
+          "predicate": "is_not_intended_to_justify",
+          "object": "errors_of_commission",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0002",
-      "sentence": "The list of Principles and Clauses is not exhaustive.",
-      "section": "Paragraph 1",
+      "sentence_text": "The list of Principles and Clauses is not exhaustive.",
       "triples": [
         {
-          "id": "s0002_b0_1",
           "subject": "list_of_principles_and_clauses",
           "predicate": "is_not",
           "object": "exhaustive",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0003",
-      "sentence": "The Clauses should not be read as separating the acceptable from the unacceptable in professional conduct in all practical situations.",
-      "section": "Paragraph 1",
+      "sentence_text": "The Clauses should not be read as separating the acceptable from the unacceptable in professional conduct in all practical situations.",
       "triples": [
         {
-          "id": "s0003_b0_1",
           "subject": "clauses",
-          "predicate": "shall_not_be_read_as_separating",
-          "object": "acceptable_from_unacceptable_in_professional_conduct",
+          "predicate": "should_not_be_read_as",
+          "object": "separating_acceptable_from_unacceptable",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0003_b0_2",
           "subject": "acceptable",
           "predicate": "is_in",
           "object": "professional_conduct",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0003_b0_3",
           "subject": "unacceptable",
           "predicate": "is_in",
           "object": "professional_conduct",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0003_b0_4",
-          "subject": "clauses",
-          "predicate": "should_not_be_read_as_separating",
-          "object": "acceptable_from_unacceptable",
-          "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0003_b0_5",
-          "subject": "acceptable_from_unacceptable",
-          "predicate": "is_in",
-          "object": "professional_conduct",
-          "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0003_b0_6",
           "subject": "professional_conduct",
           "predicate": "is_in",
           "object": "all_practical_situations",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "clauses",
+          "predicate": "should_not_be_read_as_separating",
+          "object": "acceptable_from_unacceptable_in_professional_conduct",
+          "source_candidates": [
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "acceptable_from_unacceptable_in_professional_conduct",
+          "predicate": "is_in",
+          "object": "all_practical_situations",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "Clauses",
+          "predicate": "should_not_be_read_as_separating",
+          "object": "acceptable_from_unacceptable",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "acceptable_from_unacceptable",
+          "predicate": "is_in",
+          "object": "professional_conduct",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0004",
-      "sentence": "The Code is not a simple ethical algorithm that generates ethical decisions.",
-      "section": "Paragraph 1",
+      "sentence_text": "The Code is not a simple ethical algorithm that generates ethical decisions.",
       "triples": [
         {
-          "id": "s0004_b0_1",
-          "subject": "code",
+          "subject": "Code_001",
           "predicate": "is_not",
           "object": "simple_ethical_algorithm",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0004_b0_2",
           "subject": "simple_ethical_algorithm",
           "predicate": "generates",
           "object": "ethical_decisions",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0004_b0_3",
-          "subject": "the_code",
+          "subject": "code",
           "predicate": "is_not",
           "object": "simple_ethical_algorithm",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0005",
-      "sentence": "In some situations standards may be in tension with each other or with standards from other sources.",
-      "section": "Paragraph 2",
+      "sentence_text": "In some situations standards may be in tension with each other or with standards from other sources.",
       "triples": [
         {
-          "id": "s0005_b0_1",
+          "subject": "standards",
+          "predicate": "are_in",
+          "object": "some_situations",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
           "subject": "standards",
           "predicate": "may_be_in_tension_with",
           "object": "each_other",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0005_b0_2",
           "subject": "standards",
           "predicate": "may_be_in_tension_with",
           "object": "standards_from_other_sources",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "standards",
+          "predicate": "is_in",
+          "object": "situations",
+          "source_candidates": [
+            "GPT-OSS 120B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0006",
-      "sentence": "These situations require the software engineer to use ethical judgment to act in a manner which is most consistent with the spirit of the Code of Ethics and Professional Practice, given the circumstances",
-      "section": "Paragraph 2",
+      "sentence_text": "These situations require the software engineer to use ethical judgment to act in a manner which is most consistent with the spirit of the Code of Ethics and Professional Practice, given the circumstances",
       "triples": [
         {
-          "id": "s0006_b0_1",
           "subject": "situations",
           "predicate": "require",
           "object": "software_engineer",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0006_b0_2",
+          "subject": "software_engineer",
+          "predicate": "use",
+          "object": "ethical_judgment",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "software_engineer",
+          "predicate": "act_in",
+          "object": "manner_001",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "manner_001",
+          "predicate": "is_most_consistent_with",
+          "object": "spirit_of_Code_001",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "manner_001",
+          "predicate": "is_given",
+          "object": "circumstances",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
           "subject": "software_engineer",
           "predicate": "shall_use",
           "object": "ethical_judgment",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0006_b0_3",
-          "subject": "ethical_judgment",
-          "predicate": "to_act_in",
+          "subject": "software_engineer",
+          "predicate": "shall_act_in",
           "object": "manner",
           "source_candidates": [
-            "gpt_oss_120b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0006_b0_4",
           "subject": "manner",
+          "predicate": "shall_be_consistent_with",
+          "object": "spirit_of_code_of_ethics_and_professional_practice",
+          "source_candidates": [
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "these_situations",
+          "predicate": "require",
+          "object": "software_engineer",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "ethical_judgment",
+          "predicate": "is_most_consistent_with",
+          "object": "spirit_of_Code_of_Ethics_and_Professional_Practice",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineer",
+          "predicate": "act_in_a_manner",
+          "object": "most_consistent_with_spirit_of_Code_of_Ethics_and_Professional_Practice",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineer",
+          "predicate": "shall_act_in_manner",
+          "object": "manner_001",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "manner_001",
           "predicate": "is_most_consistent_with",
           "object": "spirit_of_code_of_ethics_and_professional_practice",
           "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0006_b0_5",
-          "subject": "manner",
-          "predicate": "is_given",
-          "object": "circumstances",
-          "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0006_b0_6",
-          "subject": "software_engineer",
-          "predicate": "shall_act_in_manner",
-          "object": "manner",
-          "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0006_b0_7",
-          "subject": "manner",
-          "predicate": "is_consistent_with",
-          "object": "spirit_of_code_of_ethics_and_professional_practice",
-          "source_candidates": [
-            "qwen_38b"
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0007",
-      "sentence": "Ethical tensions can best be addressed by thoughtful consideration of fundamental principles, rather than blind reliance on detailed regulations.",
-      "section": "Paragraph 2",
+      "sentence_text": "Ethical tensions can best be addressed by thoughtful consideration of fundamental principles, rather than blind reliance on detailed regulations.",
       "triples": [
         {
-          "id": "s0007_b0_1",
+          "subject": "ethical_tensions",
+          "predicate": "can_best_be_addressed_by",
+          "object": "thoughtful_consideration_of_fundamental_principles",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "thoughtful_consideration_of_fundamental_principles",
+          "predicate": "is_rather_than",
+          "object": "blind_reliance_on_detailed_regulations",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "ethical_tensions",
+          "predicate": "should_not_be_addressed_by",
+          "object": "blind_reliance_on_detailed_regulations",
+          "source_candidates": [
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B"
+          ]
+        },
+        {
           "subject": "ethical_tensions",
           "predicate": "can_be_addressed_by",
           "object": "thoughtful_consideration_of_fundamental_principles",
           "source_candidates": [
-            "gpt_oss_120b"
+            "GPT-OSS 120B"
           ]
         },
         {
-          "id": "s0007_b0_2",
           "subject": "thoughtful_consideration_of_fundamental_principles",
-          "predicate": "concerns",
+          "predicate": "is_of",
           "object": "fundamental_principles",
           "source_candidates": [
-            "gpt_oss_120b"
+            "GPT-OSS 120B"
           ]
         },
         {
-          "id": "s0007_b0_3",
           "subject": "blind_reliance_on_detailed_regulations",
-          "predicate": "concerns",
+          "predicate": "is_of",
           "object": "detailed_regulations",
           "source_candidates": [
-            "gpt_oss_120b"
+            "GPT-OSS 120B"
           ]
         },
         {
-          "id": "s0007_b0_4",
-          "subject": "thoughtful_consideration_of_fundamental_principles",
-          "predicate": "is_preferred_over",
-          "object": "blind_reliance_on_detailed_regulations",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0007_b0_5",
           "subject": "ethical_tensions",
           "predicate": "can_be_addressed_by",
           "object": "thoughtful_consideration",
           "source_candidates": [
-            "qwen_38b"
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0007_b0_6",
           "subject": "thoughtful_consideration",
           "predicate": "is_of",
           "object": "fundamental_principles",
           "source_candidates": [
-            "qwen_38b"
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0007_b0_7",
           "subject": "ethical_tensions",
-          "predicate": "should_not_be_addressed_by",
+          "predicate": "shall_not_be_addressed_by",
           "object": "blind_reliance",
           "source_candidates": [
-            "qwen_38b"
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0007_b0_8",
           "subject": "blind_reliance",
           "predicate": "is_on",
           "object": "detailed_regulations",
           "source_candidates": [
-            "qwen_38b"
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0010",
-      "sentence": "Principle 4: JUDGMENT",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "Principle 4: JUDGMENT",
       "triples": [
         {
-          "id": "s0010_b0_1",
           "subject": "principle_4",
-          "predicate": "has_title",
-          "object": "judgment",
+          "predicate": "is",
+          "object": "Judgment",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0010_b0_2",
           "subject": "principle_4",
-          "predicate": "is",
-          "object": "judgment",
+          "predicate": "is_in",
+          "object": "Code_001",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0011",
-      "sentence": "Software engineers shall maintain integrity and independence in their professional judgment.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "Software engineers shall maintain integrity and independence in their professional judgment.",
       "triples": [
         {
-          "id": "s0011_b0_1",
           "subject": "software_engineers",
           "predicate": "shall_maintain",
           "object": "integrity",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0011_b0_2",
           "subject": "software_engineers",
           "predicate": "shall_maintain",
           "object": "independence",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0011_b0_3",
           "subject": "integrity",
           "predicate": "is_in",
           "object": "professional_judgment",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0011_b0_4",
           "subject": "independence",
           "predicate": "is_in",
           "object": "professional_judgment",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "professional_judgment",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0012",
-      "sentence": "4.01. Temper all technical judgments by the need to support and maintain human values.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.01. Temper all technical judgments by the need to support and maintain human values.",
       "triples": [
         {
-          "id": "s0012_b0_1",
+          "subject": "software_engineers",
+          "predicate": "shall_temper",
+          "object": "all_technical_judgments",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "all_technical_judgments",
+          "predicate": "shall_be_tempered_by",
+          "object": "need_001",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "need_001",
+          "predicate": "is_to_support",
+          "object": "human_values",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "need_001",
+          "predicate": "is_to_maintain",
+          "object": "human_values",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
           "subject": "software_engineers",
           "predicate": "shall_temper",
           "object": "technical_judgments",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0012_b0_2",
-          "subject": "need",
-          "predicate": "is_for",
-          "object": "support_human_values",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0012_b0_3",
-          "subject": "need",
-          "predicate": "is_for",
-          "object": "maintain_human_values",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0012_b0_4",
           "subject": "technical_judgments",
           "predicate": "are_tempered_by",
-          "object": "need",
+          "object": "need_to_support_and_maintain_human_values",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0012_b0_5",
           "subject": "need",
           "predicate": "is_to_support",
           "object": "human_values",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0012_b0_6",
           "subject": "need",
           "predicate": "is_to_maintain",
           "object": "human_values",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "technical_judgments",
+          "predicate": "shall_be_by",
+          "object": "need_to_support_and_maintain_human_values",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "need_to_support_and_maintain_human_values",
+          "predicate": "is_for",
+          "object": "human_values",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "technical_judgments",
+          "predicate": "are_by",
+          "object": "need_001",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "need_001",
+          "predicate": "is_to",
+          "object": "support_human_values",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "need_001",
+          "predicate": "is_to",
+          "object": "maintain_human_values",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0013",
-      "sentence": "4.02. Only endorse documents either prepared under their supervision or within their areas of competence and with which they are in agreement.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.02. Only endorse documents either prepared under their supervision or within their areas of competence and with which they are in agreement.",
       "triples": [
         {
-          "id": "s0013_b0_1",
-          "subject": "software_engineers",
-          "predicate": "shall_endorse",
-          "object": "documents",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0013_b0_2",
-          "subject": "documents",
-          "predicate": "are_prepared_under",
-          "object": "their_supervision",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0013_b0_3",
-          "subject": "documents",
-          "predicate": "are_within",
-          "object": "their_areas_of_competence",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0013_b0_4",
-          "subject": "documents",
-          "predicate": "are_in_agreement_with",
-          "object": "software_engineers",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0013_b0_5",
           "subject": "software_engineers",
           "predicate": "shall_only_endorse",
           "object": "documents",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0013_b0_6",
           "subject": "documents",
           "predicate": "are_prepared_under",
           "object": "supervision",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0013_b0_7",
+          "subject": "supervision",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
           "subject": "documents",
           "predicate": "are_within",
           "object": "areas_of_competence",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0013_b0_8",
+          "subject": "areas_of_competence",
+          "predicate": "are_of",
+          "object": "software_engineers",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
           "subject": "software_engineers",
           "predicate": "are_in_agreement_with",
           "object": "documents",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_endorse",
+          "object": "documents_prepared_under_their_supervision",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_endorse",
+          "object": "documents_within_their_areas_of_competence",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_endorse",
+          "object": "documents_with_which_they_are_in_agreement",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "documents",
+          "predicate": "are_prepared_under",
+          "object": "supervision_of_software_engineers",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0014",
-      "sentence": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.03. Maintain professional objectivity with respect to any software or related documents they are asked to evaluate.",
       "triples": [
         {
-          "id": "s0014_b0_1",
           "subject": "software_engineers",
           "predicate": "shall_maintain",
           "object": "professional_objectivity",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0014_b0_2",
           "subject": "professional_objectivity",
           "predicate": "is_with_respect_to",
-          "object": "any_software_or_related_documents",
+          "object": "software",
           "source_candidates": [
-            "gpt_oss_120b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0014_b0_3",
-          "subject": "any_software_or_related_documents",
-          "predicate": "are_asked_to_be_evaluated_by",
+          "subject": "professional_objectivity",
+          "predicate": "is_with_respect_to",
+          "object": "related_documents",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "are_asked_to_evaluate",
+          "object": "software",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "are_asked_to_evaluate",
+          "object": "related_documents",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "professional_objectivity",
+          "predicate": "with_respect_to",
+          "object": "software",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "professional_objectivity",
+          "predicate": "with_respect_to",
+          "object": "related_documents",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software",
+          "predicate": "are_asked_to_evaluate_by",
           "object": "software_engineers",
           "source_candidates": [
-            "gpt_oss_120b"
+            "GPT-OSS 120B"
           ]
         },
         {
-          "id": "s0014_b0_4",
-          "subject": "professional_objectivity",
-          "predicate": "is_with_respect_to",
-          "object": "any_software",
+          "subject": "related_documents",
+          "predicate": "are_asked_to_evaluate_by",
+          "object": "software_engineers",
           "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0014_b0_5",
-          "subject": "professional_objectivity",
-          "predicate": "is_with_respect_to",
-          "object": "related_documents",
-          "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0014_b0_6",
-          "subject": "software_engineers",
-          "predicate": "are_asked_to_evaluate",
-          "object": "any_software",
-          "source_candidates": [
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0014_b0_7",
-          "subject": "software_engineers",
-          "predicate": "are_asked_to_evaluate",
-          "object": "related_documents",
-          "source_candidates": [
-            "qwen_38b"
+            "GPT-OSS 120B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0015",
-      "sentence": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices.",
       "triples": [
         {
-          "id": "s0015_b0_1",
           "subject": "software_engineers",
           "predicate": "shall_not_engage_in",
           "object": "deceptive_financial_practices",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0015_b0_2",
           "subject": "deceptive_financial_practices",
           "predicate": "include",
           "object": "bribery",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0015_b0_3",
           "subject": "deceptive_financial_practices",
           "predicate": "include",
           "object": "double_billing",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0015_b0_4",
           "subject": "deceptive_financial_practices",
           "predicate": "include",
           "object": "other_improper_financial_practices",
           "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0016",
-      "sentence": "4.05. Disclose to all concerned parties those conflicts of interest that cannot reasonably be avoided or escaped.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.05. Disclose to all concerned parties those conflicts of interest that cannot reasonably be avoided or escaped.",
       "triples": [
         {
-          "id": "s0016_b0_1",
-          "subject": "software_engineers",
-          "predicate": "shall_disclose",
-          "object": "conflicts_of_interest",
-          "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0016_b0_2",
-          "subject": "conflicts_of_interest",
-          "predicate": "cannot_be_avoided_or_escaped",
-          "object": "true",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0016_b0_3",
           "subject": "software_engineers",
           "predicate": "shall_disclose_to",
           "object": "all_concerned_parties",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0016_b0_4",
+          "subject": "software_engineers",
+          "predicate": "shall_disclose",
+          "object": "conflicts_of_interest",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "GPT-OSS 120B",
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "cannot_reasonably_be_avoided",
+          "object": "software_engineers",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "cannot_reasonably_be_escaped",
+          "object": "software_engineers",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
           "subject": "conflicts_of_interest",
           "predicate": "cannot_reasonably_be_avoided",
           "object": "null",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0016_b0_5",
           "subject": "conflicts_of_interest",
           "predicate": "cannot_reasonably_be_escaped",
           "object": "null",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "is_for",
+          "object": "concerned_parties",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "cannot_be_avoided_or_escaped",
+          "object": "reasonably",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "are_to",
+          "object": "all_concerned_parties",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "cannot_reasonably_be",
+          "object": "avoided",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "conflicts_of_interest",
+          "predicate": "cannot_reasonably_be",
+          "object": "escaped",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]
     },
     {
       "sentence_id": "s0017",
-      "sentence": "4.06. Refuse to participate, as members or advisors, in a private, governmental or professional body concerned with software related issues, in which they, their employers or their clients have undisclosed potential conflicts of interest.",
-      "section": "Judgment (Principle 4)",
+      "sentence_text": "4.06. Refuse to participate, as members or advisors, in a private, governmental or professional body concerned with software related issues, in which they, their employers or their clients have undisclosed potential conflicts of interest.",
       "triples": [
         {
-          "id": "s0017_b0_1",
-          "subject": "software_engineers",
-          "predicate": "shall_refuse_to_participate_as_members_or_advisors_in",
-          "object": "private_governmental_or_professional_body",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0017_b0_2",
-          "subject": "private_governmental_or_professional_body",
-          "predicate": "is_concerned_with",
-          "object": "software_related_issues",
-          "source_candidates": [
-            "gpt_oss_120b",
-            "qwen_38b"
-          ]
-        },
-        {
-          "id": "s0017_b0_3",
-          "subject": "private_governmental_or_professional_body",
-          "predicate": "has_undisclosed_potential_conflicts_of_interest_involving",
-          "object": "software_engineers",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0017_b0_4",
-          "subject": "private_governmental_or_professional_body",
-          "predicate": "has_undisclosed_potential_conflicts_of_interest_involving",
-          "object": "employers",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0017_b0_5",
-          "subject": "private_governmental_or_professional_body",
-          "predicate": "has_undisclosed_potential_conflicts_of_interest_involving",
-          "object": "clients",
-          "source_candidates": [
-            "gpt_oss_120b"
-          ]
-        },
-        {
-          "id": "s0017_b0_6",
           "subject": "software_engineers",
           "predicate": "shall_refuse_to_participate_in",
-          "object": "private_governmental_or_professional_body",
+          "object": "body",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High"
           ]
         },
         {
-          "id": "s0017_b0_7",
           "subject": "software_engineers",
           "predicate": "participate_as",
           "object": "members",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0017_b0_8",
           "subject": "software_engineers",
           "predicate": "participate_as",
           "object": "advisors",
           "source_candidates": [
-            "qwen_38b"
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro",
+            "Qwen 3.8 27B"
           ]
         },
         {
-          "id": "s0017_b0_9",
-          "subject": "private_governmental_or_professional_body",
+          "subject": "body",
+          "predicate": "is",
+          "object": "private_governmental_or_professional",
+          "source_candidates": [
+            "ChatGPT-5.6-High"
+          ]
+        },
+        {
+          "subject": "body",
+          "predicate": "is_concerned_with",
+          "object": "software_related_issues",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "have",
+          "object": "undisclosed_potential_conflicts_of_interest",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "employers",
+          "predicate": "have",
+          "object": "undisclosed_potential_conflicts_of_interest",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "clients",
+          "predicate": "have",
+          "object": "undisclosed_potential_conflicts_of_interest",
+          "source_candidates": [
+            "ChatGPT-5.6-High",
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_refuse_to_participate_in",
+          "object": "private_governmental_or_professional_body",
+          "source_candidates": [
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "body",
           "predicate": "has",
           "object": "undisclosed_potential_conflicts_of_interest",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0017_b0_10",
           "subject": "undisclosed_potential_conflicts_of_interest",
           "predicate": "involve",
           "object": "software_engineers",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0017_b0_11",
           "subject": "undisclosed_potential_conflicts_of_interest",
           "predicate": "involve",
           "object": "employers",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
           ]
         },
         {
-          "id": "s0017_b0_12",
           "subject": "undisclosed_potential_conflicts_of_interest",
           "predicate": "involve",
           "object": "clients",
           "source_candidates": [
-            "qwen_38b"
+            "Gemini-3.1-Pro"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_refuse_to_participate_as_members_or_advisors_in",
+          "object": "private_governmental_or_professional_body",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "private_governmental_or_professional_body",
+          "predicate": "concerned_with",
+          "object": "software_related_issues",
+          "source_candidates": [
+            "GPT-OSS 120B"
+          ]
+        },
+        {
+          "subject": "software_engineers",
+          "predicate": "shall_refuse_to_participate_in",
+          "object": "body_001",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "body_001",
+          "predicate": "is",
+          "object": "private",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "body_001",
+          "predicate": "is",
+          "object": "governmental",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "body_001",
+          "predicate": "is",
+          "object": "professional",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "body_001",
+          "predicate": "is_concerned_with",
+          "object": "software_related_issues",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "body_001",
+          "predicate": "has",
+          "object": "undisclosed_potential_conflicts_of_interest",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "undisclosed_potential_conflicts_of_interest",
+          "predicate": "is_of",
+          "object": "software_engineers",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "undisclosed_potential_conflicts_of_interest",
+          "predicate": "is_of",
+          "object": "employers",
+          "source_candidates": [
+            "Qwen 3.8 27B"
+          ]
+        },
+        {
+          "subject": "undisclosed_potential_conflicts_of_interest",
+          "predicate": "is_of",
+          "object": "clients",
+          "source_candidates": [
+            "Qwen 3.8 27B"
           ]
         }
       ]

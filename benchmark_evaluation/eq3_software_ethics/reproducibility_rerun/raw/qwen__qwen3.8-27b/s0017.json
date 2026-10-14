@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:35:16.012661+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "78acf6ab6d92c2d6e4a2ddaf07f955e7f8d8ed8700afd07d4bde068814df1f5a",
+  "target": {
+    "sentence_id": "s0017",
+    "sentence": "4.06. Refuse to participate, as members or advisors, in a private, governmental or professional body concerned with software related issues, in which they, their employers or their clients have undisclosed potential conflicts of interest."
+  },
+  "response": {
+    "id": "chatcmpl-31ea1f7d-d49d-4593-8ae3-a2a35359527c",
+    "object": "chat.completion",
+    "created": 1791984915,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_refuse_to_participate_in\",\n    \"object\": \"body_001\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"are\",\n    \"object\": \"members\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"are\",\n    \"object\": \"advisors\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"body_001\",\n    \"predicate\": \"is\",\n    \"object\": \"private\"\n  },\n  {\n    \"triple_id\": 5,\n    \"subject\": \"body_001\",\n    \"predicate\": \"is\",\n    \"object\": \"governmental\"\n  },\n  {\n    \"triple_id\": 6,\n    \"subject\": \"body_001\",\n    \"predicate\": \"is\",\n    \"object\": \"professional\"\n  },\n  {\n    \"triple_id\": 7,\n    \"subject\": \"body_001\",\n    \"predicate\": \"is_concerned_with\",\n    \"object\": \"software_related_issues\"\n  },\n  {\n    \"triple_id\": 8,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"have\",\n    \"object\": \"undisclosed_potential_conflicts_of_interest\"\n  },\n  {\n    \"triple_id\": 9,\n    \"subject\": \"employers\",\n    \"predicate\": \"have\",\n    \"object\": \"undisclosed_potential_conflicts_of_interest\"\n  },\n  {\n    \"triple_id\": 10,\n    \"subject\": \"clients\",\n    \"predicate\": \"have\",\n    \"object\": \"undisclosed_potential_conflicts_of_interest\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.084169064,
+      "prompt_tokens": 5655,
+      "prompt_time": 0.415192754,
+      "completion_tokens": 471,
+      "completion_time": 0.900316474,
+      "total_tokens": 6126,
+      "total_time": 1.315509228
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4x9zkq6eds8rdxh1ehva3qy",
+      "seed": 839721192
+    },
+    "service_tier": "on_demand"
+  }
+}

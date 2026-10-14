@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:20:10.991291+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "c2a23958209da6c87ea4073aecfef6ac3d879af8f36ec828d05bdf12c8821cc7",
+  "target": {
+    "sentence_id": "SEN:10003390",
+    "sentence": "We conclude that ethanol exposure enhances expression of Gi alpha(1) and Gi alpha(2) in ethanol-sensitive mice, and is associated with decreased adenylylcyclase activity."
+  },
+  "response": {
+    "id": "chatcmpl-1a2505df-8930-44ef-8dff-fc287b66e573",
+    "object": "chat.completion",
+    "created": 1791937210,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"a(CHEBI:ethanol) increases r(MGI:Gnao1)\",\n  \"a(CHEBI:ethanol) increases r(MGI:Gnao2)\",\n  \"a(CHEBI:ethanol) decreases act(p(MGI:Adcy1))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.097738492,
+      "prompt_tokens": 4618,
+      "prompt_time": 0.412087001,
+      "completion_tokens": 68,
+      "completion_time": 0.15000069,
+      "total_tokens": 4686,
+      "total_time": 0.562087691
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwfsy5en892r0zeg7s5gjz",
+      "seed": 1204888424
+    },
+    "service_tier": "on_demand"
+  }
+}

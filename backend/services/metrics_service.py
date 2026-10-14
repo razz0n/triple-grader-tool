@@ -1,9 +1,19 @@
 """
 metrics_service.py — Inter-Rater Reliability Engine
-Calculates Quadratic Weighted Cohen's Kappa (for 2 raters) and
-Quadratic Weighted Fleiss' Kappa (for 3+ raters) across ordinal grades (0-10).
+Calculates quadratic-weighted agreement on the 0-10 ordinal grading scale:
+
+- exactly two raters: quadratic-weighted Cohen's kappa (Cohen, 1968), with chance
+  agreement computed from each rater's own score distribution;
+- three or more raters: quadratic-weighted Fleiss-type kappa, with chance agreement
+  computed from the pooled score distribution of all raters.
+
+Both use the disagreement form kappa = 1 - D_o / D_e with squared score differences,
+which is equivalent to the agreement-weight form with w_ij = 1 - (i - j)^2 / 10^2.
+Kappa is reported as undefined (N/A) when fewer than two items are co-rated or when
+the ratings show no variation (D_e = 0).
 """
 
+import math
 from typing import Dict, Any, List, Tuple, Optional
 
 K_MIN_GRADE = 0
@@ -11,136 +21,108 @@ K_MAX_GRADE = 10
 NUM_CATEGORIES = K_MAX_GRADE - K_MIN_GRADE + 1  # 11 categories: 0..10
 
 
-def get_quadratic_weight(grade1: int, grade2: int) -> float:
+def get_quadratic_weight(grade1: float, grade2: float) -> float:
     """
-    Computes the quadratic weight for two ordinal grades in range [0..10].
+    Quadratic agreement weight for two grades on the 0..10 scale:
     w_ij = 1 - ((i - j)^2 / (10 - 0)^2)
-    - If grade1 == grade2: w = 1.0 (perfect agreement)
-    - If diff = 1 (e.g., 7 vs 8): w = 0.99
-    - If diff = 6 (e.g., 2 vs 8): w = 0.64
     """
     diff_sq = (float(grade1) - float(grade2)) ** 2
     max_diff_sq = float(K_MAX_GRADE - K_MIN_GRADE) ** 2  # 100.0
     return 1.0 - (diff_sq / max_diff_sq)
 
 
+def _clean_items(items_ratings: List[Dict[str, Any]]) -> Tuple[List[Dict[str, float]], int]:
+    """Keeps finite grades within [0, 10]; returns the cleaned items and the number dropped."""
+    cleaned: List[Dict[str, float]] = []
+    dropped = 0
+    for item in items_ratings:
+        row: Dict[str, float] = {}
+        for rater, grade in item.items():
+            try:
+                value = float(grade)
+            except (TypeError, ValueError):
+                dropped += 1
+                continue
+            if not math.isfinite(value) or value < K_MIN_GRADE or value > K_MAX_GRADE:
+                dropped += 1
+                continue
+            row[str(rater)] = value
+        cleaned.append(row)
+    return cleaned, dropped
+
+
+def _not_available(reason: str, num_raters: int, num_items: int) -> Dict[str, Any]:
+    return {
+        "kappa": None,
+        "metric_type": "N/A",
+        "num_raters": num_raters,
+        "num_items": num_items,
+        "formatted_str": f"N/A ({reason})",
+    }
+
+
 def compute_weighted_kappa_from_items(
-    items_ratings: List[Dict[str, int]]
+    items_ratings: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """
     Computes quadratic weighted inter-rater agreement across items.
-    Each item in items_ratings is a dict mapping user_id -> grade (int 0..10).
+    Each item in items_ratings is a dict mapping user_id -> grade (0..10).
 
-    Automatically selects:
-    - Quadratic Weighted Cohen's Kappa if total unique raters across items == 2
-    - Quadratic Weighted Fleiss' Kappa if total unique raters across items > 2
-    - Returns N/A if fewer than 2 items or raters exist.
+    Selects Cohen's kappa when exactly two distinct raters appear on co-rated items and the
+    Fleiss-type kappa otherwise. Returns N/A when fewer than two items are co-rated or when
+    there is no rating variation.
     """
-    # Filter items that have at least 2 raters
-    valid_items = [
-        item for item in items_ratings
-        if len(item) >= 2
-    ]
+    cleaned, _dropped = _clean_items(items_ratings)
+    valid_items = [item for item in cleaned if len(item) >= 2]
 
-    if not valid_items:
-        return {
-            "kappa": None,
-            "metric_type": "N/A",
-            "num_raters": 0,
-            "num_items": 0,
-            "formatted_str": "N/A (Requires >= 2 raters)",
-        }
-
-    # Find total unique raters across all valid items
     all_raters = set()
     for item in valid_items:
         all_raters.update(item.keys())
-
     num_unique_raters = len(all_raters)
 
-    if num_unique_raters < 2:
-        return {
-            "kappa": None,
-            "metric_type": "N/A",
-            "num_raters": num_unique_raters,
-            "num_items": len(valid_items),
-            "formatted_str": "N/A (Requires >= 2 raters)",
-        }
+    if num_unique_raters < 2 or len(valid_items) < 2:
+        return _not_available("Requires >= 2 raters on >= 2 items", num_unique_raters, len(valid_items))
 
-    # Calculate observed weighted agreement P_o across all items
-    total_observed_weight = 0.0
-    total_pairs = 0
-
-    category_counts = {c: 0 for c in range(NUM_CATEGORIES)}
-    total_individual_ratings = 0
-
-    for item in valid_items:
-        ratings = list(item.values())
-        m = len(ratings)
-        if m < 2:
-            continue
-
-        # Pairwise observed weights within this item
-        item_weight_sum = 0.0
-        item_pair_count = 0
-        for i in range(m):
-            category_counts[int(ratings[i])] += 1
-            total_individual_ratings += 1
-            for j in range(i + 1, m):
-                w = get_quadratic_weight(int(ratings[i]), int(ratings[j]))
-                item_weight_sum += w
-                item_pair_count += 1
-
-        if item_pair_count > 0:
-            total_observed_weight += (item_weight_sum / item_pair_count)
-            total_pairs += 1
-
-    if total_pairs == 0 or total_individual_ratings == 0:
-        return {
-            "kappa": None,
-            "metric_type": "N/A",
-            "num_raters": num_unique_raters,
-            "num_items": len(valid_items),
-            "formatted_str": "N/A",
-        }
-
-    p_o = total_observed_weight / float(total_pairs)
-
-    # Calculate chance expected weighted agreement P_e from overall category distribution
-    cat_probs = {
-        c: category_counts[c] / float(total_individual_ratings)
-        for c in range(NUM_CATEGORIES)
-    }
-
-    p_e = 0.0
-    for c1 in range(NUM_CATEGORIES):
-        for c2 in range(NUM_CATEGORIES):
-            w = get_quadratic_weight(c1, c2)
-            p_e += w * cat_probs[c1] * cat_probs[c2]
-
-    # Compute Kappa
-    if abs(1.0 - p_e) < 1e-9:
-        kappa_val = 1.0 if abs(p_o - 1.0) < 1e-9 else 0.0
+    if num_unique_raters == 2:
+        rater_a, rater_b = sorted(all_raters)
+        pairs = [(item[rater_a], item[rater_b]) for item in valid_items]
+        n = len(pairs)
+        observed = sum((a - b) ** 2 for a, b in pairs) / n
+        # Chance disagreement from the two raters' separate marginal distributions.
+        expected = sum((a - b) ** 2 for a, _ in pairs for _, b in pairs) / (n * n)
+        metric_name = "Quadratic Weighted Cohen's Kappa"
+        rater_label = "Cohen's"
     else:
-        kappa_val = (p_o - p_e) / (1.0 - p_e)
+        n = len(valid_items)
+        observed_sum = 0.0
+        pooled: List[float] = []
+        for item in valid_items:
+            ratings = list(item.values())
+            m = len(ratings)
+            pair_sum = sum((ratings[i] - ratings[j]) ** 2 for i in range(m) for j in range(i + 1, m))
+            observed_sum += pair_sum / (m * (m - 1) / 2)
+            pooled.extend(ratings)
+        observed = observed_sum / n
+        # Chance disagreement from the pooled distribution of all ratings.
+        total = len(pooled)
+        mean = sum(pooled) / total
+        expected = 2.0 * sum((g - mean) ** 2 for g in pooled) / total
+        metric_name = "Quadratic Weighted Fleiss' Kappa"
+        rater_label = "Fleiss'"
 
-    # Bound kappa between -1.0 and 1.0 for numerical safety
-    kappa_val = max(-1.0, min(1.0, kappa_val))
+    if expected <= 1e-12:
+        return _not_available("no rating variation; kappa undefined", num_unique_raters, n)
 
-    metric_name = (
-        "Quadratic Weighted Cohen's Kappa"
-        if num_unique_raters == 2
-        else "Quadratic Weighted Fleiss' Kappa"
-    )
-
-    rater_label = "Cohen's" if num_unique_raters == 2 else "Fleiss'"
-    formatted = f"{kappa_val:.2f} ({rater_label}, k={num_unique_raters})"
+    kappa_val = 1.0 - observed / expected
+    if abs(kappa_val) < 5e-5:
+        kappa_val = 0.0
+    formatted = f"{kappa_val:.2f} ({rater_label}, k={num_unique_raters}, n={n})"
 
     return {
         "kappa": round(kappa_val, 4),
         "metric_type": metric_name,
         "num_raters": num_unique_raters,
-        "num_items": len(valid_items),
+        "num_items": n,
         "formatted_str": formatted,
     }
 
@@ -172,7 +154,7 @@ def compute_session_kappa_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
                     v = entry
                 if v is not None and v != "":
                     try:
-                        comp_dict[str(u_id)] = int(float(v))
+                        comp_dict[str(u_id)] = float(v)
                     except (ValueError, TypeError):
                         pass
 
@@ -191,7 +173,7 @@ def compute_session_kappa_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
                     v = entry
                 if v is not None and v != "":
                     try:
-                        rel_dict[str(u_id)] = int(float(v))
+                        rel_dict[str(u_id)] = float(v)
                     except (ValueError, TypeError):
                         pass
 
@@ -214,7 +196,7 @@ def compute_session_kappa_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
                         g = entry
                     if g is not None and g != "":
                         try:
-                            t_dict[str(u_id)] = int(float(g))
+                            t_dict[str(u_id)] = float(g)
                         except (ValueError, TypeError):
                             pass
 

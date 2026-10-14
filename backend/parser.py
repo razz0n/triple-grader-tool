@@ -62,6 +62,11 @@ def _read_dataframe(file_bytes: bytes, filename: str) -> pd.DataFrame:
             df = pd.read_csv(
                 io.StringIO(file_bytes.decode("latin-1")), header=None, dtype=str
             )
+    # A first row that names the columns (subject, predicate, object) is a header, not a triple.
+    if len(df) > 0 and df.shape[1] >= 3:
+        first = [str(df.iloc[0, i] or "").strip().lower() for i in range(3)]
+        if first == ["subject", "predicate", "object"]:
+            df = df.iloc[1:].reset_index(drop=True)
     return df
 
 

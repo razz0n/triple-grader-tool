@@ -1,0 +1,188 @@
+{
+  "experiment_id": "EQ2_E5_d10_seed42",
+  "session_id": "eq2_e5_d10_seed42_b0559c",
+  "error_type": "E5",
+  "density": 0.1,
+  "seed": 42,
+  "timestamp_start": 1791984831.3967767,
+  "actions_executed": [
+    {
+      "step": "POST /api/sessions",
+      "status_code": 200,
+      "latency_ms": 68.37
+    },
+    {
+      "step": "POST /save (reinsert t00309)",
+      "status_code": 200,
+      "latency_ms": 181.76
+    },
+    {
+      "step": "POST /save (reinsert t00303)",
+      "status_code": 200,
+      "latency_ms": 253.5
+    },
+    {
+      "step": "POST /save (reinsert t00302)",
+      "status_code": 200,
+      "latency_ms": 387.74
+    },
+    {
+      "step": "POST /save (reinsert t00288)",
+      "status_code": 200,
+      "latency_ms": 471.38
+    },
+    {
+      "step": "POST /save (reinsert t00280)",
+      "status_code": 200,
+      "latency_ms": 512.4
+    },
+    {
+      "step": "POST /save (reinsert t00259)",
+      "status_code": 200,
+      "latency_ms": 527.61
+    },
+    {
+      "step": "POST /save (reinsert t00230)",
+      "status_code": 200,
+      "latency_ms": 599.23
+    },
+    {
+      "step": "POST /save (reinsert t00217)",
+      "status_code": 200,
+      "latency_ms": 726.92
+    },
+    {
+      "step": "POST /save (reinsert t00215)",
+      "status_code": 200,
+      "latency_ms": 778.87
+    },
+    {
+      "step": "POST /save (reinsert t00175)",
+      "status_code": 200,
+      "latency_ms": 725.25
+    },
+    {
+      "step": "POST /save (reinsert t00173)",
+      "status_code": 200,
+      "latency_ms": 716.57
+    },
+    {
+      "step": "POST /save (reinsert t00143)",
+      "status_code": 200,
+      "latency_ms": 965.32
+    },
+    {
+      "step": "POST /save (reinsert t00141)",
+      "status_code": 200,
+      "latency_ms": 1015.29
+    },
+    {
+      "step": "POST /save (reinsert t00126)",
+      "status_code": 200,
+      "latency_ms": 993.7
+    },
+    {
+      "step": "POST /save (reinsert t00120)",
+      "status_code": 200,
+      "latency_ms": 1014.28
+    },
+    {
+      "step": "POST /save (reinsert t00115)",
+      "status_code": 200,
+      "latency_ms": 1089.31
+    },
+    {
+      "step": "POST /save (reinsert t00113)",
+      "status_code": 200,
+      "latency_ms": 1350.36
+    },
+    {
+      "step": "POST /save (reinsert t00112)",
+      "status_code": 200,
+      "latency_ms": 1273.74
+    },
+    {
+      "step": "POST /save (reinsert t00111)",
+      "status_code": 200,
+      "latency_ms": 1346.8
+    },
+    {
+      "step": "POST /save (reinsert t00102)",
+      "status_code": 200,
+      "latency_ms": 1372.89
+    },
+    {
+      "step": "POST /save (reinsert t00082)",
+      "status_code": 200,
+      "latency_ms": 1593.04
+    },
+    {
+      "step": "POST /save (reinsert t00080)",
+      "status_code": 200,
+      "latency_ms": 1675.6
+    },
+    {
+      "step": "POST /save (reinsert t00072)",
+      "status_code": 200,
+      "latency_ms": 1623.96
+    },
+    {
+      "step": "POST /save (reinsert t00058)",
+      "status_code": 200,
+      "latency_ms": 1647.22
+    },
+    {
+      "step": "POST /save (reinsert t00053)",
+      "status_code": 200,
+      "latency_ms": 1620.7
+    },
+    {
+      "step": "POST /save (reinsert t00048)",
+      "status_code": 200,
+      "latency_ms": 1878.03
+    },
+    {
+      "step": "POST /save (reinsert t00045)",
+      "status_code": 200,
+      "latency_ms": 2019.47
+    },
+    {
+      "step": "POST /save (reinsert t00017)",
+      "status_code": 200,
+      "latency_ms": 1934.04
+    },
+    {
+      "step": "POST /save (reinsert t00016)",
+      "status_code": 200,
+      "latency_ms": 2383.36
+    },
+    {
+      "step": "POST /save (reinsert t00014)",
+      "status_code": 200,
+      "latency_ms": 2038.87
+    },
+    {
+      "step": "POST /save (reinsert t00013)",
+      "status_code": 200,
+      "latency_ms": 1981.12
+    },
+    {
+      "step": "POST /save (reinsert t00004)",
+      "status_code": 200,
+      "latency_ms": 2593.72
+    },
+    {
+      "step": "GET /export/json",
+      "status_code": 200,
+      "latency_ms": 293.18
+    }
+  ],
+  "errors": [],
+  "total_duration_ms": 39881.0,
+  "timestamp_end": 1791984871.277588,
+  "total_actions": 32,
+  "correct_actions": 32,
+  "http_requests": 67,
+  "failed_http_requests": [],
+  "exported_triple_count": 316
+}

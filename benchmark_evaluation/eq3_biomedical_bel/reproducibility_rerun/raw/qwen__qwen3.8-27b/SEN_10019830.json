@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:47:36.676248+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "724f008d5a6c9d384936aeda8e7a573695b5730a010b32c53a15b61cd68be099",
+  "target": {
+    "sentence_id": "SEN:10019830",
+    "sentence": "We found that GLUT4 can be degraded by calpain-2, suggesting that diminished degradation is responsible for the increase in muscle GLUT4 in the calpastatin transgenic mice."
+  },
+  "response": {
+    "id": "chatcmpl-0471f2a6-3067-4049-825f-2244cbc5e275",
+    "object": "chat.completion",
+    "created": 1791938856,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"act(p(HGNC:CAPN2)) increases deg(p(HGNC:SLC2A4))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.032769293,
+      "prompt_tokens": 4617,
+      "prompt_time": 0.377534894,
+      "completion_tokens": 31,
+      "completion_time": 0.067396151,
+      "total_tokens": 4648,
+      "total_time": 0.444931045
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vy217geavs41rzgn6evby4",
+      "seed": 357980769
+    },
+    "service_tier": "on_demand"
+  }
+}

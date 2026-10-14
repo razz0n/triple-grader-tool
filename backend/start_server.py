@@ -12,9 +12,12 @@ if env_path.exists():
             line = line.strip()
             if line and not line.startswith("#"):
                 key, val = line.split("=", 1)
-                os.environ[key] = val
+                # Variables already set in the environment take precedence over .env.
+                os.environ.setdefault(key.strip(), val.strip())
     print(f"Loaded environment from {env_path}")
-    print(f"  DATABASE_URL: {os.environ.get('DATABASE_URL', 'NOT SET')[:50]}...")
+    # Show only the scheme and host so credentials never reach the console or logs.
+    _db_url = os.environ.get("DATABASE_URL", "")
+    print(f"  DATABASE_URL: {_db_url.split('://', 1)[0] + '://...@' + _db_url.rsplit('@', 1)[-1] if '@' in _db_url else (_db_url.split('://', 1)[0] + '://...' if _db_url else 'NOT SET')}")
     print(f"  STORAGE_BACKEND: {os.environ.get('STORAGE_BACKEND', 'NOT SET')}")
     print()
 

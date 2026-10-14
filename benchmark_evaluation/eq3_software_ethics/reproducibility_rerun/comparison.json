@@ -1,0 +1,266 @@
+{
+  "template_sha256": "deef9aa809c80f2234b73b228d24d8c18f79faf0936b6f710e1a9a8a66773cca",
+  "temperature": 0,
+  "models": {
+    "openai/gpt-oss-120b": {
+      "targets": 15,
+      "identical_targets": 3,
+      "parse_errors": 0,
+      "triples_rerun": 47,
+      "triples_frozen": 47,
+      "triples_common": 16,
+      "per_target": [
+        {
+          "sentence_id": "s0001",
+          "parse_error": null,
+          "n_rerun": 1,
+          "n_frozen": 1,
+          "n_common": 1,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0002",
+          "parse_error": null,
+          "n_rerun": 1,
+          "n_frozen": 1,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0003",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 2,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0004",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 2,
+          "n_common": 2,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0005",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 3,
+          "n_common": 2,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0006",
+          "parse_error": null,
+          "n_rerun": 6,
+          "n_frozen": 4,
+          "n_common": 1,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0007",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 4,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0010",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 2,
+          "n_common": 2,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0011",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 5,
+          "n_common": 4,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0012",
+          "parse_error": null,
+          "n_rerun": 3,
+          "n_frozen": 3,
+          "n_common": 1,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0013",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 3,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0014",
+          "parse_error": null,
+          "n_rerun": 3,
+          "n_frozen": 5,
+          "n_common": 1,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0015",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 4,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0016",
+          "parse_error": null,
+          "n_rerun": 3,
+          "n_frozen": 3,
+          "n_common": 2,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0017",
+          "parse_error": null,
+          "n_rerun": 6,
+          "n_frozen": 5,
+          "n_common": 0,
+          "identical": false
+        }
+      ]
+    },
+    "qwen/qwen3.8-27b": {
+      "targets": 15,
+      "identical_targets": 9,
+      "parse_errors": 0,
+      "triples_rerun": 59,
+      "triples_frozen": 60,
+      "triples_common": 48,
+      "per_target": [
+        {
+          "sentence_id": "s0001",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 3,
+          "n_common": 0,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0002",
+          "parse_error": null,
+          "n_rerun": 1,
+          "n_frozen": 1,
+          "n_common": 1,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0003",
+          "parse_error": null,
+          "n_rerun": 3,
+          "n_frozen": 3,
+          "n_common": 3,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0004",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 2,
+          "n_common": 2,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0005",
+          "parse_error": null,
+          "n_rerun": 3,
+          "n_frozen": 2,
+          "n_common": 2,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0006",
+          "parse_error": null,
+          "n_rerun": 5,
+          "n_frozen": 5,
+          "n_common": 4,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0007",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 4,
+          "n_common": 4,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0010",
+          "parse_error": null,
+          "n_rerun": 2,
+          "n_frozen": 2,
+          "n_common": 2,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0011",
+          "parse_error": null,
+          "n_rerun": 5,
+          "n_frozen": 5,
+          "n_common": 5,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0012",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 4,
+          "n_common": 3,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0013",
+          "parse_error": null,
+          "n_rerun": 5,
+          "n_frozen": 5,
+          "n_common": 4,
+          "identical": false
+        },
+        {
+          "sentence_id": "s0014",
+          "parse_error": null,
+          "n_rerun": 5,
+          "n_frozen": 5,
+          "n_common": 5,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0015",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 4,
+          "n_common": 4,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0016",
+          "parse_error": null,
+          "n_rerun": 4,
+          "n_frozen": 4,
+          "n_common": 4,
+          "identical": true
+        },
+        {
+          "sentence_id": "s0017",
+          "parse_error": null,
+          "n_rerun": 10,
+          "n_frozen": 11,
+          "n_common": 5,
+          "identical": false
+        }
+      ]
+    }
+  }
+}

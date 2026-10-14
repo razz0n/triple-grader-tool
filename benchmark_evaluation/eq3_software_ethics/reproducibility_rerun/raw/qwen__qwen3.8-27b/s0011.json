@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:29:27.822347+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "1fdeb574fe4afc5f1d7f740efb3f5fbb9e9cbaa0960435eca9360dc9befea414",
+  "target": {
+    "sentence_id": "s0011",
+    "sentence": "Software engineers shall maintain integrity and independence in their professional judgment."
+  },
+  "response": {
+    "id": "chatcmpl-431070d4-ced2-4b26-91ce-d58d66b2a9cc",
+    "object": "chat.completion",
+    "created": 1791984567,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"integrity\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_maintain\",\n    \"object\": \"independence\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"integrity\",\n    \"predicate\": \"is_in\",\n    \"object\": \"professional_judgment\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"independence\",\n    \"predicate\": \"is_in\",\n    \"object\": \"professional_judgment\"\n  },\n  {\n    \"triple_id\": 5,\n    \"subject\": \"professional_judgment\",\n    \"predicate\": \"is_of\",\n    \"object\": \"software_engineers\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.275933957,
+      "prompt_tokens": 5622,
+      "prompt_time": 0.395496121,
+      "completion_tokens": 232,
+      "completion_time": 0.449368458,
+      "total_tokens": 5854,
+      "total_time": 0.844864579
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4x9mzxse17sq95rcbe3yrrm",
+      "seed": 1390180511
+    },
+    "service_tier": "on_demand"
+  }
+}

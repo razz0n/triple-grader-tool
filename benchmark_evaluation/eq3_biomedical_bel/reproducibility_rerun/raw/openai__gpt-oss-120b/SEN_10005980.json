@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T00:12:26.812880+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "309184b3be35dfdffec0420018777367cfb39d1a571f76d42972046348f8549f",
+  "target": {
+    "sentence_id": "SEN:10005980",
+    "sentence": "TrkA stimulation up-regulates the expression of the anti-apoptotic Bcl-2 family members, Bcl-2, Bcl-XL, and Bfl-1"
+  },
+  "response": {
+    "id": "chatcmpl-3553ccd9-7861-4ade-86d8-ef72e4923593",
+    "object": "chat.completion",
+    "created": 1791936746,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\"p(HGNC:NTRK1) increases r(HGNC:BCL2)\",\"p(HGNC:NTRK1) increases r(HGNC:BCL2L1)\",\"p(HGNC:NTRK1) increases r(HGNC:BCL2A1)\"]",
+          "reasoning": "We need to extract BEL statements from target sentence.\n\nSentence: \"TrkA stimulation up-regulates the expression of the anti-apoptotic Bcl-2 family members, Bcl-2, Bcl-XL, and Bfl-1\"\n\nIdentify entities:\n\n- TrkA stimulation: TrkA is a receptor, gene symbol NTRK1 (human). In BEL, protein activity: p(HGNC:NTRK1) maybe? In examples, they use p(HGNC:CTF1) for cardiotrophin-1 (a cytokine). For receptor stimulation, they treat as protein (p) maybe. In example: \"TrkA stimulation up-regulates expression\" => we want statement: p(HGNC:NTRK1) increases r(HGNC:BCL2) etc. Need to map Bcl-2 family members: Bcl-2 (gene BCL2), Bcl-XL (gene BCL2L1), Bfl-1 (gene BCL2A1). Use HGNC symbols.\n\nThus produce statements:\n\np(HGNC:NTRK1) increases r(HGNC:BCL2)\np(HGNC:NTRK1) increases r(HGNC:BCL2L1)\np(HGNC:NTRK1) increases r(HGNC:BCL2A1)\n\nCheck naming: In examples, they used p(HGNC:CTF1) for cardiotrophin-1 (gene CTF1). So use p(HGNC:NTRK1). For Bcl-XL they used BCL2L1? Not in examples but typical. Use HGNC:BCL2L1. For Bfl-1, gene BCL2A1.\n\nThus three statements.\n\nMake sure no duplicates.\n\nReturn JSON array of strings.\n\nCheck quoting: need to escape double quotes inside BEL strings? Not needed as no quotes.\n\nThus output:\n\n[\"p(HGNC:NTRK1) increases r(HGNC:BCL2)\",\"p(HGNC:NTRK1) increases r(HGNC:BCL2L1)\",\"p(HGNC:NTRK1) increases r(HGNC:BCL2A1)\"]\n\nCheck if any other relationships like anti-apoptotic could map to path? Not needed.\n\nThus final."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.181895431,
+      "prompt_tokens": 4186,
+      "prompt_time": 0.175891989,
+      "completion_tokens": 554,
+      "completion_time": 1.143535854,
+      "total_tokens": 4740,
+      "total_time": 1.319427843,
+      "completion_tokens_details": {
+        "reasoning_tokens": 483
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_49bfac06f1",
+    "x_groq": {
+      "id": "req_01m4vw1ksye9c8jg02ka0d156h",
+      "seed": 1425674003
+    },
+    "service_tier": "on_demand"
+  }
+}

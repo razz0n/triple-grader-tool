@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:40:02.305104+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "dd8c0a5cc3288b546f99d697f58a34e5b74d360db0b663e86e499fa364b31180",
+  "target": {
+    "sentence_id": "SEN:10006676",
+    "sentence": "Here, we show that TECK is a specific agonist for a human orphan receptor called GPR-9-6."
+  },
+  "response": {
+    "id": "chatcmpl-7bdaeb7b-0c07-4f18-9c20-748ba441fd6f",
+    "object": "chat.completion",
+    "created": 1791938402,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(HGNC:CCL11) increases act(p(HGNC:GPR96))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.086606524,
+      "prompt_tokens": 4606,
+      "prompt_time": 0.378039797,
+      "completion_tokens": 29,
+      "completion_time": 0.067382102,
+      "total_tokens": 4635,
+      "total_time": 0.445421899
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_5e14805ce3",
+    "x_groq": {
+      "id": "req_01m4vxm5dweh5s81ewz05jszfe",
+      "seed": 1963971099
+    },
+    "service_tier": "on_demand"
+  }
+}

@@ -28,10 +28,16 @@ BACKEND_DIR = ROOT_DIR / "backend"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(BACKEND_DIR))
 
+from benchmark_evaluation.common.local_backend import assert_local_storage, use_isolated_local_storage
+
+use_isolated_local_storage()
+
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.auth import ensure_default_users, issue_token, load_users
 from benchmark_evaluation.common.matching import compute_set_metrics
+
+assert_local_storage()
 
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_session.json"
@@ -80,9 +86,14 @@ def compute_field_fidelity(actual: Any, expected: Any) -> float:
     return round(matched / total, 4) if total > 0 else 1.0
 
 
+def make_client(auth: Dict[str, Any]) -> TestClient:
+    """HTTP client that sends the session owner's token unless a request overrides it."""
+    return TestClient(app, headers=auth["owner"]["header"])
+
+
 @fixture_decorator
-def client():
-    return TestClient(app)
+def client(auth_context):
+    return make_client(auth_context)
 
 
 @fixture_decorator
@@ -297,7 +308,7 @@ class TestEQ1WorkflowMatrix:
         """T06: Reviewer creates suggestion; stored with author and pending status."""
         session_id = self.create_test_session(client, auth_context, "t06")
 
-        r = client.post(f"/api/sessions/{session_id}/suggestions", json={
+        r = client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
             "triple_id": "t00001",
             "suggestion_id": "sug_001",
             "user": "user_jw",
@@ -329,7 +340,7 @@ class TestEQ1WorkflowMatrix:
         session_id = self.create_test_session(client, auth_context, "t07")
 
         # Create suggestion authored by user_jw
-        client.post(f"/api/sessions/{session_id}/suggestions", json={
+        client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
             "triple_id": "t00001",
             "suggestion_id": "sug_v01",
             "user": "user_jw",
@@ -339,7 +350,7 @@ class TestEQ1WorkflowMatrix:
         })
 
         # Valid vote from user_rl
-        r_valid = client.post(f"/api/sessions/{session_id}/vote", json={
+        r_valid = client.post(f"/api/sessions/{session_id}/vote", headers=auth_context["reviewer2"]["header"], json={
             "suggestion_id": "sug_v01",
             "user": "user_rl",
             "vote": "approve",
@@ -347,49 +358,64 @@ class TestEQ1WorkflowMatrix:
         assert r_valid.status_code == 200
 
         # Self-vote attempt from author user_jw
-        r_self = client.post(f"/api/sessions/{session_id}/vote", json={
+        r_self = client.post(f"/api/sessions/{session_id}/vote", headers=auth_context["reviewer1"]["header"], json={
             "suggestion_id": "sug_v01",
             "user": "user_jw",
             "vote": "approve",
         })
-        assert r_self.status_code == 400, "Self-voting must be rejected!"
+        assert r_self.status_code == 403, "Self-voting must be rejected!"
 
         reloaded = client.get(f"/api/sessions/{session_id}").json()
         sug = reloaded["sentences"][0]["triples"][0]["suggestions"][0]
         expected_sug = {"status": "pending", "votes": {"user_rl": "approve"}}
         fidelity = compute_field_fidelity(sug, expected_sug)
-        self.record_result("T07", "Suggestion voting", "Vote accepted, self-vote rejected", "Vote accepted, self-vote 400", fidelity, True)
+        self.record_result("T07", "Suggestion voting", "Vote accepted, self-vote rejected", "Vote accepted, self-vote 403", fidelity, True)
 
     def test_t08_suggestion_author_permissions(self, client, auth_context):
-        """T08: Suggestion edit/delete permissions restricted to author."""
+        """T08: Suggestion delete permission restricted to the author (UI route, with positive control)."""
         session_id = self.create_test_session(client, auth_context, "t08")
 
-        client.post(f"/api/sessions/{session_id}/suggestions", json={
+        r_add = client.post("/api/suggestions/add", headers=auth_context["reviewer1"]["header"], json={
+            "session_id": session_id,
+            "sentence_id": 1,
             "triple_id": "t00001",
-            "suggestion_id": "sug_perm",
-            "user": "user_jw",
             "subject": "Code",
             "predicate": "has",
             "object": "parts",
         })
+        assert r_add.status_code == 200
+        suggestion_id = r_add.json()["suggestion_id"]
 
         # Non-author user_rl cannot delete user_jw's suggestion
         r_unauth = client.delete(
-            f"/api/suggestions/{session_id}/s0001/t00001/sug_perm",
+            f"/api/suggestions/{session_id}/1/t00001/{suggestion_id}",
             headers=auth_context["reviewer2"]["header"],
         )
-        assert r_unauth.status_code in (400, 403, 404)
+        assert r_unauth.status_code == 403
 
-        reloaded = client.get(f"/api/sessions/{session_id}").json()
-        sugs = reloaded["sentences"][0]["triples"][0].get("suggestions", [])
-        fidelity = compute_field_fidelity(sugs[0], {"id": "sug_perm", "user": "user_jw"}) if sugs else 0.0
-        self.record_result("T08", "Edit/delete permission", "Role restriction enforced", f"Rejected with {r_unauth.status_code}", fidelity, True)
+        def current_suggestions():
+            data = client.get(f"/api/sessions/{session_id}").json()
+            return data["versions"][-1]["sentences"][0]["triples"][0].get("suggestions", [])
+
+        sugs = current_suggestions()
+        assert [s["id"] for s in sugs] == [suggestion_id], "Rejected delete must leave the suggestion intact"
+
+        # Positive control: the author can delete their own suggestion
+        r_author = client.delete(
+            f"/api/suggestions/{session_id}/1/t00001/{suggestion_id}",
+            headers=auth_context["reviewer1"]["header"],
+        )
+        assert r_author.status_code == 200
+        assert current_suggestions() == []
+
+        fidelity = compute_field_fidelity(sugs[0], {"id": suggestion_id, "author": "user_jw"})
+        self.record_result("T08", "Delete permission", "Non-author 403, author 200", f"Non-author {r_unauth.status_code}, author {r_author.status_code}", fidelity, True)
 
     def test_t09_owner_approves_suggestion(self, client, auth_context):
         """T09: Owner approves suggestion; original triple superseded, corrected active."""
         session_id = self.create_test_session(client, auth_context, "t09")
 
-        client.post(f"/api/sessions/{session_id}/suggestions", json={
+        client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
             "triple_id": "t00001",
             "suggestion_id": "sug_appr",
             "user": "user_jw",
@@ -427,7 +453,7 @@ class TestEQ1WorkflowMatrix:
         """T10: Owner unapproves suggestion; state rolls back cleanly without data loss."""
         session_id = self.create_test_session(client, auth_context, "t10")
 
-        client.post(f"/api/sessions/{session_id}/suggestions", json={
+        client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
             "triple_id": "t00001",
             "suggestion_id": "sug_unappr",
             "user": "user_jw",
@@ -527,37 +553,42 @@ class TestEQ1WorkflowMatrix:
         self.record_result("T12", "Add missing triple", "Excluded until approved, then included", "Excluded until approved, then included", fidelity, True)
 
     def test_t13_comments_and_nested_replies(self, client, auth_context):
-        """T13: Comments and replies survive save, reload, and version transitions."""
+        """T13: A triple comment and a nested reply, posted through the comment routes, survive reload."""
         session_id = self.create_test_session(client, auth_context, "t13")
-        fixture = load_fixture()
 
-        comment = {
-            "id": "c001",
-            "user": "user_jw",
+        r_comment = client.post("/api/triples/comments/add", headers=auth_context["reviewer1"]["header"], json={
+            "session_id": session_id,
+            "sentence_id": 1,
+            "triple_id": "t00001",
             "text": "Check modality of this predicate.",
-            "created_at": "2026-09-01T13:00:00Z",
-            "replies": [
-                {
-                    "id": "r001",
-                    "user": "user_ysh",
-                    "text": "Agreed, will revise.",
-                    "created_at": "2026-09-01T13:05:00Z",
-                }
-            ],
-        }
-        fixture["id"] = session_id
-        fixture["session_id"] = session_id
-        fixture["sentences"][0]["triples"][0]["comments"] = [comment]
-        client.post("/api/sessions", json=fixture)
+        })
+        assert r_comment.status_code == 200
+        comment_id = r_comment.json()["comment"]["id"]
+
+        r_reply = client.post("/api/comments/reply", json={
+            "session_id": session_id,
+            "sentence_id": 1,
+            "triple_id": "t00001",
+            "comment_id": comment_id,
+            "text": "Agreed, will revise.",
+        })
+        assert r_reply.status_code == 200
 
         reloaded = client.get(f"/api/sessions/{session_id}").json()
-        comms = reloaded["sentences"][0]["triples"][0]["comments"]
+        comms = reloaded["versions"][-1]["sentences"][0]["triples"][0]["triple_comments"]
         assert len(comms) == 1
         assert comms[0]["text"] == "Check modality of this predicate."
+        assert comms[0]["author"] == "user_jw"
         assert len(comms[0]["replies"]) == 1
         assert comms[0]["replies"][0]["text"] == "Agreed, will revise."
+        assert comms[0]["replies"][0]["author"] == "user_ysh"
 
-        fidelity = compute_field_fidelity(comms[0], comment)
+        fidelity = compute_field_fidelity(comms[0], {
+            "id": comment_id,
+            "author": "user_jw",
+            "text": "Check modality of this predicate.",
+            "replies": [{"author": "user_ysh", "text": "Agreed, will revise."}],
+        })
         self.record_result("T13", "Comments and replies", "Nested thread preserved", "Nested thread preserved", fidelity, True)
 
     def test_t14_publish_version_isolation(self, client, auth_context):
@@ -605,14 +636,14 @@ class TestEQ1WorkflowMatrix:
             f"/api/session/{session_id}/version/Initial",
             headers=auth_context["reviewer1"]["header"],
         )
-        assert r_del_unauth.status_code in (400, 401, 403, 404)
+        assert r_del_unauth.status_code == 403
 
         # Owner attempt to delete last remaining version
         r_del_owner = client.delete(
             f"/api/session/{session_id}/version/Initial",
             headers=auth_context["owner"]["header"],
         )
-        assert r_del_owner.status_code in (400, 403, 404)
+        assert r_del_owner.status_code == 400
 
         reloaded = client.get(f"/api/sessions/{session_id}").json()
         assert len(reloaded.get("versions", [])) >= 1
@@ -680,7 +711,7 @@ class TestEQ1WorkflowMatrix:
         """T18: Malformed or invalid identifiers return structured error with zero state mutation."""
         session_id = self.create_test_session(client, auth_context, "t18")
 
-        r_bad = client.post(f"/api/sessions/{session_id}/suggestions", json={
+        r_bad = client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
             "triple_id": "non_existent_triple_id_999",
             "user": "user_jw",
             "subject": "s",

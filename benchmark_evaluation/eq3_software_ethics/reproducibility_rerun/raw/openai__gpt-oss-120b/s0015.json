@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T13:20:23.006733+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "180aabde5147c6afc7539f58f9a953dd794d8ec4df0cb479498759488b39ee49",
+  "target": {
+    "sentence_id": "s0015",
+    "sentence": "4.04. Not engage in deceptive financial practices such as bribery, double billing, or other improper financial practices."
+  },
+  "response": {
+    "id": "chatcmpl-173c8c6c-ebcf-487c-8553-df1feedfc36a",
+    "object": "chat.completion",
+    "created": 1791984022,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"software_engineers\",\n    \"predicate\": \"shall_not_engage_in\",\n    \"object\": \"deceptive_financial_practices_001\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"deceptive_financial_practices_001\",\n    \"predicate\": \"include\",\n    \"object\": \"bribery\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"deceptive_financial_practices_001\",\n    \"predicate\": \"include\",\n    \"object\": \"double_billing\"\n  },\n  {\n    \"triple_id\": 4,\n    \"subject\": \"deceptive_financial_practices_001\",\n    \"predicate\": \"include\",\n    \"object\": \"other_improper_financial_practices\"\n  }\n]",
+          "reasoning": "We need to produce triples similar to examples. Input is clause 4.04. The subject is software_engineers (implicitly). The predicate: \"shall_not_engage_in\" maybe \"shall_not_engage_in\". Object: \"deceptive_financial_practices\". Then we need to capture specifics: bribery, double_billing, other_improper_financial_practices as sub-objects.\n\nBased on pattern: Example 7.05 had \"software_engineers shall give a fair hearing to the opinions, concerns, or complaints of a colleague.\" They created a hearing_001 object and then separate triples for each type. For this clause, we can create object \"deceptive_financial_practices_001\". Then separate triples for bribery, double_billing, other_improper_financial_practices as \"are_examples_of\" maybe.\n\nLook at example 7.07: \"Not unfairly intervene in the career of any colleague; however, concern for the employer, the client or public interest may compel...\" They used predicate \"shall_not_unfairly_intervene_in\". So we can use \"shall_not_engage_in\". For specifics, maybe \"deceptive_financial_practices_001\" has predicate \"include\" for each.\n\nCheck example 7.06: \"Assist colleagues in being fully aware of current standard work practices including policies and procedures for protecting passwords, files and other confidential information, and security measures in general.\" They used \"include\" for policies and procedures. Then \"are_for\" for each.\n\nThus for this clause: \"deceptive_financial_practices_001\" include \"bribery\", \"double_billing\", \"other_improper_financial_practices\". Could also use \"are_examples_of\". But follow pattern: use \"include\". So triples:\n\n1. subject: software_engineers, predicate: shall_not_engage_in, object: deceptive_financial_practices_001\n2. subject: deceptive_financial_practices_001, predicate: include, object: bribery\n3. subject: deceptive_financial_practices_001, predicate: include, object: double_billing\n4. subject: deceptive_financial_practices_001, predicate: include, object: other_improper_financial_practices\n\nAssign triple_id sequentially starting at 1.\n\nReturn JSON array.\n\n"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.091796098,
+      "prompt_tokens": 4921,
+      "prompt_time": 0.234519935,
+      "completion_tokens": 688,
+      "completion_time": 1.422907895,
+      "total_tokens": 5609,
+      "total_time": 1.65742783,
+      "completion_tokens_details": {
+        "reasoning_tokens": 488
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_e5b4e54fbb",
+    "x_groq": {
+      "id": "req_01m4x94b94ew3az2jfx0z6bgja",
+      "seed": 1381338132
+    },
+    "service_tier": "on_demand"
+  }
+}

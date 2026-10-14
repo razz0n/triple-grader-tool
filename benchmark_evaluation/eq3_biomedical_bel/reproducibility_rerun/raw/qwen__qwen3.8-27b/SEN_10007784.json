@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:42:32.979521+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "948a0ff6bfdbf09b8761e1f011b54b808ed3131b17285b548feac417be24c4d7",
+  "target": {
+    "sentence_id": "SEN:10007784",
+    "sentence": "Acute expression of WT1 in NIH 3T3 fibroblasts after retroviral infection induced murine E-cadherin expression."
+  },
+  "response": {
+    "id": "chatcmpl-c6608952-bc75-45e7-a958-f800786a5e17",
+    "object": "chat.completion",
+    "created": 1791938552,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Wt1) increases r(MGI:Cdhl1)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.006976112,
+      "prompt_tokens": 4612,
+      "prompt_time": 0.846923839,
+      "completion_tokens": 24,
+      "completion_time": 0.113718421,
+      "total_tokens": 4636,
+      "total_time": 0.96064226
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vxrr4teyxvx3n1qdzmb93v",
+      "seed": 1370470221
+    },
+    "service_tier": "on_demand"
+  }
+}

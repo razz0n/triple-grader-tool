@@ -33,7 +33,9 @@ if _env_path.exists():
                 _line = _line.strip()
                 if _line and not _line.startswith("#") and "=" in _line:
                     _k, _v = _line.split("=", 1)
-                    os.environ[_k.strip()] = _v.strip()
+                    # Variables already set in the environment (deployment settings, test
+                    # harnesses) take precedence over the local .env file.
+                    os.environ.setdefault(_k.strip(), _v.strip())
     except Exception:
         pass
 

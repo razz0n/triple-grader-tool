@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:43:10.353740+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "14be0e9cbd9a471b687f14d27390d61d20c3635b2c40c59c6b6fe7abaa5eb883",
+  "target": {
+    "sentence_id": "SEN:10007796",
+    "sentence": "Using yeast-hybrid technology, we cloned a novel CD28 cytoplasmic tail (CD28 CYT) interacting protein, MAP kinase phosphatase-6 (MKP6), which we demonstrate inactivates MAP kinases."
+  },
+  "response": {
+    "id": "chatcmpl-4b8fcb1e-2e23-4592-a053-8a8a96681fa7",
+    "object": "chat.completion",
+    "created": 1791938590,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"complex(p(HGNC:CD28),p(HGNC:DUSP6)) decreases act(p(HGNC:MAPK1))\",\n  \"complex(p(HGNC:CD28),p(HGNC:DUSP6)) decreases act(p(HGNC:MAPK3))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.0641689,
+      "prompt_tokens": 4631,
+      "prompt_time": 0.318840359,
+      "completion_tokens": 72,
+      "completion_time": 0.139080976,
+      "total_tokens": 4703,
+      "total_time": 0.457921335
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4vxsx2cerr9wxbf4t833gdy",
+      "seed": 839045727
+    },
+    "service_tier": "on_demand"
+  }
+}

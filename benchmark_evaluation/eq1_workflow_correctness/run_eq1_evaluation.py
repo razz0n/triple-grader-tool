@@ -2,7 +2,7 @@
 run_eq1_evaluation.py — Evaluation test runner for lifecycle state transitions.
 
 Orchestrates the execution of lifecycle transitions T01 through T18 against FastAPI
-HTTP routes backed by PostgreSQL. Gathers transition metrics including valid transition
+HTTP routes using an isolated local JSON/SQLite store. Gathers transition metrics including valid transition
 accuracy, invalid-action rejection, field fidelity, and response latencies, and writes
 the aggregated results to CSV and LaTeX tables.
 """
@@ -22,14 +22,17 @@ BACKEND_DIR = ROOT_DIR / "backend"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(BACKEND_DIR))
 
-from fastapi.testclient import TestClient
-from backend.main import app
+from benchmark_evaluation.common.local_backend import assert_local_storage, use_isolated_local_storage
+
+use_isolated_local_storage()
+
 from backend.auth import ensure_default_users, issue_token, load_users
 from benchmark_evaluation.eq1_workflow_correctness.test_workflow_matrix import (
     TestEQ1WorkflowMatrix,
-    load_fixture,
-    compute_field_fidelity,
+    make_client,
 )
+
+assert_local_storage()
 
 RESULTS_DIR = ROOT_DIR / "benchmark_evaluation" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -62,8 +65,8 @@ def build_auth_context() -> Dict[str, Any]:
 
 
 def run_evaluation() -> Dict[str, Any]:
-    client = TestClient(app)
     auth = build_auth_context()
+    client = make_client(auth)
     suite = TestEQ1WorkflowMatrix()
 
     # Clear previous records
@@ -139,7 +142,7 @@ def run_evaluation() -> Dict[str, Any]:
     print(f"Valid Transition Accuracy (VTA):      {vta * 100:.1f}% ({sum(1 for r in valid_transitions if r['passed'])}/{len(valid_transitions)}) [Target: 100.0%]")
     print(f"Invalid-Action Rejection Rate (IARR): {iarr * 100:.1f}% ({sum(1 for r in invalid_actions if r['passed'])}/{len(invalid_actions)}) [Target: 100.0%]")
     print(f"Dynamic Field Fidelity (FF):          {avg_fidelity * 100:.2f}% [Target: >99.0%]")
-    print(f"Total Transitions Passing:            {total_passed}/{len(detailed_results)} (100.0%)")
+    print(f"Total Transitions Passing:            {total_passed}/{len(detailed_results)}")
 
     # 1. Write eq1_workflow_matrix.csv
     csv_matrix_path = RESULTS_DIR / "eq1_workflow_matrix.csv"

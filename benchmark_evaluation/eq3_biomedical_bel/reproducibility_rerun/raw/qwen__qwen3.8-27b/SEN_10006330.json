@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:37:29.541806+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "6e470077a0dc524b80c88d5c83056168b1401853a01e1c174a89b9165a17ddfb",
+  "target": {
+    "sentence_id": "SEN:10006330",
+    "sentence": "5'-AMP-activated protein kinase (AMPK) potently stimulates fatty-acid oxidation in muscle by inhibiting the activity of acetyl coenzyme A carboxylase (ACC)."
+  },
+  "response": {
+    "id": "chatcmpl-0318afb4-4365-4f3d-8988-0a82246f8384",
+    "object": "chat.completion",
+    "created": 1791938249,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"act(p(HGNC:PRKAA1)) increases bp(GOBP:\\\"fatty acid oxidation\\\")\",\n  \"act(p(HGNC:PRKAA1)) decreases act(p(HGNC:ACACB))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.067723295,
+      "prompt_tokens": 4619,
+      "prompt_time": 0.328087572,
+      "completion_tokens": 56,
+      "completion_time": 0.116917997,
+      "total_tokens": 4675,
+      "total_time": 0.445005569
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vxfg9jek3r75y8731dy1ac",
+      "seed": 846171971
+    },
+    "service_tier": "on_demand"
+  }
+}

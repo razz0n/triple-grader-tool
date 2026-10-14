@@ -1,0 +1,47 @@
+{
+  "requested_at": "2026-10-14T00:25:15.976437+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "prompt_sha256": "cbaa84db02906ed69e9e4d83bf3c2844db3829c20b12db1b6a5709032060776f",
+  "target": {
+    "sentence_id": "s0010",
+    "sentence": "Principle 4: JUDGMENT"
+  },
+  "response": {
+    "id": "chatcmpl-73faa0e7-377f-4df6-af67-5ee53ab275d1",
+    "object": "chat.completion",
+    "created": 1791937515,
+    "model": "openai/gpt-oss-120b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is\",\n    \"object\": \"Judgment\"\n  },\n  {\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is_in\",\n    \"object\": \"Code_001\"\n  }\n]",
+          "reasoning": "We need to produce triples for \"Principle 4: JUDGMENT\". Based on examples for headings, they produce two triples: one linking principle_4 is \"Judgment\", and second linking principle_4 is_in Code_001.\n\nThus output JSON array with objects containing subject, predicate, object (no triple_id). The instruction: \"Output ONLY a valid JSON array of objects with keys 'subject', 'predicate', and 'object'.\" So omit triple_id.\n\nThus produce:\n\n[\n  {\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is\",\n    \"object\": \"Judgment\"\n  },\n  {\n    \"subject\": \"principle_4\",\n    \"predicate\": \"is_in\",\n    \"object\": \"Code_001\"\n  }\n]\n\nMake sure JSON valid. Use double quotes."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.170204521,
+      "prompt_tokens": 4907,
+      "prompt_time": 0.210232695,
+      "completion_tokens": 243,
+      "completion_time": 0.506600289,
+      "total_tokens": 5150,
+      "total_time": 0.716832984,
+      "completion_tokens_details": {
+        "reasoning_tokens": 172
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_49bfac06f1",
+    "x_groq": {
+      "id": "req_01m4vws3hbegwb18d0ew6ej7g0",
+      "seed": 1816142737
+    },
+    "service_tier": "on_demand"
+  }
+}

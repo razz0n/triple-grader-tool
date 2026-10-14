@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:32:32.772913+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "d0f2a2e89001b486b12c30e2ef30772870daf341a0a098c97ddea94b0c3270d3",
+  "target": {
+    "sentence_id": "SEN:10004916",
+    "sentence": "Our findings provide the first evidence that inhibition of SUMO-1 expression is regulated by LH receptor stimulation in granulosa cells concomitant with ovulation in the mouse ovary"
+  },
+  "response": {
+    "id": "chatcmpl-e549a084-fc9d-4999-bfd2-24c59f341e05",
+    "object": "chat.completion",
+    "created": 1791937952,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Lhr) decreases r(MGI:Sumo1)\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.083412324,
+      "prompt_tokens": 4616,
+      "prompt_time": 0.336116923,
+      "completion_tokens": 22,
+      "completion_time": 0.042053891,
+      "total_tokens": 4638,
+      "total_time": 0.378170814
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c14f15bfae",
+    "x_groq": {
+      "id": "req_01m4vx6egbehxbv6hzkpr6dppf",
+      "seed": 1937607056
+    },
+    "service_tier": "on_demand"
+  }
+}

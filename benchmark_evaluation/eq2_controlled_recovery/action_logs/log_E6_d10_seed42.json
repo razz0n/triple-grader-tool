@@ -1,0 +1,188 @@
+{
+  "experiment_id": "EQ2_E6_d10_seed42",
+  "session_id": "eq2_e6_d10_seed42_25b494",
+  "error_type": "E6",
+  "density": 0.1,
+  "seed": 42,
+  "timestamp_start": 1791984871.3097763,
+  "actions_executed": [
+    {
+      "step": "POST /api/sessions",
+      "status_code": 200,
+      "latency_ms": 80.33
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0001)",
+      "status_code": 200,
+      "latency_ms": 100.09
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0002)",
+      "status_code": 200,
+      "latency_ms": 82.49
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0003)",
+      "status_code": 200,
+      "latency_ms": 96.84
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0004)",
+      "status_code": 200,
+      "latency_ms": 77.36
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0005)",
+      "status_code": 200,
+      "latency_ms": 69.78
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0006)",
+      "status_code": 200,
+      "latency_ms": 83.66
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0007)",
+      "status_code": 200,
+      "latency_ms": 86.57
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0008)",
+      "status_code": 200,
+      "latency_ms": 74.15
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0009)",
+      "status_code": 200,
+      "latency_ms": 99.35
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0010)",
+      "status_code": 200,
+      "latency_ms": 78.23
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0011)",
+      "status_code": 200,
+      "latency_ms": 73.88
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0012)",
+      "status_code": 200,
+      "latency_ms": 87.47
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0013)",
+      "status_code": 200,
+      "latency_ms": 99.99
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0014)",
+      "status_code": 200,
+      "latency_ms": 99.01
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0015)",
+      "status_code": 200,
+      "latency_ms": 88.26
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0016)",
+      "status_code": 200,
+      "latency_ms": 88.21
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0017)",
+      "status_code": 200,
+      "latency_ms": 87.48
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0018)",
+      "status_code": 200,
+      "latency_ms": 95.37
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0019)",
+      "status_code": 200,
+      "latency_ms": 100.95
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0020)",
+      "status_code": 200,
+      "latency_ms": 127.3
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0021)",
+      "status_code": 200,
+      "latency_ms": 89.68
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0022)",
+      "status_code": 200,
+      "latency_ms": 80.88
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0023)",
+      "status_code": 200,
+      "latency_ms": 99.49
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0024)",
+      "status_code": 200,
+      "latency_ms": 84.74
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0025)",
+      "status_code": 200,
+      "latency_ms": 79.43
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0026)",
+      "status_code": 200,
+      "latency_ms": 89.33
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0027)",
+      "status_code": 200,
+      "latency_ms": 171.17
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0028)",
+      "status_code": 200,
+      "latency_ms": 95.64
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0029)",
+      "status_code": 200,
+      "latency_ms": 86.25
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0030)",
+      "status_code": 200,
+      "latency_ms": 86.91
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0031)",
+      "status_code": 200,
+      "latency_ms": 83.01
+    },
+    {
+      "step": "POST /mark-removal (t_spurious_0032)",
+      "status_code": 200,
+      "latency_ms": 137.97
+    },
+    {
+      "step": "GET /export/json",
+      "status_code": 200,
+      "latency_ms": 71.4
+    }
+  ],
+  "errors": [],
+  "total_duration_ms": 3191.4,
+  "timestamp_end": 1791984874.5010748,
+  "total_actions": 32,
+  "correct_actions": 32,
+  "http_requests": 35,
+  "failed_http_requests": [],
+  "exported_triple_count": 316
+}

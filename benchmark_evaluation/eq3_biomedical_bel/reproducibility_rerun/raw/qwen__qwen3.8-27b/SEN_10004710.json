@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T00:28:10.241115+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "76ccf028d5a9962e81e4cdc5d51093ac462d1cbcd4bb9ed53f06cbfbd1eaa2db",
+  "target": {
+    "sentence_id": "SEN:10004710",
+    "sentence": "More importantly, the Dnmt1 knockdown blocked the methionine-induced reelin and GAD67 mRNA down-regulation."
+  },
+  "response": {
+    "id": "chatcmpl-85faeb21-372f-486d-abee-7a08b1fadf78",
+    "object": "chat.completion",
+    "created": 1791937690,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  \"p(MGI:Dnmt1) decreases (a(CHEBI:methionine) decreases r(MGI:Reel))\",\n  \"p(MGI:Dnmt1) decreases (a(CHEBI:methionine) decreases r(MGI:Gad1))\"\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.131595009,
+      "prompt_tokens": 4609,
+      "prompt_time": 0.398596684,
+      "completion_tokens": 67,
+      "completion_time": 0.162238238,
+      "total_tokens": 4676,
+      "total_time": 0.560834922
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c7e30c203c",
+    "x_groq": {
+      "id": "req_01m4vwydxpeed9yzffatta9xqz",
+      "seed": 841174335
+    },
+    "service_tier": "on_demand"
+  }
+}

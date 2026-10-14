@@ -1,0 +1,43 @@
+{
+  "requested_at": "2026-10-14T13:23:40.118500+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "temperature": 0,
+  "prompt_sha256": "051c57967dc2409577799df84b3183d670dd5f12c9ec8bf6d55d72484ba73cc9",
+  "target": {
+    "sentence_id": "s0003",
+    "sentence": "The Clauses should not be read as separating the acceptable from the unacceptable in professional conduct in all practical situations."
+  },
+  "response": {
+    "id": "chatcmpl-c7efcd80-c6a0-4b78-9950-50cb357f3c1a",
+    "object": "chat.completion",
+    "created": 1791984219,
+    "model": "qwen/qwen3.8-27b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "[\n  {\n    \"triple_id\": 1,\n    \"subject\": \"clauses\",\n    \"predicate\": \"should_not_be_read_as_separating\",\n    \"object\": \"acceptable_from_unacceptable\"\n  },\n  {\n    \"triple_id\": 2,\n    \"subject\": \"acceptable_from_unacceptable\",\n    \"predicate\": \"is_in\",\n    \"object\": \"professional_conduct\"\n  },\n  {\n    \"triple_id\": 3,\n    \"subject\": \"professional_conduct\",\n    \"predicate\": \"is_in\",\n    \"object\": \"all_practical_situations\"\n  }\n]"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.107973574,
+      "prompt_tokens": 5632,
+      "prompt_time": 0.41356369,
+      "completion_tokens": 149,
+      "completion_time": 0.297279536,
+      "total_tokens": 5781,
+      "total_time": 0.710843226
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_ddcc9cf349",
+    "x_groq": {
+      "id": "req_01m4x9acppekzb24fwazejc2cy",
+      "seed": 1473831212
+    },
+    "service_tier": "on_demand"
+  }
+}
