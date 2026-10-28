@@ -432,6 +432,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               removal_reason: t.removal_reason || "",
               marked_for_removal_by: t.marked_for_removal_by || null,
               marked_for_removal_by_name: t.marked_for_removal_by_name || null,
+              ...(t.removal_requests ? { removal_requests: t.removal_requests } : {}),
               triple_comments: t.triple_comments || [],
               suggestions: t.suggestions || [],
             })),
@@ -959,7 +960,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     if (sidebarFilter === "pending" && current) {
       const timer = setTimeout(() => {
         const activeTriples = (current.triples || []).filter((t) => {
-          const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+          const isActive = !t.is_new_suggestion || t.status === "approved";
           if (!isActive) return false;
           const userGrade = t.grades_by_user?.[currentUserId]?.grade;
           return userGrade === undefined || userGrade === null;
@@ -991,7 +992,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   const ungradedTriples = useMemo(() => {
     if (!current) return [];
     return (current.triples || []).filter((t) => {
-      const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+      const isActive = !t.is_new_suggestion || t.status === "approved";
       if (!isActive) return false;
       const userGrade = t.grades_by_user?.[currentUserId]?.grade;
       return userGrade === undefined || userGrade === null;
@@ -1015,10 +1016,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     let totalGoldTriples = 0;
     sentences.forEach((s) => {
       (s.triples || []).forEach((t) => {
-        if (
-          (!t.is_new_suggestion && !t.marked_for_removal) ||
-          (t.is_new_suggestion && t.status === "approved")
-        ) {
+        if (!t.is_new_suggestion || t.status === "approved") {
           totalGoldTriples++;
         }
       });
@@ -1191,7 +1189,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       }
 
       (s.triples || []).forEach((t) => {
-        if (!t.marked_for_removal && t.grades_by_user && typeof t.grades_by_user === "object") {
+        if (t.grades_by_user && typeof t.grades_by_user === "object") {
           const item = {};
           Object.entries(t.grades_by_user).forEach(([uId, entry]) => {
             const g = entry?.grade !== undefined ? entry.grade : entry;
@@ -1670,6 +1668,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
           removal_reason: t.removal_reason || "",
           marked_for_removal_by: t.marked_for_removal_by || null,
           marked_for_removal_by_name: t.marked_for_removal_by_name || null,
+          ...(t.removal_requests ? { removal_requests: t.removal_requests } : {}),
           triple_comments: t.triple_comments || [],
           suggestions: t.suggestions || [],
         })),
@@ -2263,6 +2262,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             removal_reason: t.removal_reason || "",
             marked_for_removal_by: t.marked_for_removal_by || null,
             marked_for_removal_by_name: t.marked_for_removal_by_name || null,
+            ...(t.removal_requests ? { removal_requests: t.removal_requests } : {}),
             triple_comments: t.triple_comments || [],
             suggestions: t.suggestions || [],
           })),
@@ -2398,7 +2398,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       if (val === null || val === undefined) return;
       if (!current) return;
       const activeTriples = (current.triples || []).filter((t) => {
-        const isActive = (!t.is_new_suggestion && !t.marked_for_removal) || (t.is_new_suggestion && t.status === "approved");
+        const isActive = !t.is_new_suggestion || t.status === "approved";
         return isActive;
       });
       const currentIndexInActive = activeTriples.findIndex((t) => t.id === tripleId);
@@ -2450,23 +2450,49 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     }, 100);
   };
 
+  const removalRequestsOf = (t) =>
+    t.removal_requests ||
+    (t.marked_for_removal
+      ? {
+          [t.marked_for_removal_by || "legacy"]: {
+            user_id: t.marked_for_removal_by,
+            user_name: t.marked_for_removal_by_name || "Grader",
+            reason: t.removal_reason || "Requested removal",
+          },
+        }
+      : {});
+
   const onMarkForRemoval = (tripleId, isMarked) => {
     // Owner can cancel requests, graders can request or cancel their own
     if (isMarked && !canSuggestTriples) return;
     if (!isMarked && !canSuggestTriples && !canApproveSuggestions) return;
 
     markChanged();
-    const reason = isMarked ? "Requested removal" : "";
     const nextSentences = sentences.map((s, idx) => {
       if (idx !== currentIdx) return s;
       const updatedTriples = s.triples.map((t) => {
         if (t.id !== tripleId) return t;
+        const requests = { ...removalRequestsOf(t) };
+        if (!isMarked && !canSuggestTriples) {
+          Object.keys(requests).forEach((k) => delete requests[k]);
+        } else if (isMarked) {
+          requests[currentUserId] = {
+            user_id: currentUserId,
+            user_name: currentUserName,
+            reason: "Requested removal",
+            requested_at: new Date().toISOString(),
+          };
+        } else {
+          delete requests[currentUserId];
+        }
+        const first = Object.values(requests)[0];
         return {
           ...t,
-          marked_for_removal: isMarked,
-          removal_reason: reason,
-          marked_for_removal_by: isMarked ? currentUserId : null,
-          marked_for_removal_by_name: isMarked ? currentUserName : null,
+          removal_requests: requests,
+          marked_for_removal: !!first,
+          removal_reason: first ? first.reason : "",
+          marked_for_removal_by: first ? first.user_id : null,
+          marked_for_removal_by_name: first ? first.user_name : null,
         };
       });
       return { ...s, triples: updatedTriples };

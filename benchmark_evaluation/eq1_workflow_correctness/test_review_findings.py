@@ -284,3 +284,42 @@ def test_grade_keeps_its_wording_after_an_approved_revision(client, auth_context
     # Only the grade given for the new wording is carried into V1, and the triple is flagged.
     assert set(p1["grades_by_user"]) == {rev2["id"]} and p1["grades_by_user"][rev2["id"]]["grade"] == 5
     assert p1.get("is_modified_in_version")
+
+
+def _save_full(client, header, view):
+    """Saves the view's triples with every field, as the current browser build sends them."""
+    return client.post("/api/save", headers=header, json={
+        "session_id": view["session_id"], "source_filename": view.get("source_filename") or "sample.json",
+        "uploaded_at": view.get("uploaded_at") or "2026-09-01T12:00:00Z", "manual_mode": False,
+        "current_version_name": view.get("current_version_name"), "sentences": view["sentences"]})
+
+
+def test_each_grader_files_their_own_deletion_request(client, auth_context):
+    rev1, rev2 = auth_context["reviewer1"], auth_context["reviewer2"]
+    sid = _new_session(client)
+    for rev, grade in ((rev1, 2), (rev2, 3)):
+        view = _view(client, sid, rev["header"])
+        t = view["sentences"][0]["triples"][0]
+        t["grade"] = grade
+        t["removal_requests"] = {**(t.get("removal_requests") or {}),
+                                 rev["id"]: {"user_id": rev["id"], "user_name": rev["username"], "reason": "wrong"}}
+        assert _save_full(client, rev["header"], view).status_code == 200
+    _, t = _stored_triple(client, sid)
+    assert set(t["removal_requests"]) == {rev1["id"], rev2["id"]} and t["marked_for_removal"] is True
+
+    # rev2 withdraws only their own request; rev1's request stays.
+    view = _view(client, sid, rev2["header"])
+    t = view["sentences"][0]["triples"][0]
+    t["removal_requests"] = {k: v for k, v in t["removal_requests"].items() if k != rev2["id"]}
+    assert _save_full(client, rev2["header"], view).status_code == 200
+    _, t = _stored_triple(client, sid)
+    assert set(t["removal_requests"]) == {rev1["id"]} and t["marked_for_removal_by"] == rev1["id"]
+
+    # A grader cannot withdraw another grader's request.
+    view = _view(client, sid, rev2["header"])
+    view["sentences"][0]["triples"][0]["removal_requests"] = {}
+    assert _save_full(client, rev2["header"], view).status_code == 200
+    _, t = _stored_triple(client, sid)
+    assert set(t["removal_requests"]) == {rev1["id"]}
+    # Both graders' grades on the requested triple are kept.
+    assert {rev1["id"], rev2["id"]} <= set(t["grades_by_user"])

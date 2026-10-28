@@ -888,37 +888,7 @@ def _apply_collaborative_grades(
                         if key in existing_triple:
                             triple[key] = existing_triple[key]
 
-                existing_marked = existing_triple.get("marked_for_removal", False)
-                existing_by = existing_triple.get("marked_for_removal_by")
-                existing_by_name = existing_triple.get("marked_for_removal_by_name")
-                existing_reason = existing_triple.get("removal_reason", "")
-
-                if existing_marked:
-                    is_authorized_to_modify = (
-                        _is_session_owner(incoming_session, None, user)
-                        or str(user.get("id") or "").strip() == str(existing_by or "").strip()
-                    )
-                    if not is_authorized_to_modify:
-                        triple["marked_for_removal"] = True
-                        triple["marked_for_removal_by"] = existing_by
-                        triple["marked_for_removal_by_name"] = existing_by_name
-                        triple["removal_reason"] = existing_reason
-                    else:
-                        triple["marked_for_removal"] = triple.get("marked_for_removal", False)
-                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by") if triple.get("marked_for_removal") else None
-                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name") if triple.get("marked_for_removal") else None
-                        triple["removal_reason"] = triple.get("removal_reason", "") if triple.get("marked_for_removal") else ""
-                else:
-                    if triple.get("marked_for_removal"):
-                        triple["marked_for_removal"] = True
-                        triple["marked_for_removal_by"] = triple.get("marked_for_removal_by") or user_id
-                        triple["marked_for_removal_by_name"] = triple.get("marked_for_removal_by_name") or user_name
-                        triple["removal_reason"] = triple.get("removal_reason") or "Requested removal"
-                    else:
-                        triple["marked_for_removal"] = False
-                        triple["marked_for_removal_by"] = None
-                        triple["marked_for_removal_by_name"] = None
-                        triple["removal_reason"] = ""
+                _merge_removal_requests(triple, existing_triple, user_id, user_name, is_owner_user)
 
                 triple["suggestions"] = _merge_suggestions_lists(
                     triple.get("suggestions") or [],
@@ -2453,6 +2423,7 @@ def _publish_new_version(
             t_copy["suggestions"] = []
             t_copy["marked_for_removal"] = False
             t_copy["removal_reason"] = ""
+            t_copy["removal_requests"] = {}
             t_copy["marked_for_removal_by"] = None
             t_copy["marked_for_removal_by_name"] = None
 
@@ -2652,6 +2623,7 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
                 "marked_for_removal_by",
                 "marked_for_removal_by_name",
                 "removal_reason",
+                "removal_requests",
                 "suggestions",
             ):
                 if key in source_triple:
@@ -2735,6 +2707,54 @@ def _identity_keys(user: Dict[str, Any]) -> set:
     """Names under which the frontend records this user's votes (the unique username / display name)."""
     keys = {display_name(user), norm_username(user.get("username") or "")}
     return {k for k in keys if k}
+
+
+def _removal_requests(triple: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Deletion requests on a triple, one per grader; data with only the single flag counts as one request."""
+    raw = triple.get("removal_requests")
+    if isinstance(raw, dict):
+        return {str(k): dict(v) for k, v in raw.items() if isinstance(v, dict) and str(k).strip()}
+    if triple.get("marked_for_removal"):
+        uid = str(triple.get("marked_for_removal_by") or "").strip() or "legacy"
+        return {uid: {"user_id": uid, "user_name": triple.get("marked_for_removal_by_name") or "Grader",
+                      "reason": triple.get("removal_reason") or "Requested removal", "requested_at": None}}
+    return {}
+
+
+def _set_removal_requests(triple: Dict[str, Any], requests: Dict[str, Dict[str, Any]]) -> None:
+    """Stores the requests and keeps the single-request fields (first request) in sync for older readers."""
+    triple["removal_requests"] = requests
+    first = min(requests.values(), key=lambda r: str(r.get("requested_at") or ""), default=None)
+    triple["marked_for_removal"] = first is not None
+    triple["marked_for_removal_by"] = first.get("user_id") if first else None
+    triple["marked_for_removal_by_name"] = first.get("user_name") if first else None
+    triple["removal_reason"] = (first.get("reason") or "Requested removal") if first else ""
+
+
+def _merge_removal_requests(triple: Dict[str, Any], existing_triple: Dict[str, Any], user_id: str,
+                            user_name: str, is_owner: bool) -> None:
+    """A grader adds or withdraws only their own deletion request; the owner can also withdraw others'."""
+    existing = _removal_requests(existing_triple or {})
+    if isinstance(triple.get("removal_requests"), dict):
+        incoming = _removal_requests(triple)
+    else:
+        incoming = dict(existing)
+        if triple.get("marked_for_removal") and not existing:
+            incoming[user_id] = {"reason": triple.get("removal_reason")}
+        elif not triple.get("marked_for_removal"):
+            incoming = {} if is_owner else {k: v for k, v in existing.items() if k != user_id}
+    if is_owner:
+        merged = {k: v for k, v in existing.items() if k in incoming}
+    else:
+        merged = {k: v for k, v in existing.items() if k != user_id}
+    if user_id in incoming:
+        merged[user_id] = {
+            "user_id": user_id,
+            "user_name": user_name,
+            "reason": str(incoming[user_id].get("reason") or "Requested removal"),
+            "requested_at": (existing.get(user_id) or {}).get("requested_at") or datetime.utcnow().isoformat(),
+        }
+    _set_removal_requests(triple, merged)
 
 
 def _triple_sig(triple: Dict[str, Any]) -> str:
@@ -2949,16 +2969,13 @@ def _sanitize_grader_sentences(incoming_sentences: list, existing_sentences: lis
                 for key in ("grade", "grades_by_user"):
                     if key in incoming_t:
                         triple[key] = incoming_t[key]
-                if "marked_for_removal" in incoming_t:
-                    wants_removal = bool(incoming_t.get("marked_for_removal"))
-                    if wants_removal and not stored_t.get("marked_for_removal"):
-                        # A new removal request is always filed under the caller.
-                        triple["marked_for_removal"] = True
-                        triple["marked_for_removal_by"] = user_id
-                        triple["marked_for_removal_by_name"] = user_name
-                        triple["removal_reason"] = str(incoming_t.get("removal_reason") or "Requested removal")
-                    elif not wants_removal:
-                        triple["marked_for_removal"] = False
+                if isinstance(incoming_t.get("removal_requests"), dict):
+                    triple["removal_requests"] = incoming_t["removal_requests"]
+                elif "marked_for_removal" in incoming_t:
+                    # Client without per-grader requests: the merge step reads the single flag.
+                    triple.pop("removal_requests", None)
+                    triple["marked_for_removal"] = bool(incoming_t.get("marked_for_removal"))
+                    triple["removal_reason"] = incoming_t.get("removal_reason")
                 triple["triple_comments"] = _sanitize_thread(
                     incoming_t.get("triple_comments"), stored_t.get("triple_comments"), user_id, user_name)
                 triple["suggestions"] = _sanitize_suggestions(incoming_t.get("suggestions"), stored_t.get("suggestions"), user)
@@ -4938,8 +4955,16 @@ async def mark_triple_removal(body: MarkTripleRemovalRequest, user: Dict[str, An
     if not sentence or not triple:
         raise HTTPException(status_code=404, detail="Sentence or triple not found.")
 
-    triple["marked_for_removal"] = body.marked
-    triple["removal_reason"] = "Not needed" if body.marked else None
+    requests = _removal_requests(triple)
+    caller_id = str(user.get("id") or "").strip()
+    if body.marked:
+        requests.setdefault(caller_id, {"user_id": caller_id, "user_name": display_name(user),
+                                        "reason": "Not needed", "requested_at": datetime.utcnow().isoformat()})
+    elif _is_session_owner(session, json_path, user):
+        requests = {}
+    else:
+        requests.pop(caller_id, None)
+    _set_removal_requests(triple, requests)
 
     # Also sync to top-level sentences if distinct
     for s in session.get("sentences", []):
@@ -4950,8 +4975,9 @@ async def mark_triple_removal(body: MarkTripleRemovalRequest, user: Dict[str, An
                 tid = str(t.get("id") or t.get("triple_id") or "")
                 target_tid = str(triple.get("id") or triple.get("triple_id") or "")
                 if tid == target_tid:
-                    t["marked_for_removal"] = body.marked
-                    t["removal_reason"] = triple.get("removal_reason")
+                    for key in ("removal_requests", "marked_for_removal", "marked_for_removal_by",
+                                "marked_for_removal_by_name", "removal_reason"):
+                        t[key] = copy.deepcopy(triple.get(key))
 
     _save_loaded_session(json_path, session)
 
