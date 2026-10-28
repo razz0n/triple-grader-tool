@@ -297,7 +297,6 @@ export default function TripleSuggestions({
   const countVotes = (votes, voteType) => {
     return Object.values(votes || {}).filter((v) => v === voteType).length;
   };
-  const gradeOptions = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
   const startEditSuggestion = (sug) => {
     setEditingSuggestionId(sug.id);
@@ -460,13 +459,6 @@ export default function TripleSuggestions({
               const isEditing = editingSuggestionId === sug.id;
               const currentUserVote = (sug.votes || {})[displayUserName] ?? null;
               const canVote = sug.author !== displayUserName;
-              const gradeVotes = Object.values(sug.votes || {})
-                .map((v) => String(v))
-                .filter((v) => /^(10|[0-9])$/.test(v));
-              const gradeAverage =
-                gradeVotes.length > 0
-                  ? (gradeVotes.reduce((a, b) => a + Number(b), 0) / gradeVotes.length).toFixed(1)
-                  : null;
               return (
                 <div
                   key={sug.id}
@@ -624,33 +616,6 @@ export default function TripleSuggestions({
                       <MessageSquare size={11} /> Discuss ({sug.replies?.length || 0})
                     </button>
 
-                    {/* Quality score voter */}
-                    <div className="flex items-center gap-1 ml-1 flex-wrap pt-1 lg:pt-0">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 select-none">Score:</span>
-                      {gradeOptions.map((grade) => (
-                        <button
-                          key={grade}
-                          onClick={() => voteHandler?.(sug.id, grade)}
-                          disabled={!canVote}
-                          className={`w-5 h-5 border rounded text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${
-                            !canVote
-                              ? "bg-slate-50 dark:bg-slate-950 text-slate-300 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                              : currentUserVote === grade
-                              ? "bg-indigo-600 border-indigo-600 text-white"
-                              : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-indigo-50"
-                          }`}
-                          title={canVote ? `Vote score ${grade}` : "Cannot vote on your own suggestion"}
-                        >
-                          {grade}
-                        </button>
-                      ))}
-                    </div>
-
-                    {gradeAverage !== null && (
-                      <span className="ml-auto text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded-lg select-none">
-                        Avg {gradeAverage} ({gradeVotes.length})
-                      </span>
-                    )}
                   </div>
 
                   {/* Discussion replies drawer */}

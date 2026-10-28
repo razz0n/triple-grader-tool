@@ -183,9 +183,6 @@ def compute_session_kappa_metrics(session: Dict[str, Any]) -> Dict[str, Any]:
 
         # Triples
         for t in s.get("triples", []):
-            if t.get("marked_for_removal"):
-                continue
-
             grades_by_user = t.get("grades_by_user", {})
             t_dict = {}
             if isinstance(grades_by_user, dict):

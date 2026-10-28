@@ -156,6 +156,23 @@ export default function TripleCard({
     );
   }
 
+  const removalRequests =
+    triple?.removal_requests ||
+    (triple?.marked_for_removal
+      ? {
+          [triple.marked_for_removal_by || "legacy"]: {
+            user_id: triple.marked_for_removal_by,
+            user_name: triple.marked_for_removal_by_name || "Grader",
+            reason: triple.removal_reason,
+          },
+        }
+      : {});
+  const hasRemovalRequests = Object.keys(removalRequests).length > 0;
+  const myRemovalRequest = removalRequests[currentUserId] || null;
+  const removalRequesters = Object.values(removalRequests)
+    .map((r) => r.user_name || "Grader")
+    .join(", ");
+
   const borderLeftColor = triple?.marked_for_removal
     ? "border-l-rose-500 dark:border-l-rose-600 bg-rose-50/40 dark:bg-rose-950/20"
     : isNewPending
@@ -247,7 +264,7 @@ export default function TripleCard({
       )}
       
       {/* Removal Request alert */}
-      {triple?.marked_for_removal && (
+      {hasRemovalRequests && (
         <>
           {/* Owner view */}
           {canApprove && (
@@ -255,7 +272,7 @@ export default function TripleCard({
               <span className="flex items-start gap-2">
                 <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">Request deletion by {triple.marked_for_removal_by_name || "Grader"}:</span> {triple.removal_reason || "Requested removal."}
+                  <span className="font-bold">Deletion requested by {removalRequesters}:</span> {triple.removal_reason || "Requested removal."}
                 </div>
               </span>
               <div className="flex items-center gap-2 justify-end self-end sm:self-center shrink-0">
@@ -277,12 +294,12 @@ export default function TripleCard({
             </div>
           )}
           {/* Requester view (Grader who requested it) */}
-          {!canApprove && triple.marked_for_removal_by === currentUserId && (
+          {!canApprove && myRemovalRequest && (
             <div className="mb-3 px-3 py-2.5 bg-rose-50 dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/40 rounded-xl text-xs font-semibold text-rose-800 dark:text-rose-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span className="flex items-start gap-2">
                 <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">You requested deletion:</span> {triple.removal_reason || "Requested removal."}
+                  <span className="font-bold">You requested deletion:</span> {myRemovalRequest?.reason || "Requested removal."}
                 </div>
               </span>
               <div className="flex items-center gap-2 justify-end self-end sm:self-center shrink-0">
@@ -549,19 +566,19 @@ export default function TripleCard({
 
       {/* Mark for removal action */}
       {canSuggest && !isNewPending && (
-        (!triple?.marked_for_removal || triple?.marked_for_removal_by === currentUserId) && (
+        (
           <div className="mt-3.5 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-start">
             <button
               type="button"
-              onClick={() => onMarkForRemoval?.(triple.id, !triple?.marked_for_removal)}
+              onClick={() => onMarkForRemoval?.(triple.id, !myRemovalRequest)}
               className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg font-bold border transition-colors cursor-pointer ${
-                triple?.marked_for_removal
+                myRemovalRequest
                   ? "bg-rose-50 dark:bg-rose-950/20 text-rose-700 border-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30"
                   : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 border-slate-200 dark:border-slate-700 hover:border-rose-250 dark:hover:bg-rose-900"
               }`}
-              title={triple?.marked_for_removal ? "Cancel deletion request" : "Request deletion of this triple"}
+              title={myRemovalRequest ? "Cancel deletion request" : "Request deletion of this triple"}
             >
-              {triple?.marked_for_removal ? (
+              {myRemovalRequest ? (
                 <>
                   <X size={11} /> Cancel Deletion Request
                 </>
