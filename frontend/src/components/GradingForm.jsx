@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { saveSession, downloadSession, getAuthToken, loadSession, meUser, deleteSessionVersion } from "../api";
+import { saveSession, downloadSession, getAuthToken, loadSession, meUser, deleteSessionVersion, withdrawMyGrading, restoreMyGrading } from "../api";
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
@@ -36,6 +36,7 @@ import {
   FileText,
   History,
   Trash2,
+  RotateCcw,
   Check
 } from "lucide-react";
 
@@ -355,6 +356,54 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     } finally {
       setSaving(false);
     }
+  };
+
+  const reloadCurrentSession = async () => {
+    hasUnsavedChangesRef.current = false;
+    const updated = await loadSession(initialSessionId, currentVersionName);
+    if (onUpdateSessionData) onUpdateSessionData(updated);
+  };
+
+  const handleRestoreGrading = async () => {
+    try {
+      setSaving(true);
+      await restoreMyGrading(initialSessionId);
+      await reloadCurrentSession();
+      showAlert("Your grading has been restored.", "Grading Restored");
+    } catch (err) {
+      showAlert("Could not restore your grading: " + (err?.response?.data?.detail || err.message || String(err)), "Restore Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleWithdrawGrading = async () => {
+    const ok = await showConfirm(
+      "This removes all your work from the current version of this session: your grades, sentence ratings, votes, comments and replies, deletion requests, and any suggestions or proposed triples the owner has not approved yet. Replies other graders made to your comments are removed with them. You can bring everything back later with \u201cRestore my grading\u201d.",
+      "Remove my grading?",
+      "Remove my grading",
+      "Cancel"
+    );
+    if (!ok) return;
+    try {
+      setSaving(true);
+      // Let any save in flight finish and store pending edits first, so nothing is re-sent afterwards.
+      for (let i = 0; i < 50 && savingRef.current; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (hasUnsavedChangesRef.current && latestPayloadRef.current) {
+        await saveSession(latestPayloadRef.current);
+      }
+      await withdrawMyGrading(initialSessionId);
+      await reloadCurrentSession();
+    } catch (err) {
+      showAlert("Could not remove your grading: " + (err?.response?.data?.detail || err.message || String(err)), "Remove Failed");
+      return;
+    } finally {
+      setSaving(false);
+    }
+    const undo = await showConfirm("Your grading was removed from this session.", "Grading Removed", "Undo", "OK");
+    if (undo) await handleRestoreGrading();
   };
 
   const handleDeleteVersion = async (versionName) => {
@@ -3262,6 +3311,28 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <Users size={14} />
             <span className="hidden md:inline">Agreement</span>
           </button>
+
+          {/* 5c. Remove / restore the grader's own work */}
+          {!is_owner && !readOnly && (
+            <button
+              onClick={handleWithdrawGrading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+              title="Remove all your grading work from this session"
+            >
+              <Trash2 size={14} />
+              <span className="hidden md:inline">Remove my grading</span>
+            </button>
+          )}
+          {!is_owner && uploadData.can_restore_my_grading && (
+            <button
+              onClick={handleRestoreGrading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+              title="Bring back the grading work you removed from this session"
+            >
+              <RotateCcw size={14} />
+              <span className="hidden md:inline">Restore my grading</span>
+            </button>
+          )}
 
           {/* 6. Notifications Trigger */}
           <div className="relative" ref={notificationsRef}>

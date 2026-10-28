@@ -118,6 +118,18 @@ export async function deleteSessionVersion(sessionId, versionName) {
   return data;
 }
 
+/** Removes the current grader's own work from the active version of a session. */
+export async function withdrawMyGrading(sessionId) {
+  const { data } = await API.post(`/api/session/${sessionId}/withdraw-grading`);
+  return data;
+}
+
+/** Restores the current grader's removed work in a session. */
+export async function restoreMyGrading(sessionId) {
+  const { data } = await API.post(`/api/session/${sessionId}/restore-grading`);
+  return data;
+}
+
 /**
  * Download a graded session in the chosen format.
  * @param {string} sessionId

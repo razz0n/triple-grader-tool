@@ -323,3 +323,64 @@ def test_each_grader_files_their_own_deletion_request(client, auth_context):
     assert set(t["removal_requests"]) == {rev1["id"]}
     # Both graders' grades on the requested triple are kept.
     assert {rev1["id"], rev2["id"]} <= set(t["grades_by_user"])
+
+
+def test_grader_can_remove_and_restore_their_grading(client, auth_context):
+    rev1, rev2 = auth_context["reviewer1"], auth_context["reviewer2"]
+    sid = _new_session(client)
+    _add_suggestion(client, sid, rev1)  # rev1's pending suggestion "sug-x" on the first triple
+    view = _view(client, sid, rev1["header"])
+    s0 = view["sentences"][0]
+    t = s0["triples"][0]
+    t["grade"] = 8
+    t["triple_comments"] = [_comment(rev1, "my note")]
+    t["removal_requests"] = {rev1["id"]: {"user_id": rev1["id"], "user_name": rev1["username"], "reason": "dup"}}
+    s0["completeness"] = 7
+    assert _save_full(client, rev1["header"], view).status_code == 200
+    view = _view(client, sid, rev2["header"])
+    view["sentences"][0]["triples"][0]["grade"] = 9
+    assert _save_full(client, rev2["header"], view).status_code == 200
+
+    # The owner does not grade, so there is nothing to remove.
+    assert client.post(f"/api/session/{sid}/withdraw-grading").status_code == 403
+
+    r = client.post(f"/api/session/{sid}/withdraw-grading", headers=rev1["header"])
+    assert r.status_code == 200, r.text
+    s, t = _stored_triple(client, sid)
+    assert rev1["id"] not in t["grades_by_user"] and rev2["id"] in t["grades_by_user"]
+    assert not t.get("triple_comments") and not t.get("suggestions")
+    assert rev1["id"] not in (t.get("removal_requests") or {}) and not t.get("marked_for_removal")
+    assert rev1["id"] not in (s.get("completeness_by_user") or {})
+    mine = _view(client, sid, rev1["header"])
+    assert mine.get("can_restore_my_grading") is True
+    # The backup of removed work is never sent to anyone.
+    for header in (rev1["header"], rev2["header"], None):
+        assert "withdrawn_grading" not in _view(client, sid, header)
+
+    r = client.post(f"/api/session/{sid}/restore-grading", headers=rev1["header"])
+    assert r.status_code == 200, r.text
+    s, t = _stored_triple(client, sid)
+    assert {rev1["id"], rev2["id"]} <= set(t["grades_by_user"])
+    assert [c["text"] for c in t["triple_comments"]] == ["my note"]
+    assert [x["id"] for x in t["suggestions"]] == ["sug-x"]
+    assert rev1["id"] in t["removal_requests"] and t["marked_for_removal"] is True
+    assert rev1["id"] in s["completeness_by_user"]
+    assert _view(client, sid, rev1["header"]).get("can_restore_my_grading") is False
+    assert client.post(f"/api/session/{sid}/restore-grading", headers=rev1["header"]).status_code == 404
+
+
+def test_upload_then_review_publish_keeps_each_triple_once(client):
+    import json as _json
+    upload = {"sentences": [{"text": "WT1 induces E-cadherin.", "triples": [
+        {"id": "t054", "subject": "p(MGI:Wt1)", "predicate": "increases", "object": "r(MGI:Cdh1)"}]}]}
+    r = client.post("/api/upload", files={"file": ("cand.json", _json.dumps(upload).encode(), "application/json")})
+    assert r.status_code == 200, r.text
+    sid = r.json()["session_id"]
+    # The review screen renumbers triple ids as "<sentence>_<n>" before the first save.
+    sentences = [{"id": 1, "text": "WT1 induces E-cadherin.", "suggestion": "", "triples": [
+        {"id": "1_1", "subject": "p(MGI:Wt1)", "predicate": "increases", "object": "r(MGI:Cdh1)",
+         "is_placeholder": False, "note": "", "grade": None}]}]
+    body = {"session_id": sid, "source_filename": "cand.json", "uploaded_at": "2026-10-28T12:00:00Z",
+            "manual_mode": False, "total_sentences": 1, "sentences": sentences}
+    assert client.post("/api/save", json=body).status_code == 200
+    assert len(_view(client, sid)["sentences"][0]["triples"]) == 1
