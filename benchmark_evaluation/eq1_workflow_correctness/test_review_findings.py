@@ -408,3 +408,73 @@ def test_owner_draft_shows_text_a_grader_typed_into_a_proposed_triple(client, au
 
     owner_triple = next(t for t in _view(client, sid)["sentences"][0]["triples"] if t["id"] == "suggested-1")
     assert (owner_triple["subject"], owner_triple["predicate"], owner_triple["object"]) == ("Code_001", "includes", "parts")
+
+
+def test_owner_approving_from_a_stale_page_keeps_the_graders_text(client, auth_context):
+    rev = auth_context["reviewer1"]
+    sid = _new_session(client)
+    # The owner's page was loaded while the grader's new row was still empty.
+    view = _view(client, sid, rev["header"])
+    view["sentences"][0]["triples"].append(
+        {"id": "suggested-2", "subject": "", "predicate": "", "object": "", "grade": None, "author": rev["username"],
+         "grades_by_user": {}, "is_new_suggestion": True, "status": "pending", "suggested_by": rev["username"],
+         "triple_comments": [], "suggestions": []})
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+    stale_owner_view = _view(client, sid)
+    # The grader then types the triple.
+    view = _view(client, sid, rev["header"])
+    next(t for t in view["sentences"][0]["triples"] if t["id"] == "suggested-2").update(
+        subject="Code_001", predicate="includes", object="parts")
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+    # The owner approves from the stale page, which still shows the row as empty.
+    sentences = copy.deepcopy(stale_owner_view["sentences"])
+    next(t for t in sentences[0]["triples"] if t["id"] == "suggested-2")["status"] = "approved"
+    assert _save(client, None, stale_owner_view, sentences).status_code == 200
+
+    approved = next(t for t in _view(client, sid)["sentences"][0]["triples"] if t["id"] == "suggested-2")
+    assert approved["status"] == "approved"
+    assert (approved["subject"], approved["predicate"], approved["object"]) == ("Code_001", "includes", "parts")
+
+
+def test_deleting_the_active_version_resets_the_working_copy(client):
+    from backend.main import _load_existing_session
+    sid = _new_session(client)
+    initial = _view(client, sid)
+    sentences = copy.deepcopy(initial["sentences"])
+    sentences[0]["triples"][0]["object"] = "changed_in_v2"
+    assert _publish(client, sid, sentences, "v2").status_code == 200
+    assert client.delete(f"/api/session/{sid}/version/v2").status_code == 200
+
+    _, stored = _load_existing_session(sid)
+    active = next(v for v in stored["versions"] if v["name"] == stored["current_version_name"])
+    assert stored["current_version_name"] == "Initial"
+    assert stored["sentences"] == active["sentences"]
+    assert not stored.get("owner_draft")
+    # A save from the page, which now shows Initial, is accepted.
+    view = _view(client, sid)
+    assert view["current_version_name"] == "Initial"
+    assert _save(client, None, view, view["sentences"]).status_code == 200
+
+
+def test_owner_approval_is_kept_while_an_owner_draft_exists(client, auth_context):
+    rev = auth_context["reviewer1"]
+    sid = _new_session(client)
+    _add_suggestion(client, sid, rev)  # pending suggestion on sentence 1, triple 1
+    # The owner edits another triple, so the owner now works from an unpublished draft.
+    view = _view(client, sid)
+    sentences = copy.deepcopy(view["sentences"])
+    sentences[0]["triples"][1]["object"] = "edited_by_owner"
+    assert _save(client, None, view, sentences).status_code == 200
+    # The owner approves the suggestion, the way the page does it.
+    view = _view(client, sid)
+    sentences = copy.deepcopy(view["sentences"])
+    t1, sug = sentences[0]["triples"][0], sentences[0]["triples"][0]["suggestions"][0]
+    sug["approved_from"] = {k: t1[k] for k in ("subject", "predicate", "object", "author")}
+    t1.update(subject=sug["subject"], predicate=sug["predicate"], object=sug["object"])
+    sug.update(status="approved", approved_by="owner", approved_at="2026-10-29T01:00:00Z")
+    assert _save(client, None, view, sentences).status_code == 200
+    assert _publish(client, sid, _view(client, sid)["sentences"], "v2").status_code == 200
+
+    published = _view(client, sid)["sentences"][0]["triples"]
+    assert (published[0]["subject"], published[0]["predicate"], published[0]["object"]) == ("Code_001", "includes", "parts")
+    assert published[1]["object"] == "edited_by_owner"
