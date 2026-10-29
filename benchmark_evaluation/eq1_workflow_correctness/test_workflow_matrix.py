@@ -1,10 +1,9 @@
 """
-test_workflow_matrix.py — End-to-end lifecycle and state transition integration tests.
+The eighteen workflow scenarios T01 to T18, run against the FastAPI routes.
 
-Verifies state consistency, role-based access controls, and schema fidelity across
-18 lifecycle transitions (T01 through T18) executed against FastAPI HTTP endpoints.
-Tests measure valid transition accuracy, invalid-action rejection (HTTP 4xx), and
-deep field fidelity to verify zero collateral mutations.
+Fourteen perform a permitted operation and four attempt a prohibited one. Each scenario checks
+the HTTP status, the stored session, and that fields the operation should not touch are
+unchanged. The other test files in this folder call these scenarios.
 """
 
 import copy
@@ -336,7 +335,7 @@ class TestEQ1WorkflowMatrix:
         self.record_result("T06", "Create suggestion", "Suggestion pending with author", "Suggestion pending with author", fidelity, True)
 
     def test_t07_suggestion_voting_and_self_vote_rejection(self, client, auth_context):
-        """T07: Reviewer votes on suggestion; self-voting is strictly rejected."""
+        """T07: A reviewer votes on a suggestion; voting on one's own suggestion is rejected."""
         session_id = self.create_test_session(client, auth_context, "t07")
 
         # Create suggestion authored by user_jw
@@ -654,7 +653,7 @@ class TestEQ1WorkflowMatrix:
         self.record_result("T15", "Delete version", "Zero-version state prevented", f"Rejected with {r_del_owner.status_code}", fidelity, True)
 
     def test_t16_multi_format_export_integrity(self, client, auth_context):
-        """T16: Export JSON and CSV agree with authoritative final state and match 100%."""
+        """T16: The JSON and CSV exports agree with the final session state and with each other."""
         session_id = self.create_test_session(client, auth_context, "t16")
 
         exp_json = client.get(f"/api/sessions/{session_id}/export/json").json()
@@ -708,7 +707,7 @@ class TestEQ1WorkflowMatrix:
         self.record_result("T17", "Concurrent save simulation", "Shared data preserved", "Shared data preserved", fidelity, True)
 
     def test_t18_malformed_identifiers(self, client, auth_context):
-        """T18: Malformed or invalid identifiers return structured error with zero state mutation."""
+        """T18: Malformed or unknown identifiers return an error and leave the session unchanged."""
         session_id = self.create_test_session(client, auth_context, "t18")
 
         r_bad = client.post(f"/api/sessions/{session_id}/suggestions", headers=auth_context["reviewer1"]["header"], json={
@@ -725,7 +724,7 @@ class TestEQ1WorkflowMatrix:
 
         initial_sentences = load_fixture()["sentences"]
         fidelity = compute_field_fidelity(reloaded["sentences"][0]["triples"][0], initial_sentences[0]["triples"][0])
-        self.record_result("T18", "Malformed identifiers", "Rejected 404, zero mutation", "Rejected 404, zero mutation", fidelity, True)
+        self.record_result("T18", "Malformed identifiers", "Rejected 404, session unchanged", "Rejected 404, session unchanged", fidelity, True)
 
 
 def get_eq1_test_records() -> List[Dict[str, Any]]:

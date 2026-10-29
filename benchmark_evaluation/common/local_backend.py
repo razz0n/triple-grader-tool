@@ -1,10 +1,9 @@
 """
-local_backend.py — Runs the evaluation suites against an isolated local store.
+local_backend.py: runs the evaluation suites against an isolated local store.
 
-The EQ1/EQ2 suites drive the FastAPI app in-process. Without isolation, the
-backend would read backend/.env and could point at a hosted database. Call
-use_isolated_local_storage() BEFORE importing backend modules, then
-assert_local_storage() after importing them.
+The EQ1 and EQ2 suites drive the FastAPI app in-process. Without isolation the backend would
+read backend/.env and could point at a hosted database. Call use_isolated_local_storage()
+before importing any backend module, and assert_local_storage() after importing them.
 """
 
 import os

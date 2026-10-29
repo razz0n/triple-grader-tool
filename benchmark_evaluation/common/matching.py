@@ -1,7 +1,6 @@
 """
-matching.py — Triple Matching and Set Comparison Metrics.
-
-Computes set precision, recall, and F1 between candidate/exported sets and reference gold.
+Set precision, recall and F1 of a triple set against a reference set, used by the EQ1 export
+checks.
 """
 
 from typing import Any, Dict, List, Set, Tuple

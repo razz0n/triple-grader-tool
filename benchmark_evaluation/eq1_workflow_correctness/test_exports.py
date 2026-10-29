@@ -1,9 +1,6 @@
 """
-test_exports.py — Multi-format dataset serialization and export integrity validation suite.
-
-Verifies cross-format parity and zero information loss across supported export targets (JSON, CSV).
-Ensures exported relational tables preserve identical triple counts, canonical identifiers,
-subject-predicate-object string tokens, adjudicated grades, and consensus agreement flags.
+Pytest entry point for scenario T16: the gold JSON and CSV exports list the same triples, with
+the same identifiers, text, grades and agreement flags.
 """
 
 from benchmark_evaluation.eq1_workflow_correctness.test_workflow_matrix import (

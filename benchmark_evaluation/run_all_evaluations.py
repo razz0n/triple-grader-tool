@@ -1,5 +1,5 @@
 """
-run_all_evaluations.py — Regenerates every reported evaluation table with one command.
+run_all_evaluations.py: regenerates every evaluation table with one command.
 
     python benchmark_evaluation/run_all_evaluations.py            # EQ1, EQ2 analysis, EQ3
     python benchmark_evaluation/run_all_evaluations.py --replay   # also re-run the EQ2 oracle replay
@@ -9,7 +9,7 @@ hosted database.
 
   1. EQ1: workflow matrix T01-T18 plus agreement-metric and security regression tests
   2. EQ2: controlled corruption recovery (E1-E10); --replay re-issues the oracle actions
-  3. EQ3: frozen-input check, then candidate-to-reference alignment and downstream scores
+  3. EQ3: frozen-input check, then the curation counts of Table III
 """
 
 import argparse
@@ -38,10 +38,7 @@ EXPECTED_OUTPUTS = [
     "eq1_summary.csv",
     "eq2_recovery_matrix.csv",
     "eq2_summary.csv",
-    "eq3_transformation.csv",
-    "eq3_downstream.csv",
-    "eq3_bio_transformation.csv",
-    "eq3_bio_downstream.csv",
+    "eq3_curation.csv",
     "eq3_summary.json",
     "eq3_tables.tex",
 ]
@@ -74,7 +71,7 @@ def main() -> None:
     restored = sum(1 for r in eq2 if r["exact_match"] and r["row_level_match"])
     print(f"  -> {restored}/{len(eq2)} conditions restored at SPO-set and row level")
 
-    print("\n[3/3] EQ3 frozen inputs and metrics")
+    print("\n[3/3] EQ3 frozen inputs and curation counts")
     freeze = subprocess.run([sys.executable, str(BENCH_DIR / "freeze_eq3.py")], cwd=ROOT_DIR)
     if freeze.returncode != 0:
         sys.exit("EQ3 frozen inputs changed; see freeze_eq3.py output")

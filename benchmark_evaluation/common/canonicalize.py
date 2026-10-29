@@ -1,7 +1,5 @@
 """
-canonicalize.py — String and Triple Canonicalization Utilities.
-
-Normalizes triple text representations for rigorous exact and normalized matching.
+Exact and normalized forms of triple text, used to compare triples.
 """
 
 import re

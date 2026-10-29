@@ -1,6 +1,0 @@
-source,n_candidates,exact,near_miss,unaligned,n_reference,ref_exact_covered,ref_near_covered,ref_uncovered,split_insensitive_exact
-ChatGPT-5.6-High,60,19,22,19,69,19,24,26,19
-Gemini-3.1-Pro,67,22,22,23,69,22,26,21,22
-GPT-OSS 120B,68,7,26,35,69,7,25,37,7
-Qwen 3.8 27B,65,8,18,39,69,8,19,42,9
-B0 (four-model union),167,30,56,81,69,30,19,20,31

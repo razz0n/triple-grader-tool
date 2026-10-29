@@ -1,21 +1,14 @@
 """
-freeze_eq3.py — Freezes the EQ3 inputs (candidates, B0, B1, prompts, demonstrations).
+freeze_eq3.py: records and checks the SHA-256 of every EQ3 input.
 
-For each domain this script
-  1. checks that B1 (curated_b1/b1_curated_gold.json) equals the final version
-     stored in every candidate session file,
-  2. checks that frozen_b0/b0_raw_candidates.json equals the normalized union of
-     the initial candidate versions (the file is written only if it is absent and
-     is never overwritten),
-  3. records the SHA-256 of every input in FROZEN_MANIFEST.json.
-
-Once a manifest exists it is never overwritten unless --refreeze is given.
-All analysis scripts call common.eq3_metrics.verify_frozen() and stop if any
-frozen file has changed.
+The inputs of each corpus are the four frozen candidate files, the benchmark B1, the prompt and
+demonstrations, and the four curated sessions exported from TripleGrader. Their hashes are kept in
+FROZEN_MANIFEST.json. A manifest is written only when it is missing or when --refreeze is given;
+otherwise the script stops if any input differs from it.
 
 Usage:
-    python benchmark_evaluation/freeze_eq3.py            # verify / create manifests
-    python benchmark_evaluation/freeze_eq3.py --refreeze  # rewrite manifests (deliberate)
+    python benchmark_evaluation/freeze_eq3.py            # check (or create) the manifests
+    python benchmark_evaluation/freeze_eq3.py --refreeze  # rewrite them on purpose
 """
 
 import argparse
@@ -26,15 +19,14 @@ from pathlib import Path
 BENCH_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH_DIR.parent))
 
-from benchmark_evaluation.common.eq3_metrics import (  # noqa: E402
-    MODEL_FILES, build_union, load_candidate_sessions, load_json, sentence_sets, sha256_file,
+from benchmark_evaluation.common.eq3_curation import (  # noqa: E402
+    B1_FILE, MODELS, candidates_file, load_json, session_file, sha256_file,
 )
 
 DOMAINS = {
     "eq3_software_ethics": {
         "domain": "Software Engineering Ethics",
         "prompt_files": ["prompt and fewshots/few_shot_examples.json", "prompt and fewshots/frozen_sentences.json"],
-        "b0_name": "Software Ethics Pre-Curation Candidate Union (B0)",
     },
     "eq3_biomedical_bel": {
         "domain": "Biomedical Native-BEL",
@@ -43,78 +35,52 @@ DOMAINS = {
             "prompt and few shots/02_few_shot_examples_30.json",
             "prompt and few shots/09_prompt_with_shots_template_en.txt",
         ],
-        "b0_name": "Biomedical Native-BEL Pre-Curation Candidate Union (B0)",
     },
 }
 
-B0_REL = "frozen_b0/b0_raw_candidates.json"
-B1_REL = "curated_b1/b1_curated_gold.json"
+
+def input_files(cfg: dict) -> list:
+    files = [candidates_file(stem) for _, stem in MODELS] + [B1_FILE] + cfg["prompt_files"]
+    return files + [session_file(stem) for _, stem in MODELS]
 
 
-def write_json(path: Path, data) -> None:
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
-
-def freeze(dir_name: str, cfg: dict, refreeze: bool) -> None:
-    exp = BENCH_DIR / dir_name
-    manifest_path = exp / "FROZEN_MANIFEST.json"
-    sessions = load_candidate_sessions(exp / "candidates")
-
-    b1 = load_json(exp / B1_REL)
-    gold = sentence_sets(b1["sentences"])
-    for name, sess in sessions.items():
-        if sentence_sets(sess["versions"][-1]["sentences"]) != gold:
-            raise SystemExit(f"[{dir_name}] final version of {name} differs from {B1_REL}")
-
-    union = build_union(sessions)
-    union_sets = sentence_sets(union)
-    b0_rel = B0_REL
-    b0_path = exp / b0_rel
-    if b0_path.exists() and sentence_sets(load_json(b0_path)["sentences"]) != union_sets:
-        raise SystemExit(f"[{dir_name}] {b0_rel} is not the union of the current candidate files; investigate manually")
-    if not b0_path.exists():
-        write_json(b0_path, {
-            "dataset_name": cfg["b0_name"],
-            "description": "Normalized union of the initial candidate triples of ChatGPT-5.6-High, Gemini-3.1-Pro, "
-                           "GPT-OSS 120B and Qwen 3.8 27B. Built by freeze_eq3.py; do not edit.",
-            "normalization": "per sentence; slots trimmed, lower-cased, underscores/hyphens/double quotes removed",
-            "total_sentences": len(union),
-            "total_triples": sum(len(s["triples"]) for s in union),
-            "sentences": union,
-        })
-        print(f"[{dir_name}] wrote {b0_rel} ({sum(len(s['triples']) for s in union)} triples)")
-
-    files = [f"candidates/{fname}" for _, fname in MODEL_FILES] + [b0_rel, B1_REL] + cfg["prompt_files"]
-    digests = {rel: sha256_file(exp / rel) for rel in files}
-
-    if manifest_path.exists() and not refreeze:
-        current = load_json(manifest_path)["sha256"]
-        changed = [rel for rel in files if current.get(rel) != digests[rel]]
-        if changed:
-            raise SystemExit(f"[{dir_name}] frozen inputs changed: {changed}. Investigate before using --refreeze.")
-        print(f"[{dir_name}] manifest verified ({len(files)} files unchanged)")
-        return
-
-    write_json(manifest_path, {
+def manifest_for(exp: Path, cfg: dict) -> dict:
+    b1 = load_json(exp / B1_FILE)
+    return {
         "domain": cfg["domain"],
-        "b0_file": b0_rel,
-        "b1_file": B1_REL,
-        "b0_triples": sum(len(v) for v in sentence_sets(load_json(b0_path)["sentences"]).values()),
-        "b1_triples": sum(len(v) for v in gold.values()),
-        "sentences": len(gold),
-        "sha256": digests,
-    })
-    print(f"[{dir_name}] wrote FROZEN_MANIFEST.json")
+        "b1_file": B1_FILE,
+        "b1_triples": sum(len(s["triples"]) for s in b1["sentences"]),
+        "sentences": len(b1["sentences"]),
+        "sha256": {rel: sha256_file(exp / rel) for rel in input_files(cfg)},
+    }
+
+
+def check(dir_name: str, refreeze: bool = False) -> dict:
+    exp = BENCH_DIR / dir_name
+    cfg = DOMAINS[dir_name]
+    path = exp / "FROZEN_MANIFEST.json"
+    current = manifest_for(exp, cfg)
+    if refreeze or not path.exists():
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(current, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        print(f"[{dir_name}] manifest written ({len(current['sha256'])} files)")
+        return current
+    stored = load_json(path)
+    changed = [rel for rel, digest in current["sha256"].items() if stored.get("sha256", {}).get(rel) != digest]
+    missing = [rel for rel in stored.get("sha256", {}) if rel not in current["sha256"]]
+    if changed or missing:
+        raise SystemExit(f"[{dir_name}] inputs differ from FROZEN_MANIFEST.json: {changed + missing}")
+    print(f"[{dir_name}] all {len(current['sha256'])} inputs match FROZEN_MANIFEST.json")
+    return stored
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--refreeze", action="store_true", help="rewrite manifests even if they exist")
+    ap.add_argument("--refreeze", action="store_true", help="rewrite the manifests")
     args = ap.parse_args()
-    for dir_name, cfg in DOMAINS.items():
-        freeze(dir_name, cfg, args.refreeze)
+    for dir_name in DOMAINS:
+        check(dir_name, args.refreeze)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 """
-test_kappa_metrics.py — Agreement metric checks for the backend and the frontend.
+test_kappa_metrics.py: agreement metric checks for the backend and the frontend.
 
 1. Two raters: the backend value equals quadratic-weighted Cohen's kappa
    (sklearn.metrics.cohen_kappa_score, weights="quadratic", labels 0..10).
-2. Fixed cases: known values, undefined cases reported as N/A.
-3. Parity: the frontend calcWeightedKappa (GradingForm.jsx), executed verbatim with
-   Node.js, prints the same value as the backend formatted string.
+2. Fixed cases: known values, and undefined cases reported as N/A.
+3. Parity: the frontend calcWeightedKappa (GradingForm.jsx), run unchanged with Node.js, prints
+   the same value as the backend's formatted string.
 
 Run: python -m pytest benchmark_evaluation/eq1_workflow_correctness/test_kappa_metrics.py
 """

@@ -1,16 +1,14 @@
 """
-build_corruptions.py — Deterministic synthetic corruption generator for benchmark evaluation.
+build_corruptions.py: injects the ten EQ2 error types into the reference benchmark at a given
+density and seed.
 
-Injects controlled semantic and structural faults (E1–E10) into a reference triple dataset
-at specified corruption densities and random seeds:
-  - Local substitutions (E1: subject, E2: predicate, E3: object, E4: subject-object swap)
-  - Structural modifications (E5: missing, E6: spurious, E7: duplicate)
-  - Syntactic & variant noise (E8: malformed tokens, E9: representation variants)
-  - Multi-candidate disagreement (E10: conflicting revision candidates)
+  E1 to E3  replace the subject, predicate or object; E4 swaps subject and object
+  E5        removes a triple; E6 adds a spurious one; E7 adds a duplicate
+  E8        malformed tokens; E9 representation variants
+  E10       conflicting revision candidates
 
-Outputs:
-  - Corrupted session dataset JSON (corrupted/)
-  - Machine-readable manifest JSON with inverse curation actions (manifests/)
+It writes the corrupted session to corrupted/ and a manifest with the inverse curation actions
+to manifests/. The same seed gives the same corruptions.
 """
 
 import copy

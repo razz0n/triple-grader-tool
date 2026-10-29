@@ -1,11 +1,7 @@
 """
-test_persistence.py — Data persistence, structural fidelity, and concurrency validation suite.
-
-Verifies persistence across round-trip serialization and concurrent client operations:
-- Atomic updates of reviewer grades, completeness metrics, and external relation assessments.
-- Threaded sentence-level discussions and hierarchical reply preservation.
-- Concurrent stale-save simulation and conflict resolution to prevent silent state clobbering.
-- Malformed identifier rejection ensuring primary key integrity across relational storage.
+Pytest entry points for scenarios T02, T05, T13, T17 and T18: grades, completeness and
+external-relation ratings and threaded sentence comments survive a save and reload, saves from
+two clients are both kept, and malformed session identifiers are rejected.
 """
 
 from benchmark_evaluation.eq1_workflow_correctness.test_workflow_matrix import (

@@ -1,10 +1,10 @@
 """
-run_eq1_evaluation.py — Evaluation test runner for lifecycle state transitions.
+run_eq1_evaluation.py: runs the eighteen workflow scenarios T01 to T18.
 
-Orchestrates the execution of lifecycle transitions T01 through T18 against FastAPI
-HTTP routes using an isolated local JSON/SQLite store. Gathers transition metrics including valid transition
-accuracy, invalid-action rejection, field fidelity, and response latencies, and writes
-the aggregated results to CSV and LaTeX tables.
+The scenarios call the FastAPI routes with an isolated local JSON/SQLite store. The script
+records whether each permitted operation succeeded and each prohibited one was rejected, the
+share of untouched fields that stayed unchanged, and the response times, and writes them to
+CSV and LaTeX tables.
 """
 
 import csv

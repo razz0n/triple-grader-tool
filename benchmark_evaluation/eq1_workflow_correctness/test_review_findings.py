@@ -1,7 +1,7 @@
 """
-test_review_findings.py — Regression tests for issues found by an independent review of the
-save, versioning, and account rules. Each test reproduces the reviewer's scenario with the payload
-shape the browser sends.
+test_review_findings.py: regression tests for problems found in an independent review and while
+grading (save, versioning, account and upload rules). Each test reproduces the problem with the
+payload the browser sends.
 """
 
 import copy

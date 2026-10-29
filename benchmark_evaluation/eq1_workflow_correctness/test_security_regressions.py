@@ -1,11 +1,11 @@
 """
-test_security_regressions.py — Access-control and data-integrity regression checks.
+test_security_regressions.py: access-control and data-integrity regression checks.
 
-Separate from the T01-T18 workflow matrix. Each test pins one rule:
-- the /api/sessions/* workflow routes require authentication; actor identity comes from the token;
-- approval and gold export are owner-only; existing sessions cannot be overwritten;
+These are separate from the T01-T18 workflow matrix. Each test pins one rule:
+- the /api/sessions/* workflow routes require authentication, and the actor comes from the token;
+- approval and gold export are owner-only, and existing sessions cannot be overwritten;
 - a grader cannot write grades on behalf of other users;
-- peer ratings are withheld from a grader until that grader has rated the item (blind review);
+- peer ratings are hidden from a grader until that grader has rated the item (blind review);
 - a free-text profile name cannot confer session ownership;
 - non-finite grades are rejected.
 """
