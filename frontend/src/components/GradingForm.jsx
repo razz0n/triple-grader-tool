@@ -420,6 +420,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       const res = await deleteSessionVersion(initialSessionId, versionName);
       showAlert(`Version '${versionName}' deleted successfully.`, "Version Deleted");
       const fallbackVersion = res.current_version_name || versionsList.find((v) => v.name !== versionName)?.name;
+      // Saves name the version they belong to; the server rejects saves for the deleted one.
+      setCurrentVersionName(fallbackVersion);
       const updated = await loadSession(initialSessionId, fallbackVersion);
       if (onUpdateSessionData) {
         onUpdateSessionData(updated);
@@ -432,14 +434,12 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   };
 
   const executeOwnerTripleOperation = (updaterFn) => {
-    let nextSentences;
-    setSentences((prev) => {
-      nextSentences = updaterFn(prev);
-      return nextSentences;
-    });
-    if (nextSentences) {
-      saveStateInstantly(nextSentences);
-    }
+    // Computed here rather than inside setSentences: React may run that updater later, after the
+    // save below, which silently dropped approvals. Marking the change lets auto-save retry it.
+    const nextSentences = updaterFn(sentences);
+    markChanged();
+    setSentences(nextSentences);
+    saveStateInstantly(nextSentences);
   };
 
   const handlePublishVersion = () => {

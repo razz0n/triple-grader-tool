@@ -3710,6 +3710,9 @@ async def delete_session_version(
     if session.get("current_version_name") == version_name:
         session["current_version_name"] = versions[-1]["name"]
         session["last_version_name"] = versions[-1]["name"]
+        # The working copy and the owner's draft belonged to the deleted version.
+        session["sentences"] = copy.deepcopy(versions[-1].get("sentences") or [])
+        session["owner_draft"] = None
 
     _save_loaded_session(json_path, session)
 
