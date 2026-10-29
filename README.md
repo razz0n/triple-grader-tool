@@ -4,7 +4,6 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB.svg)](https://reactjs.org/)
 [![Conference](https://img.shields.io/badge/IEEE-ICSC%202027-informational.svg)](https://www.ieee.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **TripleGrader** is a web-based platform built specifically to evaluate pre-extracted relational (Subject-Predicate-Object) triples and construct certified gold-standard benchmark datasets through multi-annotator review, real-time agreement assessment, and collaborative adjudication.
 
@@ -116,9 +115,3 @@ If you use TripleGrader or reference this work in your research, please cite:
   year      = {2027}
 }
 ```
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

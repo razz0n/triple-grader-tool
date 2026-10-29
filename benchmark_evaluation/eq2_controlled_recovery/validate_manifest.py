@@ -1,11 +1,7 @@
 """
-validate_manifest.py — Integrity and schema validator for corruption manifests.
-
-Validates that generated corruption manifests conform to expected schema:
-  - Reference dataset SHA-256 integrity match
-  - Valid and non-empty inverse action definitions
-  - Strict change non-triviality (before != after)
-  - Change count and indexing consistency
+validate_manifest.py: checks each EQ2 corruption manifest. The reference file's SHA-256 must
+match, every change needs a non-empty inverse action, its before and after values must differ,
+and the change count and indices must be consistent.
 """
 
 import hashlib
@@ -83,7 +79,7 @@ def validate_all_manifests(manifests_dir: Path, ref_path: Path) -> List[Dict[str
     for mf in manifest_files:
         res = validate_manifest(mf, ref_path)
         results.append(res)
-        print(f"  [PASS] {res['manifest']} ({res['error_type']}, density {res['density']*100:.0f}%, seed {res['seed']}) — {res['changes_validated']} changes verified.")
+        print(f"  [PASS] {res['manifest']} ({res['error_type']}, density {res['density']*100:.0f}%, seed {res['seed']}): {res['changes_validated']} changes verified.")
 
     print(f"\nAll {len(results)} manifests successfully validated with 100% schema integrity and cryptographic hash alignment.")
     return results

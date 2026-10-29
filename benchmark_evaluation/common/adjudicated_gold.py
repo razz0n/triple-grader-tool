@@ -1,9 +1,6 @@
 """
-adjudicated_gold.py — Centralized gold-standard adjudication membership criteria.
-
-Defines the authoritative predicate determining whether a candidate ontology triple belongs
-to the adjudicated gold benchmark based on consensus grading, reviewer approval thresholds,
-and curator decisions. Serves as the single source of truth across all empirical evaluation pipelines.
+Re-exports the backend's rule for which triples enter the exported gold set, so the
+evaluation code and the platform use the same rule.
 """
 
 from typing import Any, Dict, List

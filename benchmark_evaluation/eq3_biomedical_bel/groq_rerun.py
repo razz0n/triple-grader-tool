@@ -1,11 +1,11 @@
 """
-groq_rerun.py — Reproducibility re-run of the Groq-hosted models on the 40 biomedical targets.
+groq_rerun.py: a second run of the two Groq-hosted models on the 40 biomedical targets.
 
 Sends the frozen 30-shot prompt template (prompt and few shots/09_prompt_with_shots_template_en.txt)
 with exactly one target per request to each Groq model at temperature 0, stores every raw API
 response, and compares the returned BEL statements with the frozen candidate sessions.
 
-It never modifies candidates/, frozen_b0/ or curated_b1/. Outputs go to reproducibility_rerun/.
+It never modifies candidates/, curated_b1/ or curation_sessions/. Outputs go to reproducibility_rerun/.
 
     GROQ_API_KEY=... python benchmark_evaluation/eq3_biomedical_bel/groq_rerun.py
 

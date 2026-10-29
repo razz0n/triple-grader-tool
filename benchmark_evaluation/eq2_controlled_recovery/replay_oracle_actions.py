@@ -1,15 +1,11 @@
 """
-replay_oracle_actions.py — Action replay engine for controlled corruption recovery.
+replay_oracle_actions.py: replays the inverse actions of each EQ2 manifest through the REST API.
 
-Executes inverse curation workflows derived from corruption manifests strictly through
-public RESTful HTTP API routes:
-  - Revision suggestions and owner approvals (/api/sessions/{id}/suggestions, /approve)
-  - Pruning spurious/duplicate triples (/api/triples/mark-removal)
-  - Restoring omitted triples (/api/save)
-  - Peer suggestion voting and consensus approvals (/vote, /approve)
-
-Verifies that the platform reaches target ground-truth states strictly through public
-API endpoints without direct modifications to session storage.
+The actions are revision suggestions with owner approval (/api/sessions/{id}/suggestions and
+/approve), removal of spurious and duplicate triples (/api/triples/mark-removal), restoring
+removed triples (/api/save), and peer votes followed by approval (/vote, /approve). Session
+storage is never edited directly, so a successful replay shows that each repair can be made
+through the API.
 """
 
 import copy
@@ -127,7 +123,7 @@ def replay_single_condition(
 
     t0_total = time.perf_counter()
 
-    # Step 1: Ingest corrupted session via public POST /api/sessions
+    # Upload the corrupted session (POST /api/sessions).
     t_ingest = time.perf_counter()
     r_ingest = api_request_with_retry(client, "post", "/api/sessions", json=corr_data)
     ingest_ms = round((time.perf_counter() - t_ingest) * 1000, 2)
@@ -138,7 +134,7 @@ def replay_single_condition(
         "latency_ms": ingest_ms
     })
 
-    # Step 2: Iterate through manifest changes and replay inverse curation actions
+    # Replay the inverse action of every change in the manifest.
     actions_count = 0
     correct_actions_count = 0
 
@@ -337,7 +333,7 @@ def replay_single_condition(
             if r_appr_val.status_code == 200:
                 correct_actions_count += 1
 
-    # Step 3: Stream canonical adjudicated gold export via GET /api/sessions/{id}/export/json
+    # Export the gold set (GET /api/sessions/{id}/export/json).
     t_exp = time.perf_counter()
     r_export = api_request_with_retry(client, "get", f"/api/sessions/{session_id}/export/json")
     export_ms = round((time.perf_counter() - t_exp) * 1000, 2)
@@ -350,7 +346,7 @@ def replay_single_condition(
         "latency_ms": export_ms
     })
 
-    # Step 4: Clean up test session via DELETE /api/session/{id} (owner only)
+    # Delete the test session (DELETE /api/session/{id}, owner only).
     r_del = api_request_with_retry(client, "delete", f"/api/session/{session_id}", headers=auth["owner"]["header"])
     if r_del.status_code != 200:
         action_log["errors"].append(f"Cleanup failed: HTTP {r_del.status_code}")

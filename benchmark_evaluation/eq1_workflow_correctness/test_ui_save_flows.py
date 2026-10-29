@@ -1,7 +1,7 @@
 """
-test_ui_save_flows.py — The browser performs grading, commenting, suggesting, voting and approving
-through full-session saves (/api/save). These tests send the same payload shape the frontend sends
-(GradingForm.saveStateInstantly) and check both the legitimate flows and the rules that protect
+test_ui_save_flows.py: in the browser, grading, commenting, suggesting, voting and approving all
+go through full-session saves (/api/save). These tests send the payload the frontend sends
+(GradingForm.saveStateInstantly) and check both the permitted flows and the rules that protect
 other users' data.
 """
 
@@ -73,7 +73,7 @@ def _comment(user, text):
             "created_at": "2026-10-13T10:00:00Z", "replies": []}
 
 
-# --------------------------------------------------------------------------- legitimate flows
+# Permitted flows
 
 
 def test_grader_comment_reply_and_delete_own(client, auth_context):
@@ -210,7 +210,7 @@ def test_sentence_comment_by_grader(client, auth_context):
     assert [c["text"] for c in s["sentence_comments"]] == ["sentence note"]
 
 
-# --------------------------------------------------------------------------- protections
+# Rules that protect other users' data
 
 
 def _seed_rev1_suggestion_and_comment(client, auth_context):

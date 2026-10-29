@@ -1,12 +1,12 @@
 """
-groq_rerun.py — Re-run of the Groq-hosted models on the 15 software-ethics sentences.
+groq_rerun.py: a second run of the two Groq-hosted models on the 15 software ethics sentences.
 
 Sends the 21-shot prompt template (prompt and fewshots/21_shot_prompt_template.txt) with exactly
 one target sentence per request to each Groq model at temperature 0, stores every raw API response,
 and compares the returned triples with the frozen candidate sessions. Only the sentence text is sent;
 the reference triples in frozen_sentences.json are never included in a prompt.
 
-It never modifies candidates/, frozen_b0/ or curated_b1/. Outputs go to reproducibility_rerun/.
+It never modifies candidates/, curated_b1/ or curation_sessions/. Outputs go to reproducibility_rerun/.
 
     GROQ_API_KEY=... python benchmark_evaluation/eq3_software_ethics/groq_rerun.py
 """
@@ -25,7 +25,7 @@ import importlib.util
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP.parent.parent))
 
-from benchmark_evaluation.common.eq3_metrics import triple_key  # noqa: E402
+from benchmark_evaluation.common.eq3_curation import triple_key  # noqa: E402
 
 # Shared HTTP helper from the biomedical re-run (loaded by path: both scripts are named groq_rerun.py).
 _spec = importlib.util.spec_from_file_location("bio_groq_rerun", EXP.parent / "eq3_biomedical_bel" / "groq_rerun.py")

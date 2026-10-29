@@ -1,10 +1,8 @@
 """
-test_api_transitions.py — State transition validation suite for collaborative ontology curation.
-
-Executes end-to-end integration tests verifying core lifecycle state transitions across
-session import, reviewer grade submission, grade retraction, correction suggestion creation,
-owner approval/rejection workflows, entity removal flags, and missing triple insertions.
-Validates HTTP response codes, session state invariants, and payload integrity.
+Pytest entry points for the permitted-operation scenarios T01, T02, T04, T06, T09, T10, T11 and
+T12: importing a session, saving and clearing a grade, creating, approving and unapproving a
+suggestion, marking a triple for removal, and adding a missing triple. Each test checks the
+HTTP status and the stored session.
 """
 
 from benchmark_evaluation.eq1_workflow_correctness.test_workflow_matrix import (

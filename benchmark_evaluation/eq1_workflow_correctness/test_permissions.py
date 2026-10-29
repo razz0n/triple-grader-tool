@@ -1,11 +1,8 @@
 """
-test_permissions.py — Role-based access control (RBAC) and security boundary validation suite.
-
-Verifies authorization policies and invalid-action rejection (HTTP 403 Forbidden) across:
-- Non-owner restricted modifications (grade updates permitted; unapproved edits rejected).
-- Suggestion voting constraints, including strict self-vote rejection.
-- Suggestion author authorization boundaries (only the author or owner may modify suggestions).
-- Milestone deletion protection (only session owners may delete non-base versions).
+Pytest entry points for scenarios T03, T07, T08 and T15, which expect HTTP 403: a non-owner's
+unapproved edits are rejected while their grades are accepted, a grader cannot vote on their own
+suggestion, only its author or the owner can change a suggestion, and only the owner can delete a
+version.
 """
 
 from benchmark_evaluation.eq1_workflow_correctness.test_workflow_matrix import (

@@ -1,13 +1,10 @@
-# Shared Evaluation Utilities (`benchmark_evaluation/common`)
+# Shared code (`benchmark_evaluation/common`)
 
-This directory provides centralized mathematical algorithms, token normalizations, schemas, and statistical resampling tools used across all evaluation experiments.
+Code used by more than one evaluation.
 
-## Directory Structure
-- `schemas/`: Canonical JSON Schemas defining data integrity constraints:
-  - `triple_schema.json`: Schema for semantic (subject, predicate, object) triples.
-  - `manifest_schema.json`: Schema for EQ2 synthetic corruption manifests.
-  - `session_schema.json`: Schema for session exports and version snapshots.
-- `canonicalize.py`: Exact character and normalized token transformations (case-folding, whitespace normalization, entity suffix handling).
-- `adjudicated_gold.py`: Centralized membership rules for the authoritative adjudicated gold set (conforming to Section 2.1).
-- `matching.py`: Strict triple set comparison computing Precision, Recall, and F1 under Exact and Normalized matching.
-- `bootstrap.py`: Sentence-cluster bootstrap resampling engine (2,000 resamples by default) computing 95% confidence intervals while accounting for intra-sentence correlation structures.
+- `schemas/`: JSON Schemas for a triple (`triple_schema.json`), an EQ2 corruption manifest (`manifest_schema.json`), and a session export or version snapshot (`session_schema.json`).
+- `canonicalize.py`: exact and normalized forms of triple text (case folding, whitespace, entity suffixes).
+- `adjudicated_gold.py`: the backend's rule for which triples enter the exported gold set.
+- `matching.py`: set precision, recall and F1 of a triple set against a reference, under exact and normalized matching.
+- `local_backend.py`: makes the suites use an isolated local store instead of a hosted database.
+- `eq3_curation.py`: EQ3 inputs and the curation counts of Table III.

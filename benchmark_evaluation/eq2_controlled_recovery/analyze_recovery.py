@@ -1,18 +1,12 @@
 """
-analyze_recovery.py — Recovery metrics analysis and evaluation reporting.
+analyze_recovery.py: compares each recovered EQ2 export with the reference.
 
-Evaluates recovered triple sets against reference ground truth by computing:
-  - Set Precision, Recall, and F1 (P_set, R_set, F1_set)
-  - Corruption Repair Recall (proportion of injected errors successfully restored)
-  - Untouched Preservation Rate (proportion of uncorrupted triples left unaltered)
-  - SPO-Set Restoration (R == G: equality of the sets of distinct (subject, predicate, object) tuples)
-  - Row-Level Restoration (equality of the multisets of (sentence, S, P, O, polarity, modality,
-    scope, note) rows; this also detects duplicate rows and lost annotation attributes)
-
-The reference and the recovered exports are different file formats, so no byte-level or hash
-comparison is made.
-
-Outputs run-level records to CSV and produces summary tables.
+For every condition it reports set precision, recall and F1; repair recall, the share of injected
+changes that were reverted; preservation, the share of untouched triples that were kept; whether
+the sets of distinct (subject, predicate, object) tuples are equal; and whether the rows are
+equal as multisets of (sentence, S, P, O, polarity, modality, scope, note), which also catches
+duplicated rows and lost attributes. The reference and the exports are different file formats,
+so they are not compared byte for byte. Results go to CSV files and summary tables.
 """
 
 import csv

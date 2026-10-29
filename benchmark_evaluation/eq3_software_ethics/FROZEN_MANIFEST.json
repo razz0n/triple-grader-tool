@@ -1,18 +1,19 @@
 {
   "domain": "Software Engineering Ethics",
-  "b0_file": "frozen_b0/b0_raw_candidates.json",
   "b1_file": "curated_b1/b1_curated_gold.json",
-  "b0_triples": 128,
   "b1_triples": 66,
   "sentences": 15,
   "sha256": {
-    "candidates/candidates_chatgpt_5_6_high_sentences.json": "314c870959ae4e556f5195ca31b3ca1ae342c19880d023b8c43030e91a9053c7",
-    "candidates/candidates_gemini_3_1_pro_sentences.json": "2afe06f1bf0e97a14b9f977cad27f2a606c693cac595462b27d48b4466ff4b17",
-    "candidates/candidates_gpt_oss_120b_sentences.json": "82231834176d8db17baebf44d315247e9b7910eafd14d818a83ca6ded63d774e",
-    "candidates/candidates_qwen_38b_sentences.json": "e73f0ec46e9e1cd7a80482f060164fa46a05f5077703412ef5ac5fd8e5ab4556",
-    "frozen_b0/b0_raw_candidates.json": "b4473dd003029e09ec32971cc4ec29da4fffd712617fe49b8ef0578751479deb",
-    "curated_b1/b1_curated_gold.json": "7d42fc0d94cd2367b21b6bac15c29077abe63e4079c5adcdc50991402fac0914",
-    "prompt and fewshots/few_shot_examples.json": "980bfbf37afa482535c382a0b7f6e08f9050c7ebeb4305c169a951b9abd09ad8",
-    "prompt and fewshots/frozen_sentences.json": "4508c3d4d91e3b4b02e6b7e75860516633a4016f1f9890b8ad29d7e11f3977fd"
+    "candidates/candidates_chatgpt_5_6_high_sentences.json": "3ed9a6721fb66ccfa2bbd88658fb2a1f670c5b8ac506d7f2aaa68ac7bfe6da23",
+    "candidates/candidates_gemini_3_1_pro_sentences.json": "22c8cd5b11d7b807c40161c415e02b02f6dd0e48070ab5ac527924e14cb44847",
+    "candidates/candidates_gpt_oss_120b_sentences.json": "3ab74ad560ef013f07a0ec154492e5a263fc628a05daf3d67e42063eb2e03511",
+    "candidates/candidates_qwen_38b_sentences.json": "023fbf65b57393c5c99f26e46c115ba81af48f725ee30716f7ab4109abd4953a",
+    "curated_b1/b1_curated_gold.json": "aa97ecc601a045ce6188d43914f50628bb26c83c9dd64f715169cd6313d7a217",
+    "prompt and fewshots/few_shot_examples.json": "d5c6bf790b7dbcadab7844f17e5ca80a7c8fea08aff89906aff973bfbc2ccb85",
+    "prompt and fewshots/frozen_sentences.json": "e686eb823ca61cfb002e8c7206ce6cda946e5b9dbc2ba27053167c47085f2b81",
+    "curation_sessions/curated_chatgpt_5_6_high.json": "7a67a57c68d36383ce175c744ed310fc696b6ff0a3d071af9393227ec9f6a4b5",
+    "curation_sessions/curated_gemini_3_1_pro.json": "fe3e6bb66f4917e48ef24aa22ed9c55566820ebed6fdf6063d9230fab81b0749",
+    "curation_sessions/curated_gpt_oss_120b.json": "c614314f4eb34a93bd2ccf9c89ce595b951ac81d88287f604c0dff408bf92e59",
+    "curation_sessions/curated_qwen_38b.json": "a41bfd44390657b473d21cdb019f916c0c7f0f70694bf917cded48a3009e2638"
   }
 }

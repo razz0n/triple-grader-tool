@@ -1,19 +1,19 @@
 test_id,name,category,expected_outcome,actual_outcome,field_fidelity,passed,latency_ms
-T01,Import valid file,Valid Transition,HTTP 200,HTTP 200,1.0,True,120.86
-T02,Reviewer saves grade,Valid Transition,Grade persisted,Grade persisted,1.0,True,264.05
-T03,Non-owner saves grade,Valid Transition,"Reviewer grade saved, text safe","Reviewer grade saved, text safe",1.0,True,223.73
-T04,Clear a grade,Valid Transition,"User grade removed, other kept","User grade removed, other kept",1.0,True,518.98
-T05,Save completeness & relation,Valid Transition,Per-user metrics distinct,Per-user metrics distinct,1.0,True,374.2
-T06,Create correction suggestion,Valid Transition,Suggestion pending with author,Suggestion pending with author,1.0,True,172.29
-T07,Suggestion voting & self-vote rejection,Invalid Action Rejection,"Vote accepted, self-vote rejected","Vote accepted, self-vote 403",1.0,True,267.35
-T08,Suggestion author permissions,Invalid Action Rejection,"Non-author 403, author 200","Non-author 403, author 200",1.0,True,300.89
-T09,Owner approves suggestion,Valid Transition,"Original superseded, corrected active","Original superseded, corrected active",1.0,True,252.33
-T10,Owner unapproves suggestion,Valid Transition,Rollback to pending without loss,Rollback to pending without loss,1.0,True,390.11
-T11,Mark triple for removal,Valid Transition,Marked triple excluded from gold,Excluded from gold export,1.0,True,203.97
-T12,Add missing triple,Valid Transition,"Excluded until approved, then included","Excluded until approved, then included",1.0,True,440.76
-T13,Sentence comments & replies,Valid Transition,Nested thread preserved,Nested thread preserved,1.0,True,301.47
-T14,Publish version isolation,Valid Transition,Immutable snapshot protected,Immutable snapshot protected,1.0,True,370.8
-T15,Delete version protection,Invalid Action Rejection,Zero-version state prevented,Rejected with 400,1.0,True,189.26
-T16,Multi-format export integrity,Valid Transition,Exact set match (F1=1.0),F1=1.0 across formats,1.0,True,163.38
-T17,Concurrent save simulation,Valid Transition,Shared data preserved,Shared data preserved,1.0,True,273.13
-T18,Malformed identifiers,Invalid Action Rejection,"Rejected 404, zero mutation","Rejected 404, zero mutation",1.0,True,162.73
+T01,Import valid file,Valid Transition,HTTP 200,HTTP 200,1.0,True,104.9
+T02,Reviewer saves grade,Valid Transition,Grade persisted,Grade persisted,1.0,True,165.23
+T03,Non-owner saves grade,Valid Transition,"Reviewer grade saved, text safe","Reviewer grade saved, text safe",1.0,True,181.41
+T04,Clear a grade,Valid Transition,"User grade removed, other kept","User grade removed, other kept",1.0,True,382.64
+T05,Save completeness & relation,Valid Transition,Per-user metrics distinct,Per-user metrics distinct,1.0,True,296.8
+T06,Create correction suggestion,Valid Transition,Suggestion pending with author,Suggestion pending with author,1.0,True,145.26
+T07,Suggestion voting & self-vote rejection,Invalid Action Rejection,"Vote accepted, self-vote rejected","Vote accepted, self-vote 403",1.0,True,238.37
+T08,Suggestion author permissions,Invalid Action Rejection,"Non-author 403, author 200","Non-author 403, author 200",1.0,True,240.75
+T09,Owner approves suggestion,Valid Transition,"Original superseded, corrected active","Original superseded, corrected active",1.0,True,189.06
+T10,Owner unapproves suggestion,Valid Transition,Rollback to pending without loss,Rollback to pending without loss,1.0,True,279.54
+T11,Mark triple for removal,Valid Transition,Marked triple excluded from gold,Excluded from gold export,1.0,True,140.28
+T12,Add missing triple,Valid Transition,"Excluded until approved, then included","Excluded until approved, then included",1.0,True,257.95
+T13,Sentence comments & replies,Valid Transition,Nested thread preserved,Nested thread preserved,1.0,True,216.17
+T14,Publish version isolation,Valid Transition,Immutable snapshot protected,Immutable snapshot protected,1.0,True,256.2
+T15,Delete version protection,Invalid Action Rejection,Zero-version state prevented,Rejected with 400,1.0,True,186.94
+T16,Multi-format export integrity,Valid Transition,Exact set match (F1=1.0),F1=1.0 across formats,1.0,True,128.22
+T17,Concurrent save simulation,Valid Transition,Shared data preserved,Shared data preserved,1.0,True,292.42
+T18,Malformed identifiers,Invalid Action Rejection,"Rejected 404, session unchanged","Rejected 404, session unchanged",1.0,True,131.01
