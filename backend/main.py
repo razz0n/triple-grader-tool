@@ -2633,6 +2633,11 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
             ):
                 if key in source_triple:
                     target_triple[key] = json.loads(json.dumps(source_triple[key]))
+            # A pending grader-proposed triple is still being written by its grader, so take its text too.
+            if source_triple.get("is_new_suggestion") and source_triple.get("status") != "approved":
+                for key in ("subject", "predicate", "object"):
+                    if key in source_triple:
+                        target_triple[key] = source_triple[key]
 
         # Also preserve any collaborative suggested triples from source_sent not yet in target_sent
         target_triple_ids = {str(t.get("id") or t.get("triple_id") or "").strip() for t in target_sent.get("triples", [])}

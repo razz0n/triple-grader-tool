@@ -384,3 +384,27 @@ def test_upload_then_review_publish_keeps_each_triple_once(client):
             "manual_mode": False, "total_sentences": 1, "sentences": sentences}
     assert client.post("/api/save", json=body).status_code == 200
     assert len(_view(client, sid)["sentences"][0]["triples"]) == 1
+
+
+def test_owner_draft_shows_text_a_grader_typed_into_a_proposed_triple(client, auth_context):
+    rev = auth_context["reviewer1"]
+    sid = _new_session(client)
+    # The owner edits a triple, so the owner now works from an unpublished draft.
+    owner_view = _view(client, sid)
+    sentences = copy.deepcopy(owner_view["sentences"])
+    sentences[0]["triples"][0]["object"] = "edited by owner"
+    assert _save(client, None, owner_view, sentences).status_code == 200
+    # "+ Add Below" first saves an empty row; the grader then types the triple and saves again.
+    view = _view(client, sid, rev["header"])
+    new = {"id": "suggested-1", "subject": "", "predicate": "", "object": "", "grade": None, "author": rev["username"],
+           "grades_by_user": {}, "is_new_suggestion": True, "status": "pending", "suggested_by": rev["username"],
+           "triple_comments": [], "suggestions": []}
+    view["sentences"][0]["triples"].append(new)
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+    view = _view(client, sid, rev["header"])
+    typed = next(t for t in view["sentences"][0]["triples"] if t["id"] == "suggested-1")
+    typed.update(subject="Code_001", predicate="includes", object="parts")
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+
+    owner_triple = next(t for t in _view(client, sid)["sentences"][0]["triples"] if t["id"] == "suggested-1")
+    assert (owner_triple["subject"], owner_triple["predicate"], owner_triple["object"]) == ("Code_001", "includes", "parts")
