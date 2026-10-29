@@ -10,6 +10,8 @@ python benchmark_evaluation/run_all_evaluations.py            # EQ1, EQ2 analysi
 python benchmark_evaluation/run_all_evaluations.py --replay   # also re-run the EQ2 oracle replay
 ```
 
+On Windows, clone into a short folder such as `C:\tg` or run `git config --global core.longpaths true` first, because some file paths are longer than the default 260-character limit.
+
 Tested with Python 3.12 on Windows 11. A full run takes about a minute on a laptop and needs no GPU, network access or database. Node.js (version 20 was used) is needed only for one test that runs the frontend's kappa code; that test is skipped when Node.js is not installed. The results are written to `results/`.
 
 The model outputs are frozen and are not regenerated: ChatGPT and Gemini were used through their web interfaces, and the two Groq models did not return identical output at temperature 0. `eq3_*/groq_rerun.py` repeats the Groq requests for the repeatability check and needs your own `GROQ_API_KEY`. The sources of the data and their terms are listed in [DATA_SOURCES.md](DATA_SOURCES.md).
