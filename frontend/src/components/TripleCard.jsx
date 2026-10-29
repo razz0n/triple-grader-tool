@@ -421,7 +421,7 @@ export default function TripleCard({
         </button>
 
         {(canSuggest || canApprove) && (
-          <div className="ml-auto flex items-center gap-1.5 pt-2 lg:pt-0">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 pt-2 lg:pt-0">
             {onSeeChanges && !isNewPending && (
               <button
                 type="button"
