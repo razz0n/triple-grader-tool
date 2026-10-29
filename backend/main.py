@@ -1380,6 +1380,11 @@ def _session_for_user_view(session: Dict[str, Any], user: Dict[str, Any]) -> Dic
                 _sync_collaborative_elements(owner_draft["sentences"], selected_version["sentences"])
             data["sentences"] = copy.deepcopy(owner_draft["sentences"])
 
+    withdrawn = data.pop("withdrawn_grading", None) or {}
+    my_record = withdrawn.get(user_id) if user_id else None
+    data["can_restore_my_grading"] = bool(
+        not is_owner and my_record and my_record.get("version_name") == _resolve_current_version_name(session))
+
     if not is_owner:
         # Blind review: the unpublished owner draft and peer ratings are never sent to graders.
         data.pop("owner_draft", None)
@@ -2628,12 +2633,18 @@ def _sync_collaborative_elements(target_sentences: list, source_sentences: list)
             ):
                 if key in source_triple:
                     target_triple[key] = json.loads(json.dumps(source_triple[key]))
+            # A pending grader-proposed triple is still being written by its grader, so take its text too.
+            if source_triple.get("is_new_suggestion") and source_triple.get("status") != "approved":
+                for key in ("subject", "predicate", "object"):
+                    if key in source_triple:
+                        target_triple[key] = source_triple[key]
 
         # Also preserve any collaborative suggested triples from source_sent not yet in target_sent
         target_triple_ids = {str(t.get("id") or t.get("triple_id") or "").strip() for t in target_sent.get("triples", [])}
         for source_triple in source_sent.get("triples", []):
             stid = str(source_triple.get("id") or source_triple.get("triple_id") or "").strip()
-            if stid and stid not in target_triple_ids:
+            # Only grader-proposed triples: the owner's own triples may have been renumbered or deleted.
+            if stid and stid not in target_triple_ids and source_triple.get("is_new_suggestion"):
                 target_sent.setdefault("triples", []).append(copy.deepcopy(source_triple))
 
 
@@ -2755,6 +2766,168 @@ def _merge_removal_requests(triple: Dict[str, Any], existing_triple: Dict[str, A
             "requested_at": (existing.get(user_id) or {}).get("requested_at") or datetime.utcnow().isoformat(),
         }
     _set_removal_requests(triple, merged)
+
+
+def _is_own_item(item: Any, user_id: str, names: set) -> bool:
+    return isinstance(item, dict) and (
+        str(item.get("user_id") or "").strip() == user_id or str(item.get("author") or "").strip() in names)
+
+
+def _strip_thread(items: list, user_id: str, names: set, path: list, sink: list, base: Dict[str, Any]) -> list:
+    """Removes the user's comments or replies (with everything nested under them) and records them."""
+    kept = []
+    for index, item in enumerate(items or []):
+        if _is_own_item(item, user_id, names):
+            sink.append({**base, "path": path, "index": index, "item": copy.deepcopy(item)})
+            continue
+        if isinstance(item, dict) and isinstance(item.get("replies"), list):
+            item["replies"] = _strip_thread(item["replies"], user_id, names, path + [str(item.get("id"))], sink, base)
+        kept.append(item)
+    return kept
+
+
+def _strip_user_work(sentences: list, user: Dict[str, Any]) -> list:
+    """Removes a grader's own work from a list of sentences and returns what was removed.
+
+    Removed: grades, sentence ratings, votes, deletion requests, comments and replies, and suggestions
+    and proposed triples that the owner has not approved. Approved items stay in the benchmark.
+    """
+    user_id = str(user.get("id") or "").strip()
+    names = _identity_keys(user)
+    removed: list = []
+    for s in sentences or []:
+        sid = str(s.get("id"))
+        for key in ("completeness_by_user", "external_relation_by_user"):
+            ratings = s.get(key)
+            if isinstance(ratings, dict) and user_id in ratings:
+                removed.append({"kind": "sentence_rating", "sid": sid, "key": key, "entry": ratings.pop(user_id)})
+        if isinstance(s.get("sentence_comments"), list):
+            s["sentence_comments"] = _strip_thread(
+                s["sentence_comments"], user_id, names, [], removed, {"kind": "thread", "sid": sid, "tid": None, "sug_id": None})
+        kept_triples = []
+        for t_index, t in enumerate(s.get("triples") or []):
+            tid = str(t.get("id"))
+            if (t.get("is_new_suggestion") and t.get("status") != "approved"
+                    and str(t.get("suggested_by_id") or "").strip() == user_id):
+                removed.append({"kind": "triple", "sid": sid, "index": t_index, "item": copy.deepcopy(t)})
+                continue
+            grades = t.get("grades_by_user")
+            if isinstance(grades, dict) and user_id in grades:
+                legacy = None
+                if str(t.get("author") or "").strip() in names:
+                    legacy = {k: t.get(k) for k in ("grade", "author", "graded_at")}
+                    t["grade"], t["author"] = None, None
+                    t.pop("graded_at", None)
+                removed.append({"kind": "grade", "sid": sid, "tid": tid, "entry": grades.pop(user_id), "legacy": legacy})
+            requests = _removal_requests(t)
+            if user_id in requests:
+                removed.append({"kind": "removal_request", "sid": sid, "tid": tid, "entry": requests.pop(user_id)})
+                _set_removal_requests(t, requests)
+            if isinstance(t.get("triple_comments"), list):
+                t["triple_comments"] = _strip_thread(
+                    t["triple_comments"], user_id, names, [], removed, {"kind": "thread", "sid": sid, "tid": tid, "sug_id": None})
+            if isinstance(t.get("suggestions"), list):
+                kept_suggestions = []
+                for s_index, sug in enumerate(t["suggestions"]):
+                    if _is_own_item(sug, user_id, names) and sug.get("status") != "approved":
+                        removed.append({"kind": "suggestion", "sid": sid, "tid": tid, "index": s_index, "item": copy.deepcopy(sug)})
+                        continue
+                    if isinstance(sug, dict):
+                        votes = sug.get("votes")
+                        if isinstance(votes, dict):
+                            for key in [k for k in votes if k in names or k == user_id]:
+                                removed.append({"kind": "vote", "sid": sid, "tid": tid, "sug_id": str(sug.get("id")),
+                                                "key": key, "value": votes.pop(key)})
+                        if isinstance(sug.get("replies"), list):
+                            sug["replies"] = _strip_thread(sug["replies"], user_id, names, [], removed,
+                                                           {"kind": "thread", "sid": sid, "tid": tid, "sug_id": str(sug.get("id"))})
+                    kept_suggestions.append(sug)
+                t["suggestions"] = kept_suggestions
+            kept_triples.append(t)
+        if "triples" in s:
+            s["triples"] = kept_triples
+    return removed
+
+
+def _restore_user_work(sentences: list, user_id: str, removed: list) -> int:
+    """Puts removed work back where its place still exists; never overwrites anything newer."""
+    by_sid = {str(s.get("id")): s for s in sentences or []}
+
+    def find(items, item_id):
+        return next((x for x in items or [] if isinstance(x, dict) and str(x.get("id")) == str(item_id)), None)
+
+    restored = 0
+    for r in removed:
+        s = by_sid.get(r["sid"])
+        if s is None:
+            continue
+        kind = r["kind"]
+        if kind == "triple":
+            triples = s.setdefault("triples", [])
+            if find(triples, r["item"].get("id")) is None:
+                triples.insert(min(r["index"], len(triples)), copy.deepcopy(r["item"]))
+                restored += 1
+            continue
+        if kind == "sentence_rating":
+            ratings = s.get(r["key"]) if isinstance(s.get(r["key"]), dict) else {}
+            if user_id not in ratings:
+                ratings[user_id] = r["entry"]
+                s[r["key"]] = ratings
+                restored += 1
+            continue
+        t = find(s.get("triples"), r["tid"]) if r.get("tid") is not None else None
+        if kind == "thread":
+            if r["tid"] is None:
+                container = s.setdefault("sentence_comments", [])
+            elif t is None:
+                continue
+            elif r["sug_id"] is not None:
+                sug = find(t.get("suggestions"), r["sug_id"])
+                if sug is None:
+                    continue
+                container = sug.setdefault("replies", [])
+            else:
+                container = t.setdefault("triple_comments", [])
+            for parent_id in r["path"]:
+                parent = find(container, parent_id)
+                if parent is None:
+                    container = None
+                    break
+                container = parent.setdefault("replies", [])
+            if container is not None and find(container, r["item"].get("id")) is None:
+                container.insert(min(r["index"], len(container)), copy.deepcopy(r["item"]))
+                restored += 1
+            continue
+        if t is None:
+            continue
+        if kind == "grade":
+            grades = t.get("grades_by_user") if isinstance(t.get("grades_by_user"), dict) else {}
+            if user_id not in grades:
+                grades[user_id] = r["entry"]
+                t["grades_by_user"] = grades
+                if r.get("legacy") and t.get("author") is None:
+                    t.update(r["legacy"])
+                restored += 1
+        elif kind == "removal_request":
+            requests = _removal_requests(t)
+            if user_id not in requests:
+                requests[user_id] = r["entry"]
+                _set_removal_requests(t, requests)
+                restored += 1
+        elif kind == "suggestion":
+            suggestions = t.setdefault("suggestions", [])
+            if find(suggestions, r["item"].get("id")) is None:
+                suggestions.insert(min(r["index"], len(suggestions)), copy.deepcopy(r["item"]))
+                restored += 1
+        elif kind == "vote":
+            sug = find(t.get("suggestions"), r["sug_id"])
+            if sug is not None:
+                votes = sug.get("votes") if isinstance(sug.get("votes"), dict) else {}
+                if r["key"] not in votes:
+                    votes[r["key"]] = r["value"]
+                    sug["votes"] = votes
+                    restored += 1
+    return restored
 
 
 def _triple_sig(triple: Dict[str, Any]) -> str:
@@ -4945,6 +5118,56 @@ async def mark_all_notifications_read(body: NotificationReadAllRequest, user: Di
 
     return {"ok": True}
 
+
+
+@app.post("/api/session/{session_id}/withdraw-grading")
+async def withdraw_my_grading(session_id: str, user: Dict[str, Any] = Depends(current_user)):
+    """Removes the caller's own grading work from the active version; it can be restored later."""
+    json_path, session = _load_session_for_access(session_id)
+    if _is_session_owner(session, json_path, user):
+        raise HTTPException(status_code=403, detail="The session owner does not grade, so there is no grading to remove.")
+    user_id = str(user.get("id") or "").strip()
+    active = _resolve_current_version_name(session)
+    version = next((v for v in session.get("versions") or [] if v.get("name") == active), None)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Active version not found.")
+    removed = _strip_user_work(version.get("sentences") or [], user)
+    if not removed:
+        raise HTTPException(status_code=400, detail="You have no grading in this session to remove.")
+    session["sentences"] = copy.deepcopy(version.get("sentences") or [])
+    draft = session.get("owner_draft")
+    if isinstance(draft, dict):
+        _strip_user_work(draft.get("sentences") or [], user)
+    records = session.setdefault("withdrawn_grading", {})
+    previous = records.get(user_id) if (records.get(user_id) or {}).get("version_name") == active else None
+    records[user_id] = {
+        "version_name": active,
+        "withdrawn_at": datetime.utcnow().isoformat(),
+        "items": (previous or {}).get("items", []) + removed,
+    }
+    _save_loaded_session(json_path, session)
+    await manager.broadcast(session_id, {"type": "session_updated", "version_name": active, "updated_by": user_id})
+    return {"ok": True, "removed": len(removed)}
+
+
+@app.post("/api/session/{session_id}/restore-grading")
+async def restore_my_grading(session_id: str, user: Dict[str, Any] = Depends(current_user)):
+    """Puts back the caller's removed grading work (only where nothing newer is in its place)."""
+    json_path, session = _load_session_for_access(session_id)
+    user_id = str(user.get("id") or "").strip()
+    active = _resolve_current_version_name(session)
+    record = (session.get("withdrawn_grading") or {}).get(user_id)
+    if not record or record.get("version_name") != active:
+        raise HTTPException(status_code=404, detail="There is no removed grading to restore for the current version.")
+    version = next((v for v in session.get("versions") or [] if v.get("name") == active), None)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Active version not found.")
+    restored = _restore_user_work(version.setdefault("sentences", []), user_id, record.get("items") or [])
+    session["sentences"] = copy.deepcopy(version["sentences"])
+    session["withdrawn_grading"].pop(user_id, None)
+    _save_loaded_session(json_path, session)
+    await manager.broadcast(session_id, {"type": "session_updated", "version_name": active, "updated_by": user_id})
+    return {"ok": True, "restored": restored}
 
 
 @app.post("/api/triples/mark-removal")

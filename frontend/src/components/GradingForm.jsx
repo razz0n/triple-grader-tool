@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { saveSession, downloadSession, getAuthToken, loadSession, meUser, deleteSessionVersion } from "../api";
+import { saveSession, downloadSession, getAuthToken, loadSession, meUser, deleteSessionVersion, withdrawMyGrading, restoreMyGrading } from "../api";
 import TripleCard from "./TripleCard";
 import TripleComments from "./TripleComments";
 import TripleSuggestions from "./TripleSuggestions";
@@ -36,6 +36,8 @@ import {
   FileText,
   History,
   Trash2,
+  RotateCcw,
+  User,
   Check
 } from "lucide-react";
 
@@ -355,6 +357,54 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
     } finally {
       setSaving(false);
     }
+  };
+
+  const reloadCurrentSession = async () => {
+    hasUnsavedChangesRef.current = false;
+    const updated = await loadSession(initialSessionId, currentVersionName);
+    if (onUpdateSessionData) onUpdateSessionData(updated);
+  };
+
+  const handleRestoreGrading = async () => {
+    try {
+      setSaving(true);
+      await restoreMyGrading(initialSessionId);
+      await reloadCurrentSession();
+      showAlert("Your grading has been restored.", "Grading Restored");
+    } catch (err) {
+      showAlert("Could not restore your grading: " + (err?.response?.data?.detail || err.message || String(err)), "Restore Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleWithdrawGrading = async () => {
+    const ok = await showConfirm(
+      "This removes all your work from the current version of this session: your grades, sentence ratings, votes, comments and replies, deletion requests, and any suggestions or proposed triples the owner has not approved yet. Replies other graders made to your comments are removed with them. You can bring everything back later with \u201cRestore my grading\u201d.",
+      "Remove my grading?",
+      "Remove my grading",
+      "Cancel"
+    );
+    if (!ok) return;
+    try {
+      setSaving(true);
+      // Let any save in flight finish and store pending edits first, so nothing is re-sent afterwards.
+      for (let i = 0; i < 50 && savingRef.current; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (hasUnsavedChangesRef.current && latestPayloadRef.current) {
+        await saveSession(latestPayloadRef.current);
+      }
+      await withdrawMyGrading(initialSessionId);
+      await reloadCurrentSession();
+    } catch (err) {
+      showAlert("Could not remove your grading: " + (err?.response?.data?.detail || err.message || String(err)), "Remove Failed");
+      return;
+    } finally {
+      setSaving(false);
+    }
+    const undo = await showConfirm("Your grading was removed from this session.", "Grading Removed", "Undo", "OK");
+    if (undo) await handleRestoreGrading();
   };
 
   const handleDeleteVersion = async (versionName) => {
@@ -857,13 +907,27 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
   }, [initialSentences, currentVersionName]);
 
   // Left sidebar & dark mode toggles
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // On narrow screens the sentence list starts hidden so the grading pane keeps its width.
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [sidebarFilter, setSidebarFilter] = useState("all"); // "all" | "completed" | "pending"
   const [searchQuery, setSearchQuery] = useState("");
   const [isDark, setIsDark] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showSentenceMetrics, setShowSentenceMetrics] = useState(true);
   const mainRef = useRef(null);
+
+  // The top bar wraps onto more rows on narrow screens or with larger text, so the workspace
+  // below it is offset by the bar's measured height instead of a fixed 60px.
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(60);
+  const hasSentences = sentences.length > 0; // the header is only rendered when there are sentences
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasSentences]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -3033,7 +3097,8 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4"
+            className="fixed left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4"
+            style={{ top: headerHeight + 4 }}
           >
             <div className="bg-slate-900 dark:bg-slate-800 text-white p-3.5 rounded-2xl shadow-2xl border border-indigo-500/50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -3069,13 +3134,13 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         )}
       </AnimatePresence>
 
-      <header className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 h-[60px] flex items-center px-4 justify-between gap-3 select-none">
-        
+      <header ref={headerRef} style={{ "--header-h": `${headerHeight}px` }} className="bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 left-0 right-0 z-30 min-h-[60px] py-2 flex flex-wrap items-center px-4 justify-between gap-x-3 gap-y-2 select-none">
+
         {/* Title, version & collapse sidebar trigger + Dashboard Link */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2.5 min-w-0 max-w-full shrink-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer hidden md:flex"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer flex"
             title={sidebarOpen ? "Hide Sentences List" : "Show Sentences List"}
           >
             <Menu size={16} />
@@ -3108,6 +3173,15 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <ArrowLeft size={13} />
             <span>Dashboard</span>
           </button>
+
+          {/* Logged-in user */}
+          <span
+            className="inline-flex items-center gap-1.5 min-w-0 max-w-[12rem] text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5"
+            title={`Logged in as ${currentUserName} (${isOwner ? "owner" : "grader"})`}
+          >
+            <User size={13} className="shrink-0" />
+            <span className="truncate">{currentUserName}</span>
+          </span>
         </div>
 
         {/* Global Progress Bar (visible on md screens up) */}
@@ -3125,7 +3199,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
         )}
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 min-w-0 ml-auto">
           
           {/* Publish Version (Owner only) */}
           {isOwner && (
@@ -3189,7 +3263,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             </div>
 
             {dlOpen && (
-              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
+              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50 max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:mt-0 max-sm:top-[calc(var(--header-h)+0.5rem)]">
                 {DL_FORMATS.map((f) => (
                   <button
                     key={f.value}
@@ -3263,6 +3337,28 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
             <span className="hidden md:inline">Agreement</span>
           </button>
 
+          {/* 5c. Remove / restore the grader's own work */}
+          {!is_owner && !readOnly && (
+            <button
+              onClick={handleWithdrawGrading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+              title="Remove all your grading work from this session"
+            >
+              <Trash2 size={14} />
+              <span className="hidden md:inline">Remove my grading</span>
+            </button>
+          )}
+          {!is_owner && uploadData.can_restore_my_grading && (
+            <button
+              onClick={handleRestoreGrading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 cursor-pointer active:scale-95 transition-all shadow-sm"
+              title="Bring back the grading work you removed from this session"
+            >
+              <RotateCcw size={14} />
+              <span className="hidden md:inline">Restore my grading</span>
+            </button>
+          )}
+
           {/* 6. Notifications Trigger */}
           <div className="relative" ref={notificationsRef}>
             <button
@@ -3286,7 +3382,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
 
             {/* Notifications panel overlay */}
             {notificationsOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 glass-dropdown rounded-2xl shadow-xl py-1 z-50 flex flex-col max-h-[360px]">
+              <div className="absolute right-0 top-full mt-2 w-80 glass-dropdown rounded-2xl shadow-xl py-1 z-50 flex flex-col max-h-[360px] max-sm:w-auto max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:mt-0 max-sm:top-[calc(var(--header-h)+0.5rem)]">
                 <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-450 dark:text-slate-500">
                     Notifications ({notifications.length})
@@ -3356,7 +3452,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
               <Menu size={15} />
             </button>
             {moreOpen && (
-              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50">
+              <div className="absolute right-0 top-full mt-2 glass-dropdown rounded-2xl shadow-xl py-1 min-w-44 z-50 max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:mt-0 max-sm:top-[calc(var(--header-h)+0.5rem)]">
                 <a
                   href={previewHref}
                   target="_blank"
@@ -3402,7 +3498,7 @@ export default function GradingForm({ uploadData, onReset, currentUser, onEvalua
       </header>
 
       {/* ── SPLIT TWO-COLUMN WORKSPACE AREA ────────────────────────────────── */}
-      <div className="flex-1 flex overflow-hidden pt-[60px] h-[calc(100vh-60px)]">
+      <div className="flex-1 flex overflow-hidden" style={{ paddingTop: headerHeight }}>
         
         {/* LEFT COLLAPSIBLE SIDEBAR */}
         <AnimatePresence initial={false}>
