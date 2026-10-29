@@ -408,3 +408,29 @@ def test_owner_draft_shows_text_a_grader_typed_into_a_proposed_triple(client, au
 
     owner_triple = next(t for t in _view(client, sid)["sentences"][0]["triples"] if t["id"] == "suggested-1")
     assert (owner_triple["subject"], owner_triple["predicate"], owner_triple["object"]) == ("Code_001", "includes", "parts")
+
+
+def test_owner_approving_from_a_stale_page_keeps_the_graders_text(client, auth_context):
+    rev = auth_context["reviewer1"]
+    sid = _new_session(client)
+    # The owner's page was loaded while the grader's new row was still empty.
+    view = _view(client, sid, rev["header"])
+    view["sentences"][0]["triples"].append(
+        {"id": "suggested-2", "subject": "", "predicate": "", "object": "", "grade": None, "author": rev["username"],
+         "grades_by_user": {}, "is_new_suggestion": True, "status": "pending", "suggested_by": rev["username"],
+         "triple_comments": [], "suggestions": []})
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+    stale_owner_view = _view(client, sid)
+    # The grader then types the triple.
+    view = _view(client, sid, rev["header"])
+    next(t for t in view["sentences"][0]["triples"] if t["id"] == "suggested-2").update(
+        subject="Code_001", predicate="includes", object="parts")
+    assert _save(client, rev["header"], view, view["sentences"]).status_code == 200
+    # The owner approves from the stale page, which still shows the row as empty.
+    sentences = copy.deepcopy(stale_owner_view["sentences"])
+    next(t for t in sentences[0]["triples"] if t["id"] == "suggested-2")["status"] = "approved"
+    assert _save(client, None, stale_owner_view, sentences).status_code == 200
+
+    approved = next(t for t in _view(client, sid)["sentences"][0]["triples"] if t["id"] == "suggested-2")
+    assert approved["status"] == "approved"
+    assert (approved["subject"], approved["predicate"], approved["object"]) == ("Code_001", "includes", "parts")

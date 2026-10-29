@@ -2977,6 +2977,25 @@ def _restore_unsent_fields(incoming_sentences: list, reference_sentences: list) 
                     triple[key] = copy.deepcopy(value)
 
 
+def _keep_pending_suggestion_text(incoming_sentences: list, reference_sentences: list) -> None:
+    """A grader's pending proposed triple keeps the text stored on the server.
+
+    The owner's page can be older than the grader's latest edit, so approving from it must not send
+    the grader's triple back with outdated text. Triples the owner edits stop being suggestions
+    (is_new_suggestion is cleared), so the owner's own edits are not affected.
+    """
+    ref_sentences = _by_id(reference_sentences)
+    for sentence in incoming_sentences or []:
+        ref_triples = _by_id((ref_sentences.get(str(sentence.get("id"))) or {}).get("triples"))
+        for triple in sentence.get("triples", []) or []:
+            ref_t = ref_triples.get(str(triple.get("id")))
+            if (ref_t and triple.get("is_new_suggestion") and ref_t.get("is_new_suggestion")
+                    and ref_t.get("status") != "approved"):
+                for key in ("subject", "predicate", "object"):
+                    if key in ref_t:
+                        triple[key] = ref_t[key]
+
+
 def _keep_server_ratings(incoming_sentences: list, reference_sentences: list) -> None:
     """Owner saves never change ratings: graders' scores are copied from the stored session.
 
@@ -3211,6 +3230,8 @@ async def save_session(body: SaveRequest, user: Dict[str, Any] = Depends(current
 
     is_owner = _is_session_owner(target_session, existing_path, user)
     is_publish = bool(body.is_publish)
+    if is_owner and existing_session and body.sentences:
+        _keep_pending_suggestion_text(body.sentences, existing_session.get("sentences") or [])
 
     active_version_name = _resolve_current_version_name(target_session)
     if existing_session and not is_publish and body.current_version_name and body.current_version_name != active_version_name:
