@@ -1043,6 +1043,13 @@ def _session_grading_stats(session_data: Dict[str, Any]) -> Dict[str, Any]:
     return _sentence_list_stats(session_data.get("sentences", []), owner_fallback_user_id)
 
 
+def _reject_read_only_version(session: Dict[str, Any], version_name: Optional[str]) -> None:
+    """Earlier versions are read-only: refuse writes that name one."""
+    names = [v.get("name") for v in session.get("versions") or []]
+    if version_name and version_name in names and version_name != _resolve_current_version_name(session):
+        raise HTTPException(status_code=409, detail="Earlier versions are read-only.")
+
+
 def _find_target_triple_and_sentence(session: Dict[str, Any], version_name: Optional[str], sentence_id: Any, triple_id: str) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     if "versions" not in session:
         session["versions"] = [
@@ -1055,6 +1062,7 @@ def _find_target_triple_and_sentence(session: Dict[str, Any], version_name: Opti
         ]
         session["last_version_name"] = "Initial"
         session["current_version_name"] = "Initial"
+    _reject_read_only_version(session, version_name)
         
     versions = session.get("versions") or []
     selected_version = None
@@ -1095,6 +1103,7 @@ def _find_target_sentence(session: Dict[str, Any], version_name: Optional[str], 
         ]
         session["last_version_name"] = "Initial"
         session["current_version_name"] = "Initial"
+    _reject_read_only_version(session, version_name)
         
     versions = session.get("versions") or []
     selected_version = None
@@ -2422,18 +2431,22 @@ def _publish_new_version(
         sentence_copy["suggestion"] = ""
         new_triples = []
         for t in s.get("triples", []):
+            # Proposed new triples the owner has not approved do not carry into the new version
+            if (t.get("is_new_suggestion") or t.get("is_suggested")) and str(t.get("status", "")).lower() != "approved":
+                continue
             t_copy = dict(t)
-            # Clear previous version's resolved comments, suggestions, and removal requests in new version
+            # Clear previous version's comments and suggestions in new version
             t_copy["triple_comments"] = []
             t_copy["suggestions"] = []
-            t_copy["marked_for_removal"] = False
-            t_copy["removal_reason"] = ""
-            t_copy["removal_requests"] = {}
-            t_copy["marked_for_removal_by"] = None
-            t_copy["marked_for_removal_by_name"] = None
 
             tid = str(t.get("id") or "").strip()
             prev_t = prev_triple_map.get((str(s.get("id")), tid))
+            # Removal requests the owner has not decided stay open, taken from the stored copy
+            t_copy["marked_for_removal"] = bool((prev_t or {}).get("marked_for_removal"))
+            t_copy["removal_reason"] = (prev_t or {}).get("removal_reason") or ""
+            t_copy["removal_requests"] = copy.deepcopy((prev_t or {}).get("removal_requests") or {})
+            t_copy["marked_for_removal_by"] = (prev_t or {}).get("marked_for_removal_by")
+            t_copy["marked_for_removal_by_name"] = (prev_t or {}).get("marked_for_removal_by_name")
             current_sig = _triple_sig(t)
 
             def _grades_for_current_wording(wording_changed: bool) -> Dict[str, Any]:
@@ -2520,7 +2533,8 @@ def _publish_new_version(
         sentence_copy["triples"] = new_triples
         if prev_s is not None:
             kept_ids = {str(t.get("id") or "").strip() for t in new_triples}
-            if any(str(t.get("id") or "").strip() not in kept_ids for t in prev_s.get("triples", [])):
+            if any(str(t.get("id") or "").strip() not in kept_ids
+                   for t in prev_s.get("triples", []) if _counts_for_sentence_sig(t)):
                 sentence_changed = True
         # Sentence ratings carry over only if they were given for the sentence's current triple set
         # (or, for older ratings without a record of that set, if the triples did not change).
@@ -4210,8 +4224,10 @@ async def vote_on_suggestion(body: VoteRequest, user: Dict[str, Any] = Depends(c
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found.")
     
-    # Prevent voting on own suggestions
-    if suggestion.get("author") == user_name:
+    # Prevent voting on own suggestions; match by user ID, by name only for old suggestions without one
+    user_id = str(user.get("id") or "").strip()
+    author_id = str(suggestion.get("user_id") or suggestion.get("author_id") or "").strip()
+    if (author_id and author_id == user_id) or (not author_id and suggestion.get("author") == user_name):
         raise HTTPException(status_code=403, detail="You cannot vote on your own suggestions.")
     
     # Record or clear vote (toggle support)
