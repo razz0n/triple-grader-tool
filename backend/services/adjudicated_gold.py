@@ -51,7 +51,7 @@ def build_adjudicated_gold_set(session_or_sentences: Any) -> List[Dict[str, Any]
     gold_triples: List[Dict[str, Any]] = []
     for sentence in sentences:
         sentence_id = sentence.get("id") or sentence.get("sentence_id") or ""
-        source_sentence = sentence.get("sentence") or sentence.get("source_sentence") or ""
+        source_sentence = sentence.get("sentence") or sentence.get("source_sentence") or sentence.get("text") or ""
 
         for triple in sentence.get("triples", []):
             if include_in_adjudicated_gold(triple):
